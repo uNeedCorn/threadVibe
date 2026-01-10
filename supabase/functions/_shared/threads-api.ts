@@ -76,9 +76,9 @@ export interface ThreadsUserProfile {
 }
 
 export interface ThreadsUserInsights {
-  followers_count?: number;
+  followers_count?: number; // 需要 100+ 粉絲才會回傳
   views?: number;
-  likes?: number;
+  // 注意：likes 只在貼文層級可用，使用者層級無此指標
 }
 
 export interface ThreadsPost {
@@ -148,12 +148,15 @@ export class ThreadsApiClient {
 
   /**
    * 取得使用者 Insights
+   * 注意：Threads API 使用者層級只支援 views 和 followers_count
+   * likes 只在貼文層級可用
+   * followers_count 需要帳號有 100+ 粉絲才會回傳
    */
   async getUserInsights(userId: string = 'me'): Promise<ThreadsUserInsights> {
     const response = await this.request<{ data?: Array<{ name: string; values?: Array<{ value: number }> }> }>(
       `/${userId}/threads_insights`,
       {
-        metric: 'followers_count,views,likes',
+        metric: 'views,followers_count',
       }
     );
 
@@ -165,17 +168,20 @@ export class ThreadsApiClient {
       return insights;
     }
 
+    console.log('getUserInsights: API response data:', JSON.stringify(response.data));
+
     for (const metric of response.data) {
       // 防護：確保 metric.values 存在且有值
       const value = metric.values?.[0]?.value;
-      if (value === undefined) continue;
+      if (value === undefined) {
+        console.warn(`getUserInsights: No value for metric ${metric.name}`);
+        continue;
+      }
 
       if (metric.name === 'followers_count') {
         insights.followers_count = value;
       } else if (metric.name === 'views') {
         insights.views = value;
-      } else if (metric.name === 'likes') {
-        insights.likes = value;
       }
     }
     return insights;

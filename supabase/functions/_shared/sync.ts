@@ -202,12 +202,15 @@ export async function syncAccountInsightsForAccount(
   now: string
 ): Promise<SyncAccountInsightsResult> {
   // 從 Threads API 取得 Insights
+  // 注意：Threads API 使用者層級只支援 views 和 followers_count
+  // - followers_count 需要帳號有 100+ 粉絲才會回傳
+  // - likes 只在貼文層級可用，使用者層級無此指標
   const apiInsights = await threadsClient.getUserInsights();
 
   const insights = {
     followers_count: apiInsights.followers_count ?? 0,
-    profile_views: 0, // API 可能不提供此欄位
-    likes_count_7d: apiInsights.likes ?? 0,
+    profile_views: 0, // API 不提供此欄位
+    likes_count_7d: 0, // Threads API 使用者層級不提供 likes 指標
     views_count_7d: apiInsights.views ?? 0,
   };
 

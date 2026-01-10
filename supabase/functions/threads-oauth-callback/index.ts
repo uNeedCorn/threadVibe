@@ -149,6 +149,17 @@ Deno.serve(async (req) => {
     const profile = await threadsClient.getUserProfile();
     console.log('[callback] Profile obtained:', profile.username);
 
+    // 取得 Threads User Insights（粉絲數等）
+    console.log('[callback] Fetching user insights...');
+    let insights: { followers_count?: number; views?: number; likes?: number } = {};
+    try {
+      insights = await threadsClient.getUserInsights();
+      console.log('[callback] Insights obtained:', insights);
+    } catch (insightsError) {
+      console.warn('[callback] Failed to fetch insights:', insightsError);
+      // 不阻擋流程，後續可由 sync-account-insights 補同步
+    }
+
     // 儲存到資料庫（使用 service role）
 
     // 處理 Token 移轉流程
@@ -172,7 +183,7 @@ Deno.serve(async (req) => {
       return Response.redirect(successUrl.toString(), 302);
     }
 
-    // 標準流程：建立或更新帳號
+    // 標準流程：建立或更新帳號（包含 Insights）
     console.log('[callback] Upserting account for workspace:', workspaceId);
     const { data: account, error: accountError } = await supabase
       .from('workspace_threads_accounts')
@@ -185,6 +196,11 @@ Deno.serve(async (req) => {
           biography: profile.threads_biography,
           profile_pic_url: profile.threads_profile_picture_url,
           is_active: true,
+          // Layer 3: Current Insights
+          current_followers_count: insights.followers_count ?? 0,
+          current_likes_count_7d: insights.likes ?? 0,
+          current_views_count_7d: insights.views ?? 0,
+          last_insights_sync_at: new Date().toISOString(),
         },
         { onConflict: 'workspace_id,threads_user_id' }
       )
@@ -196,6 +212,21 @@ Deno.serve(async (req) => {
       return redirectWithError('Failed to save Threads account');
     }
     console.log('[callback] Account saved, id:', account.id);
+
+    // Layer 1: 寫入 Insights Snapshot（如果有取得 insights）
+    if (insights.followers_count !== undefined) {
+      await supabase
+        .from('workspace_threads_account_insights')
+        .insert({
+          workspace_threads_account_id: account.id,
+          followers_count: insights.followers_count ?? 0,
+          profile_views: 0,
+          likes_count_7d: insights.likes ?? 0,
+          views_count_7d: insights.views ?? 0,
+          captured_at: new Date().toISOString(),
+        });
+      console.log('[callback] Insights snapshot saved');
+    }
 
     // 將該帳號其他 Token 設為 non-primary
     await supabase

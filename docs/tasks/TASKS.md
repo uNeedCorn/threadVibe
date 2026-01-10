@@ -70,6 +70,64 @@
 
 ## 本週完成
 
+### FE-05：Dashboard 頁面 [普通]
+
+**完成日期：** 2026-01-11
+
+**目標：** 實作 Dashboard 總覽頁面
+
+**完成內容：**
+1. **KPI 卡片**（`components/dashboard/kpi-card.tsx`）
+   - 總粉絲數、本週觀看數、本週互動數、本週貼文數
+   - 顯示與前期比較的增減趨勢
+
+2. **趨勢圖表**（`components/dashboard/trend-chart.tsx`）
+   - 7 天觀看數趨勢折線圖
+   - 支援多帳號比較（不同顏色線條）
+   - 使用 Recharts + shadcn/ui Chart
+
+3. **熱門貼文**（`components/dashboard/top-posts.tsx`）
+   - 按觀看數排序的 Top 5 貼文
+
+4. **最新貼文**（`components/dashboard/recent-posts.tsx`）
+   - 最近發布的 5 篇貼文
+
+5. **帳號切換 Tabs**
+   - 支援「全部帳號」及個別帳號篩選
+
+**修正問題：**
+- 修正 Supabase 欄位名稱（`current_followers` → `current_followers_count`）
+- 修正趨勢圖表線條不顯示問題（CSS 變數 → 實際 hex 顏色）
+- 修正資料載入邏輯避免無限迴圈
+
+**相關檔案：**
+- `app/(auth)/dashboard/page.tsx`
+- `components/dashboard/` 目錄
+- `components/ui/tabs.tsx`（新增 shadcn/ui Tabs）
+
+---
+
+### BE-01：OAuth Callback 同步 Insights [深夜]
+
+**完成日期：** 2026-01-11
+
+**目標：** 在 Threads OAuth 完成後自動同步帳號 Insights
+
+**完成內容：**
+- 修改 `threads-oauth-callback` Edge Function
+- OAuth 完成後呼叫 `getUserInsights()` 取得粉絲數
+- 寫入 Layer 3（`workspace_threads_accounts.current_followers_count`）
+- 寫入 Layer 1 Snapshot（`workspace_threads_account_insights`）
+
+**⚠️ Threads API 限制：**
+- 追蹤數 < 100 的帳號無法取得 Insights 資料（followers_count, views, likes 等）
+- 此為 Meta 官方限制，非程式問題
+
+**相關檔案：**
+- `supabase/functions/threads-oauth-callback/index.ts`
+
+---
+
 ### FIX-01：修復 RLS 遞歸與前端查詢錯誤 [深夜]
 
 **完成日期：** 2026-01-10

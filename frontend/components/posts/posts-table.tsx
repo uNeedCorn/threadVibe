@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, Image as ImageIcon, Video, FileText, Images } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +65,8 @@ interface PostsTableProps {
 }
 
 export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: PostsTableProps) {
+  const router = useRouter();
+
   const renderSortIcon = (field: SortField) => {
     if (sortField !== field) {
       return <ArrowUpDown className="ml-1 size-4 opacity-50" />;
@@ -227,7 +230,7 @@ export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: P
         </TableHeader>
         <TableBody>
           {posts.map((post) => (
-            <TableRow key={post.id} className="cursor-pointer">
+            <TableRow key={post.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/posts/${post.id}`)}>
               <TableCell>
                 <div className="flex items-start gap-3">
                   {/* 媒體縮圖 */}
