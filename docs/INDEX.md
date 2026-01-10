@@ -93,6 +93,13 @@ docs/
 | [workspace-threads-post-metrics.md](03-database/tables/workspace-threads-post-metrics.md) | L1 | 貼文成效 Snapshot |
 | [workspace-threads-post-metrics-deltas.md](03-database/tables/workspace-threads-post-metrics-deltas.md) | L2 | 貼文成效 Delta |
 
+### 標籤相關
+
+| 文件 | 說明 |
+|------|------|
+| [workspace-threads-account-tags.md](03-database/tables/workspace-threads-account-tags.md) | 用戶自定義標籤 |
+| [workspace-threads-post-tags.md](03-database/tables/workspace-threads-post-tags.md) | 貼文與標籤關聯 |
+
 ### 系統資料表
 
 | 文件 | 說明 |
@@ -105,6 +112,7 @@ docs/
 | [system-admins.md](03-database/tables/system-admins.md) | 系統管理員 |
 | [token-transfers.md](03-database/tables/token-transfers.md) | Token 移轉記錄 |
 | [system-job-locks.md](03-database/tables/system-job-locks.md) | 排程任務鎖（防重複執行） |
+| [llm-usage-logs.md](03-database/tables/llm-usage-logs.md) | LLM 使用記錄 |
 
 ---
 
@@ -145,6 +153,12 @@ docs/
 | [cron-setup.md](04-backend/jobs/cron-setup.md) | Cron 排程設定（pg_cron + pg_net） |
 | [workspace-deletion.md](04-backend/jobs/workspace-deletion.md) | Workspace 刪除任務 |
 | [token-auto-revoke.md](04-backend/jobs/token-auto-revoke.md) | Token 自動撤銷 |
+
+### AI 功能 (ai/)
+
+| 文件 | 說明 |
+|------|------|
+| [tagging-system.md](04-backend/ai/tagging-system.md) | 標籤系統（用戶自定義 + AI 建議） |
 
 ---
 

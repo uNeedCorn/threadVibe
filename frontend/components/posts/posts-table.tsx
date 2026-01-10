@@ -20,6 +20,8 @@ export interface PostTrend {
   quotes: number[];
   engagement_rate: number[];
   reply_rate: number[];
+  repost_rate: number[];
+  quote_rate: number[];
   virality_score: number[];
 }
 
@@ -50,7 +52,7 @@ export interface Post {
   };
 }
 
-export type SortField = "published_at" | "current_views" | "current_likes" | "current_replies" | "current_reposts" | "current_quotes" | "engagement_rate" | "reply_rate" | "virality_score";
+export type SortField = "published_at" | "current_views" | "current_likes" | "current_replies" | "current_reposts" | "current_quotes" | "engagement_rate" | "reply_rate" | "repost_rate" | "quote_rate" | "virality_score";
 export type SortOrder = "asc" | "desc";
 
 interface PostsTableProps {
@@ -142,11 +144,15 @@ export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: P
             <TableRow>
               <TableHead className="w-[300px]">內容</TableHead>
               <TableHead className="w-[100px]">發布時間</TableHead>
-              <TableHead className="w-[80px] text-right">Views</TableHead>
-              <TableHead className="w-[80px] text-right">Likes</TableHead>
-              <TableHead className="w-[80px] text-right">Replies</TableHead>
+              <TableHead className="w-[80px] text-right">觀看</TableHead>
+              <TableHead className="w-[80px] text-right">讚</TableHead>
+              <TableHead className="w-[80px] text-right">回覆</TableHead>
+              <TableHead className="w-[80px] text-right">轉發</TableHead>
+              <TableHead className="w-[80px] text-right">引用</TableHead>
               <TableHead className="w-[70px] text-right">互動率</TableHead>
               <TableHead className="w-[70px] text-right">回覆率</TableHead>
+              <TableHead className="w-[70px] text-right">轉發率</TableHead>
+              <TableHead className="w-[70px] text-right">引用率</TableHead>
               <TableHead className="w-[70px] text-right">傳播力</TableHead>
               <TableHead className="w-[100px]">更新時間</TableHead>
             </TableRow>
@@ -154,7 +160,7 @@ export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: P
           <TableBody>
             {Array.from({ length: 5 }).map((_, i) => (
               <TableRow key={i}>
-                {Array.from({ length: 9 }).map((_, j) => (
+                {Array.from({ length: 13 }).map((_, j) => (
                   <TableCell key={j}>
                     <div className="h-5 animate-pulse rounded bg-muted" />
                   </TableCell>
@@ -187,19 +193,31 @@ export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: P
               <SortableHeader field="published_at">發布時間</SortableHeader>
             </TableHead>
             <TableHead className="w-[80px] text-right">
-              <SortableHeader field="current_views">Views</SortableHeader>
+              <SortableHeader field="current_views">觀看</SortableHeader>
             </TableHead>
             <TableHead className="w-[80px] text-right">
-              <SortableHeader field="current_likes">Likes</SortableHeader>
+              <SortableHeader field="current_likes">讚</SortableHeader>
             </TableHead>
             <TableHead className="w-[80px] text-right">
-              <SortableHeader field="current_replies">Replies</SortableHeader>
+              <SortableHeader field="current_replies">回覆</SortableHeader>
+            </TableHead>
+            <TableHead className="w-[80px] text-right">
+              <SortableHeader field="current_reposts">轉發</SortableHeader>
+            </TableHead>
+            <TableHead className="w-[80px] text-right">
+              <SortableHeader field="current_quotes">引用</SortableHeader>
             </TableHead>
             <TableHead className="w-[70px] text-right">
               <SortableHeader field="engagement_rate">互動率</SortableHeader>
             </TableHead>
             <TableHead className="w-[70px] text-right">
               <SortableHeader field="reply_rate">回覆率</SortableHeader>
+            </TableHead>
+            <TableHead className="w-[70px] text-right">
+              <SortableHeader field="repost_rate">轉發率</SortableHeader>
+            </TableHead>
+            <TableHead className="w-[70px] text-right">
+              <SortableHeader field="quote_rate">引用率</SortableHeader>
             </TableHead>
             <TableHead className="w-[70px] text-right">
               <SortableHeader field="virality_score">傳播力</SortableHeader>
@@ -268,6 +286,18 @@ export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: P
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1">
+                  {post.trend?.reposts && <Sparkline data={post.trend.reposts} />}
+                  <span className="font-medium">{post.current_reposts.toLocaleString()}</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-1">
+                  {post.trend?.quotes && <Sparkline data={post.trend.quotes} />}
+                  <span className="font-medium">{post.current_quotes.toLocaleString()}</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-1">
                   {post.trend?.engagement_rate && <Sparkline data={post.trend.engagement_rate} />}
                   <span className="font-medium">{post.engagement_rate.toFixed(2)}%</span>
                 </div>
@@ -276,6 +306,18 @@ export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: P
                 <div className="flex items-center justify-end gap-1">
                   {post.trend?.reply_rate && <Sparkline data={post.trend.reply_rate} />}
                   <span className="font-medium">{post.reply_rate.toFixed(2)}%</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-1">
+                  {post.trend?.repost_rate && <Sparkline data={post.trend.repost_rate} />}
+                  <span className="font-medium">{post.repost_rate.toFixed(2)}%</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-1">
+                  {post.trend?.quote_rate && <Sparkline data={post.trend.quote_rate} />}
+                  <span className="font-medium">{post.quote_rate.toFixed(2)}%</span>
                 </div>
               </TableCell>
               <TableCell className="text-right">

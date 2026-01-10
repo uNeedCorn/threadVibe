@@ -28,7 +28,7 @@ async function fetchPostTrends(postIds: string[]): Promise<Map<string, PostTrend
     // 2. 查詢 snapshots（比率趨勢）- 最近 12 筆 ≈ 3 小時
     const { data: snapshots } = await supabase
       .from("workspace_threads_post_metrics")
-      .select("engagement_rate, reply_rate, virality_score")
+      .select("engagement_rate, reply_rate, repost_rate, quote_rate, virality_score")
       .eq("workspace_threads_post_id", postId)
       .order("captured_at", { ascending: false })
       .limit(12);
@@ -41,6 +41,8 @@ async function fetchPostTrends(postIds: string[]): Promise<Map<string, PostTrend
       quotes: [],
       engagement_rate: [],
       reply_rate: [],
+      repost_rate: [],
+      quote_rate: [],
       virality_score: [],
     };
 
@@ -59,6 +61,8 @@ async function fetchPostTrends(postIds: string[]): Promise<Map<string, PostTrend
       const reversed = snapshots.reverse();
       trend.engagement_rate = reversed.map(s => Number(s.engagement_rate) || 0);
       trend.reply_rate = reversed.map(s => Number(s.reply_rate) || 0);
+      trend.repost_rate = reversed.map(s => Number(s.repost_rate) || 0);
+      trend.quote_rate = reversed.map(s => Number(s.quote_rate) || 0);
       trend.virality_score = reversed.map(s => Number(s.virality_score) || 0);
     }
 

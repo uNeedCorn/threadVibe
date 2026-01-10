@@ -138,6 +138,8 @@ export async function syncMetricsForAccount(
           ...metrics,
           engagement_rate: rates.engagementRate,
           reply_rate: rates.replyRate,
+          repost_rate: rates.repostRate,
+          quote_rate: rates.quoteRate,
           virality_score: rates.viralityScore,
           captured_at: now,
         });

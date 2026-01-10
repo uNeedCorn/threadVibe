@@ -1,5 +1,5 @@
 /**
- * 回填 snapshot 比率值
+ * 回填 snapshot 比率值 (repost_rate, quote_rate)
  *
  * 使用方式：
  * cd frontend && SUPABASE_SERVICE_ROLE_KEY=xxx npx tsx scripts/backfill-snapshot-rates.ts
@@ -18,21 +18,31 @@ if (!SUPABASE_SERVICE_ROLE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 async function backfillSnapshotRates() {
-  console.log('回填 snapshot 比率值...');
+  console.log('回填 snapshot 比率值 (repost_rate, quote_rate)...');
+
+  // 先取得需要更新的總數
+  const { count: totalCount } = await supabase
+    .from('workspace_threads_post_metrics')
+    .select('*', { count: 'exact', head: true })
+    .gt('engagement_rate', 0)
+    .eq('repost_rate', 0)
+    .gt('reposts', 0); // 只更新有 reposts 的記錄
+
+  console.log(`需要更新 ${totalCount} 筆有 reposts 的記錄`);
 
   const PAGE_SIZE = 1000;
-  let offset = 0;
   let totalUpdated = 0;
   let hasMore = true;
 
+  // 處理有 reposts 的記錄
   while (hasMore) {
-    // 取得尚未設定比率的 snapshots（views > 0 且 engagement_rate = 0）
     const { data: snapshots, error } = await supabase
       .from('workspace_threads_post_metrics')
-      .select('id, views, likes, replies, reposts, quotes, shares')
-      .eq('engagement_rate', 0)
-      .gt('views', 0)
-      .range(offset, offset + PAGE_SIZE - 1);
+      .select('id, views, reposts, quotes')
+      .gt('engagement_rate', 0)
+      .eq('repost_rate', 0)
+      .gt('reposts', 0)
+      .limit(PAGE_SIZE);
 
     if (error) {
       console.error('Error:', error);
@@ -44,32 +54,64 @@ async function backfillSnapshotRates() {
       break;
     }
 
-    console.log(`處理第 ${offset + 1} - ${offset + snapshots.length} 筆...`);
+    console.log(`處理 ${snapshots.length} 筆有 reposts 的記錄...`);
 
     for (const snap of snapshots) {
-      const { views, likes, replies, reposts, quotes, shares } = snap;
+      const { views, reposts, quotes } = snap;
+      const repostRate = (reposts / views) * 100;
+      const quoteRate = (quotes / views) * 100;
 
-      const engagementRate = ((likes + replies + reposts + quotes) / views) * 100;
-      const replyRate = (replies / views) * 100;
-
-      const spreadScore = reposts * 3 + quotes * 2.5 + (shares || 0) * 3;
-      const engagementScore = likes + replies * 1.5;
-      const viralityScore = ((spreadScore * 2 + engagementScore) / views) * 100;
-
-      const { error: updateError } = await supabase
+      await supabase
         .from('workspace_threads_post_metrics')
         .update({
-          engagement_rate: Math.round(engagementRate * 10000) / 10000,
-          reply_rate: Math.round(replyRate * 10000) / 10000,
-          virality_score: Math.round(viralityScore * 100) / 100,
+          repost_rate: Math.round(repostRate * 10000) / 10000,
+          quote_rate: Math.round(quoteRate * 10000) / 10000,
         })
         .eq('id', snap.id);
 
-      if (!updateError) totalUpdated++;
+      totalUpdated++;
     }
 
-    // 因為我們查詢的是 engagement_rate = 0 的記錄，更新後就不會再查到
-    // 所以不需要增加 offset，每次都從頭開始查
+    hasMore = snapshots.length === PAGE_SIZE;
+  }
+
+  // 處理有 quotes 但沒有 reposts 的記錄
+  hasMore = true;
+  while (hasMore) {
+    const { data: snapshots, error } = await supabase
+      .from('workspace_threads_post_metrics')
+      .select('id, views, quotes')
+      .gt('engagement_rate', 0)
+      .eq('quote_rate', 0)
+      .gt('quotes', 0)
+      .limit(PAGE_SIZE);
+
+    if (error) {
+      console.error('Error:', error);
+      return;
+    }
+
+    if (!snapshots || snapshots.length === 0) {
+      hasMore = false;
+      break;
+    }
+
+    console.log(`處理 ${snapshots.length} 筆有 quotes 的記錄...`);
+
+    for (const snap of snapshots) {
+      const { views, quotes } = snap;
+      const quoteRate = (quotes / views) * 100;
+
+      await supabase
+        .from('workspace_threads_post_metrics')
+        .update({
+          quote_rate: Math.round(quoteRate * 10000) / 10000,
+        })
+        .eq('id', snap.id);
+
+      totalUpdated++;
+    }
+
     hasMore = snapshots.length === PAGE_SIZE;
   }
 

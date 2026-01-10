@@ -92,6 +92,8 @@ Deno.serve(async (req) => {
     const redirectUri = `${SUPABASE_URL}/functions/v1/threads-oauth-callback`;
 
     // 建構授權 URL
+    // 注意：Threads OAuth 不支援 force_authentication 參數，無法強制重新登入
+    // 使用者需透過無痕模式或先登出 Threads 來切換帳號
     const authUrl = new URL('https://threads.net/oauth/authorize');
     authUrl.searchParams.set('client_id', THREADS_APP_ID);
     authUrl.searchParams.set('redirect_uri', redirectUri);

@@ -98,7 +98,7 @@ export function WorkspaceSwitcher() {
         <DropdownMenuSeparator />
         <DropdownMenuItem className="cursor-pointer">
           <Plus className="mr-2 size-4" />
-          建立新 Workspace
+          建立新工作區
         </DropdownMenuItem>
       </DropdownMenuContent>
       </DropdownMenu>

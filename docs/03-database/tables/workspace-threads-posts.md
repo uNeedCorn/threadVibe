@@ -51,6 +51,10 @@ CREATE TABLE workspace_threads_posts (
   virality_score                NUMERIC(10,2) DEFAULT 0,
   last_metrics_sync_at          TIMESTAMPTZ,
 
+  -- AI 標籤
+  ai_suggested_tags             JSONB,
+  ai_selected_tags              JSONB,
+
   created_at                    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at                    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (workspace_threads_account_id, threads_post_id)
@@ -86,6 +90,15 @@ CREATE TABLE workspace_threads_posts (
 | `current_shares` | INTEGER | NO | 當前分享數 |
 | `virality_score` | NUMERIC(10,2) | YES | 病毒傳播分數 |
 | `last_metrics_sync_at` | TIMESTAMPTZ | YES | 最後成效同步時間 |
+
+### AI 標籤欄位
+
+| 欄位 | 類型 | Nullable | 說明 |
+|------|------|----------|------|
+| `ai_suggested_tags` | JSONB | YES | AI 建議標籤（含信心分數） |
+| `ai_selected_tags` | JSONB | YES | 用戶選定的 AI 標籤 |
+
+詳見：[標籤系統](../../04-backend/ai/tagging-system.md)
 
 ### 系統欄位
 
@@ -124,6 +137,7 @@ UNIQUE (workspace_threads_account_id, threads_post_id)
 |--------|------|------|
 | `workspace_threads_accounts` | n:1 | 所屬帳號 |
 | `workspace_threads_post_metrics` | 1:n | 成效快照 |
+| `workspace_threads_post_tags` | 1:n | 用戶自定義標籤關聯 |
 
 ---
 

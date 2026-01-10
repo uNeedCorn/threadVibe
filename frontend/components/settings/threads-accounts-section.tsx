@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, RefreshCw, Unlink, ExternalLink, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, RefreshCw, Unlink, ExternalLink, Loader2, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -170,6 +170,14 @@ export function ThreadsAccountsSection() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* 連結提示 */}
+        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+          <Info className="mt-0.5 size-4 shrink-0" />
+          <p>
+            如需連結不同的 Threads 帳號，請使用<strong>無痕模式</strong>開啟，或先<strong>登出 Threads</strong> 後再連結。
+          </p>
+        </div>
+
         {/* 訊息提示 */}
         {message && (
           <Alert variant={message.type === "error" ? "destructive" : "default"}>
@@ -193,6 +201,9 @@ export function ThreadsAccountsSection() {
               )}
               連結你的第一個帳號
             </Button>
+            <p className="mt-3 text-xs text-muted-foreground">
+              連結時會使用瀏覽器目前登入的 Threads 帳號
+            </p>
           </div>
         ) : (
           <div className="space-y-4">

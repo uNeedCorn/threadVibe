@@ -8,7 +8,7 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
 
 const navItems = [
   {
-    title: "Dashboard",
+    title: "總覽",
     href: "/dashboard",
     icon: LayoutDashboard,
   },
@@ -18,7 +18,7 @@ const navItems = [
     icon: FileText,
   },
   {
-    title: "Insights",
+    title: "數據分析",
     href: "/insights",
     icon: BarChart3,
   },
