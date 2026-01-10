@@ -1,0 +1,153 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ============================================
+   ThreadsVibe 品牌色彩
+   基於 Zenivy 設計規範
+   主色：Teal | 中性色：Stone
+   ============================================ */
+
+:root {
+  --radius: 0.625rem;
+
+  /* 品牌主色 - Teal */
+  --primary: oklch(0.696 0.137 175.8);           /* Teal 500 #14B8A6 */
+  --primary-foreground: oklch(1 0 0);            /* White */
+
+  /* 中性色 - Stone */
+  --background: oklch(0.985 0.001 106);          /* Stone 50 #FAFAF9 */
+  --foreground: oklch(0.216 0.006 56);           /* Stone 900 #1C1917 */
+  --card: oklch(1 0 0);                          /* White */
+  --card-foreground: oklch(0.216 0.006 56);      /* Stone 900 */
+  --popover: oklch(1 0 0);                       /* White */
+  --popover-foreground: oklch(0.216 0.006 56);   /* Stone 900 */
+  --secondary: oklch(0.97 0.001 106);            /* Stone 100 #F5F5F4 */
+  --secondary-foreground: oklch(0.216 0.006 56); /* Stone 900 */
+  --muted: oklch(0.97 0.001 106);                /* Stone 100 */
+  --muted-foreground: oklch(0.553 0.013 58);     /* Stone 500 #78716C */
+  --accent: oklch(0.97 0.001 106);               /* Stone 100 */
+  --accent-foreground: oklch(0.216 0.006 56);    /* Stone 900 */
+  --border: oklch(0.923 0.003 48);               /* Stone 200 #E7E5E4 */
+  --input: oklch(0.923 0.003 48);                /* Stone 200 */
+  --ring: oklch(0.696 0.137 175.8);              /* Teal 500 - Focus ring */
+
+  /* 語意色 */
+  --destructive: oklch(0.637 0.237 25);          /* Red #EF4444 */
+  --success: oklch(0.723 0.191 142);             /* Green #22C55E */
+  --warning: oklch(0.768 0.165 75);              /* Amber #F59E0B */
+
+  /* 圖表色 - 協調的資料視覺化配色 */
+  --chart-1: oklch(0.696 0.137 175.8);           /* Teal 500 - 主要 */
+  --chart-2: oklch(0.768 0.165 75);              /* Amber - 次要 */
+  --chart-3: oklch(0.585 0.233 292);             /* Violet #8B5CF6 */
+  --chart-4: oklch(0.638 0.238 350);             /* Pink #EC4899 */
+  --chart-5: oklch(0.715 0.143 211);             /* Cyan #06B6D4 */
+
+  /* 側邊欄 */
+  --sidebar: oklch(1 0 0);                       /* White */
+  --sidebar-foreground: oklch(0.216 0.006 56);   /* Stone 900 */
+  --sidebar-primary: oklch(0.696 0.137 175.8);   /* Teal 500 */
+  --sidebar-primary-foreground: oklch(1 0 0);    /* White */
+  --sidebar-accent: oklch(0.97 0.001 106);       /* Stone 100 */
+  --sidebar-accent-foreground: oklch(0.216 0.006 56); /* Stone 900 */
+  --sidebar-border: oklch(0.923 0.003 48);       /* Stone 200 */
+  --sidebar-ring: oklch(0.696 0.137 175.8);      /* Teal 500 */
+}
+
+.dark {
+  /* 品牌主色 - Teal（深色模式較亮） */
+  --primary: oklch(0.77 0.138 175);              /* Teal 400 #2DD4BF */
+  --primary-foreground: oklch(0.147 0.004 49);   /* Stone 950 #0C0A09 */
+
+  /* 中性色 - Stone（深色模式） */
+  --background: oklch(0.147 0.004 49);           /* Stone 950 #0C0A09 */
+  --foreground: oklch(0.97 0.001 106);           /* Stone 100 #F5F5F4 */
+  --card: oklch(0.216 0.006 56);                 /* Stone 900 #1C1917 */
+  --card-foreground: oklch(0.97 0.001 106);      /* Stone 100 */
+  --popover: oklch(0.216 0.006 56);              /* Stone 900 */
+  --popover-foreground: oklch(0.97 0.001 106);   /* Stone 100 */
+  --secondary: oklch(0.268 0.007 34);            /* Stone 800 #292524 */
+  --secondary-foreground: oklch(0.97 0.001 106); /* Stone 100 */
+  --muted: oklch(0.268 0.007 34);                /* Stone 800 */
+  --muted-foreground: oklch(0.709 0.010 56);     /* Stone 400 #A8A29E */
+  --accent: oklch(0.268 0.007 34);               /* Stone 800 */
+  --accent-foreground: oklch(0.97 0.001 106);    /* Stone 100 */
+  --border: oklch(0.268 0.007 34);               /* Stone 800 */
+  --input: oklch(0.268 0.007 34);                /* Stone 800 */
+  --ring: oklch(0.77 0.138 175);                 /* Teal 400 */
+
+  /* 語意色（深色模式稍亮） */
+  --destructive: oklch(0.704 0.191 22.216);      /* Lighter Red */
+  --success: oklch(0.76 0.18 142);               /* Lighter Green */
+  --warning: oklch(0.8 0.16 75);                 /* Lighter Amber */
+
+  /* 圖表色（深色模式調整） */
+  --chart-1: oklch(0.77 0.138 175);              /* Teal 400 */
+  --chart-2: oklch(0.8 0.16 75);                 /* Lighter Amber */
+  --chart-3: oklch(0.65 0.22 292);               /* Lighter Violet */
+  --chart-4: oklch(0.7 0.22 350);                /* Lighter Pink */
+  --chart-5: oklch(0.76 0.14 211);               /* Lighter Cyan */
+
+  /* 側邊欄（深色模式） */
+  --sidebar: oklch(0.216 0.006 56);              /* Stone 900 */
+  --sidebar-foreground: oklch(0.97 0.001 106);   /* Stone 100 */
+  --sidebar-primary: oklch(0.77 0.138 175);      /* Teal 400 */
+  --sidebar-primary-foreground: oklch(0.97 0.001 106); /* Stone 100 */
+  --sidebar-accent: oklch(0.268 0.007 34);       /* Stone 800 */
+  --sidebar-accent-foreground: oklch(0.97 0.001 106); /* Stone 100 */
+  --sidebar-border: oklch(0.268 0.007 34);       /* Stone 800 */
+  --sidebar-ring: oklch(0.77 0.138 175);         /* Teal 400 */
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
