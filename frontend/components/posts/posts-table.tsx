@@ -128,7 +128,7 @@ export function PostsTable({
     return num.toString();
   };
 
-  const truncateText = (text: string | null, maxLength: number = 60) => {
+  const truncateText = (text: string | null, maxLength: number = 20) => {
     if (!text) return "（無文字）";
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength) + "...";
@@ -167,7 +167,7 @@ export function PostsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[300px]">內容</TableHead>
+              <TableHead className="w-[200px]">內容</TableHead>
               <TableHead className="w-[100px]">發布時間</TableHead>
               <TableHead className="w-[120px]">標籤</TableHead>
               <TableHead className="w-[80px] text-right">觀看</TableHead>
@@ -214,7 +214,7 @@ export function PostsTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[300px]">內容</TableHead>
+            <TableHead className="w-[200px]">內容</TableHead>
             <TableHead className="w-[100px]">
               <SortableHeader field="published_at">發布時間</SortableHeader>
             </TableHead>
@@ -254,7 +254,7 @@ export function PostsTable({
         </TableHeader>
         <TableBody>
           {posts.map((post) => (
-            <TableRow key={post.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/posts/${post.id}`)}>
+            <TableRow key={post.id} className="hover:bg-muted/50">
               <TableCell>
                 <div className="flex items-start gap-3">
                   {/* 媒體縮圖 */}
@@ -276,7 +276,12 @@ export function PostsTable({
                   )}
                   {/* 文字內容 */}
                   <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-sm">{truncateText(post.text, 30)}</p>
+                    <p
+                      className="line-clamp-2 cursor-pointer text-sm hover:text-primary hover:underline"
+                      onClick={() => router.push(`/posts/${post.id}`)}
+                    >
+                      {truncateText(post.text)}
+                    </p>
                     <a
                       href={post.permalink}
                       target="_blank"
