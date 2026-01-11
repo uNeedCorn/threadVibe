@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { useAccountTags } from "@/hooks/use-account-tags";
+import { type PostTag } from "@/components/posts";
 import {
   PostHeader,
   PostMetricsCards,
@@ -31,6 +33,7 @@ interface PostDetail {
   quote_rate: number;
   virality_score: number;
   last_metrics_sync_at: string | null;
+  tags?: PostTag[];
   account: {
     id: string;
     username: string;
@@ -77,6 +80,9 @@ export default function PostDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
 
+  // 標籤相關
+  const { tags: accountTags, createTag } = useAccountTags();
+
   // 取得貼文基本資料
   useEffect(() => {
     async function fetchPost() {
@@ -109,6 +115,13 @@ export default function PostDetailPage() {
             username,
             profile_pic_url,
             workspace_id
+          ),
+          workspace_threads_post_tags (
+            workspace_threads_account_tags (
+              id,
+              name,
+              color
+            )
           )
         `)
         .eq("id", postId)
@@ -127,8 +140,27 @@ export default function PostDetailPage() {
         profile_pic_url: string | null;
       };
 
+      // 提取標籤
+      type TagRelation = {
+        workspace_threads_account_tags: {
+          id: string;
+          name: string;
+          color: string;
+        } | null;
+      };
+      const tagRelations = data.workspace_threads_post_tags as unknown as TagRelation[] | null;
+      const tags: PostTag[] = (tagRelations || [])
+        .map(rel => rel.workspace_threads_account_tags)
+        .filter((tag): tag is NonNullable<typeof tag> => tag !== null)
+        .map(tag => ({
+          id: tag.id,
+          name: tag.name,
+          color: tag.color,
+        }));
+
       setPost({
         ...data,
+        tags,
         account: {
           id: accountData.id,
           username: accountData.username,
@@ -236,7 +268,12 @@ export default function PostDetailPage() {
       </Button>
 
       {/* 貼文內容 */}
-      <PostHeader post={post} />
+      <PostHeader
+        post={post}
+        accountTags={accountTags}
+        onTagsChange={(tags) => setPost(prev => prev ? { ...prev, tags } : null)}
+        onCreateTag={createTag}
+      />
 
       {/* 時間範圍切換 */}
       <TimeRangeTabs value={timeRange} onValueChange={setTimeRange} />

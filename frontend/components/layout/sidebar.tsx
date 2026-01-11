@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, BarChart3, Settings } from "lucide-react";
+import { LayoutDashboard, FileText, BarChart3, Settings, Tags } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { featureFlags } from "@/lib/feature-flags";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -19,6 +19,11 @@ const navItems = [
     title: "貼文",
     href: "/posts",
     icon: FileText,
+  },
+  {
+    title: "標籤",
+    href: "/tags",
+    icon: Tags,
   },
   {
     title: "數據分析",

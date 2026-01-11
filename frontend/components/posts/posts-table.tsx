@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, Image as ImageIcon, Video, FileText, Images } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, Image as ImageIcon, Video, FileText, Images, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -26,6 +26,12 @@ export interface PostTrend {
   virality_score: number[];
 }
 
+export interface PostTag {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface Post {
   id: string;
   text: string | null;
@@ -46,6 +52,7 @@ export interface Post {
   virality_score: number;
   metrics_updated_at: string | null;
   trend?: PostTrend;
+  tags?: PostTag[];
   account: {
     id: string;
     username: string;
@@ -56,15 +63,30 @@ export interface Post {
 export type SortField = "published_at" | "current_views" | "current_likes" | "current_replies" | "current_reposts" | "current_quotes" | "engagement_rate" | "reply_rate" | "repost_rate" | "quote_rate" | "virality_score";
 export type SortOrder = "asc" | "desc";
 
+import type { AccountTag } from "@/hooks/use-account-tags";
+import { PostTagPopover } from "./post-tag-popover";
+
 interface PostsTableProps {
   posts: Post[];
   sortField: SortField;
   sortOrder: SortOrder;
   onSort: (field: SortField) => void;
   isLoading?: boolean;
+  accountTags?: AccountTag[];
+  onCreateTag?: (name: string, color: string) => Promise<AccountTag | null>;
+  onPostTagsChange?: (postId: string, tags: PostTag[]) => void;
 }
 
-export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: PostsTableProps) {
+export function PostsTable({
+  posts,
+  sortField,
+  sortOrder,
+  onSort,
+  isLoading,
+  accountTags = [],
+  onCreateTag,
+  onPostTagsChange,
+}: PostsTableProps) {
   const router = useRouter();
 
   const renderSortIcon = (field: SortField) => {
@@ -147,6 +169,7 @@ export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: P
             <TableRow>
               <TableHead className="w-[300px]">內容</TableHead>
               <TableHead className="w-[100px]">發布時間</TableHead>
+              <TableHead className="w-[120px]">標籤</TableHead>
               <TableHead className="w-[80px] text-right">觀看</TableHead>
               <TableHead className="w-[80px] text-right">讚</TableHead>
               <TableHead className="w-[80px] text-right">回覆</TableHead>
@@ -163,7 +186,7 @@ export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: P
           <TableBody>
             {Array.from({ length: 5 }).map((_, i) => (
               <TableRow key={i}>
-                {Array.from({ length: 13 }).map((_, j) => (
+                {Array.from({ length: 14 }).map((_, j) => (
                   <TableCell key={j}>
                     <div className="h-5 animate-pulse rounded bg-muted" />
                   </TableCell>
@@ -195,6 +218,7 @@ export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: P
             <TableHead className="w-[100px]">
               <SortableHeader field="published_at">發布時間</SortableHeader>
             </TableHead>
+            <TableHead className="w-[120px]">標籤</TableHead>
             <TableHead className="w-[80px] text-right">
               <SortableHeader field="current_views">觀看</SortableHeader>
             </TableHead>
@@ -268,6 +292,15 @@ export function PostsTable({ posts, sortField, sortOrder, onSort, isLoading }: P
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">
                 {formatRelativeTime(post.published_at)}
+              </TableCell>
+              <TableCell>
+                <PostTagPopover
+                  postId={post.id}
+                  postTags={post.tags || []}
+                  accountTags={accountTags}
+                  onTagsChange={(tags) => onPostTagsChange?.(post.id, tags)}
+                  onCreateTag={onCreateTag}
+                />
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1">

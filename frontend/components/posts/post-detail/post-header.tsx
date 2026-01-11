@@ -4,22 +4,34 @@ import { ExternalLink, Image as ImageIcon, Video, FileText, Images } from "lucid
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { PostTagPopover, type PostTag } from "@/components/posts";
+import type { AccountTag } from "@/hooks/use-account-tags";
 
 interface PostHeaderProps {
   post: {
+    id: string;
     text: string | null;
     media_type: "TEXT_POST" | "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM";
     media_url: string | null;
     permalink: string;
     published_at: string;
+    tags?: PostTag[];
     account: {
       username: string;
       profile_pic_url: string | null;
     };
   };
+  accountTags?: AccountTag[];
+  onTagsChange?: (tags: PostTag[]) => void;
+  onCreateTag?: (name: string, color: string) => Promise<AccountTag | null>;
 }
 
-export function PostHeader({ post }: PostHeaderProps) {
+export function PostHeader({
+  post,
+  accountTags = [],
+  onTagsChange,
+  onCreateTag,
+}: PostHeaderProps) {
   const getMediaIcon = (type: PostHeaderProps["post"]["media_type"]) => {
     switch (type) {
       case "IMAGE":
@@ -86,6 +98,18 @@ export function PostHeader({ post }: PostHeaderProps) {
               </div>
               <span>·</span>
               <span>{formatDate(post.published_at)}</span>
+            </div>
+
+            {/* 標籤區塊 */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">標籤：</span>
+              <PostTagPopover
+                postId={post.id}
+                postTags={post.tags || []}
+                accountTags={accountTags}
+                onTagsChange={(tags) => onTagsChange?.(tags)}
+                onCreateTag={onCreateTag}
+              />
             </div>
 
             {/* 開啟 Threads */}

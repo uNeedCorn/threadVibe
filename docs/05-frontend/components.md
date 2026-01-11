@@ -30,9 +30,21 @@ components/
 │
 ├── posts/                  # 貼文相關
 │   ├── posts-table.tsx
-│   ├── post-detail.tsx
-│   ├── post-metrics.tsx
-│   └── post-filters.tsx
+│   ├── posts-filters.tsx
+│   ├── post-tag-popover.tsx
+│   └── post-detail/
+│       ├── index.ts
+│       ├── post-header.tsx
+│       ├── post-metrics-cards.tsx
+│       ├── post-metrics-chart.tsx
+│       └── time-range-tabs.tsx
+│
+├── tags/                   # 標籤相關
+│   ├── index.ts
+│   ├── tags-list.tsx
+│   ├── tag-form-dialog.tsx
+│   ├── tag-delete-dialog.tsx
+│   └── color-picker.tsx
 │
 ├── insights/               # Insights 相關
 │   ├── followers-chart.tsx
@@ -209,10 +221,12 @@ interface PostFiltersProps {
     dateRange: DateRange;
     accountId?: string;      // 帳號篩選
     mediaType?: string;
+    tagIds: string[];        // 標籤篩選
     sortBy: string;
     sortOrder: 'asc' | 'desc';
   };
   accounts: ThreadsAccount[];  // 可選帳號列表
+  tags: AccountTag[];          // 可選標籤列表
   onChange: (filters) => void;
 }
 
@@ -220,8 +234,109 @@ interface PostFiltersProps {
 // - 日期範圍選擇（7天/30天/自訂）
 // - 帳號篩選（多帳號時）
 // - 媒體類型篩選（全部/文字/圖片/影片）
+// - 標籤篩選（多選）
 // - 排序選擇（發布時間 + 各項指標）
 ```
+
+### PostTagPopover
+
+```typescript
+interface PostTagPopoverProps {
+  postId: string;
+  postTags: PostTag[];           // 貼文已有的標籤
+  accountTags: AccountTag[];     // 帳號所有標籤
+  onTagsChange: (tags: PostTag[]) => void;
+  onCreateTag?: (name: string, color: string) => Promise<AccountTag | null>;
+}
+
+// 功能
+// - Checkbox 多選標籤
+// - 即時新增/移除標籤
+// - 可快速建立新標籤
+```
+
+---
+
+## Tags 元件
+
+### TagsList
+
+```typescript
+interface TagsListProps {
+  tags: AccountTag[];
+  isLoading: boolean;
+  onEdit: (tag: AccountTag) => void;
+  onDelete: (tag: AccountTag) => void;
+  onCreate: () => void;
+}
+
+// 功能
+// - 卡片式標籤列表
+// - 顏色預覽
+// - 貼文數量統計
+// - 編輯/刪除按鈕
+// - 空狀態提示
+```
+
+### TagFormDialog
+
+```typescript
+interface TagFormDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  tag?: AccountTag;           // 編輯模式傳入
+  onSubmit: (name: string, color: string) => Promise<void>;
+}
+
+// 功能
+// - 標籤名稱輸入
+// - 顏色選擇器
+// - 新增/編輯模式
+// - 驗證與錯誤提示
+```
+
+### TagDeleteDialog
+
+```typescript
+interface TagDeleteDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  tag: AccountTag;
+  onConfirm: () => Promise<void>;
+}
+
+// 功能
+// - 刪除確認
+// - 顯示影響範圍（貼文數量）
+// - Loading 狀態
+```
+
+### ColorPicker
+
+```typescript
+interface ColorPickerProps {
+  value: string;
+  onChange: (color: string) => void;
+}
+
+// 功能
+// - 8 個預設顏色按鈕
+// - 自訂 HEX 輸入
+// - 顏色預覽
+```
+
+**預設顏色：**
+
+| 名稱 | HEX |
+|------|-----|
+| 灰色 | #6B7280 |
+| 紅色 | #EF4444 |
+| 橙色 | #F97316 |
+| 黃色 | #EAB308 |
+| 綠色 | #22C55E |
+| 藍色 | #3B82F6 |
+| 紫色 | #8B5CF6 |
+| 粉色 | #EC4899 |
 
 ---
 

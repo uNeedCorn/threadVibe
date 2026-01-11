@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2 } from "lucide-react";
-import { PostsFilters, PostsTable, type PostsFiltersValue, type Post, type PostTrend, type SortField, type SortOrder } from "@/components/posts";
+import { PostsFilters, PostsTable, type PostsFiltersValue, type Post, type PostTag, type PostTrend, type SortField, type SortOrder } from "@/components/posts";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
+import { useAccountTags } from "@/hooks/use-account-tags";
 import { createClient } from "@/lib/supabase/client";
 
 // 取得貼文的趨勢資料
@@ -73,6 +74,7 @@ const PAGE_SIZE = 20;
 
 export default function PostsPage() {
   const { selectedAccountId, isLoading: isAccountLoading } = useSelectedAccount();
+  const { tags: accountTags, createTag, refetch: refetchTags } = useAccountTags();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -83,6 +85,7 @@ export default function PostsPage() {
   const [filters, setFilters] = useState<PostsFiltersValue>({
     timeRange: "30d",
     mediaType: "all",
+    tagIds: [],
   });
 
   const [sortField, setSortField] = useState<SortField>("published_at");
@@ -106,6 +109,27 @@ export default function PostsPage() {
     const currentPage = reset ? 0 : page;
     const from = currentPage * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
+
+    // 如果有標籤篩選，先取得符合標籤的貼文 ID
+    let filteredPostIds: string[] | null = null;
+    if (filters.tagIds.length > 0) {
+      const { data: taggedPosts } = await supabase
+        .from("workspace_threads_post_tags")
+        .select("post_id")
+        .in("tag_id", filters.tagIds);
+
+      if (taggedPosts) {
+        filteredPostIds = [...new Set(taggedPosts.map(t => t.post_id))];
+        if (filteredPostIds.length === 0) {
+          // 沒有符合標籤的貼文
+          setPosts([]);
+          setHasMore(false);
+          setIsLoading(false);
+          setIsLoadingMore(false);
+          return;
+        }
+      }
+    }
 
     let query = supabase
       .from("workspace_threads_posts")
@@ -131,9 +155,21 @@ export default function PostsPage() {
           id,
           username,
           profile_pic_url
+        ),
+        workspace_threads_post_tags (
+          workspace_threads_account_tags (
+            id,
+            name,
+            color
+          )
         )
       `)
       .eq("workspace_threads_account_id", selectedAccountId);
+
+    // 標籤篩選
+    if (filteredPostIds) {
+      query = query.in("id", filteredPostIds);
+    }
 
     // 時間範圍篩選
     if (filters.timeRange !== "all") {
@@ -168,11 +204,30 @@ export default function PostsPage() {
       profile_pic_url: string | null;
     };
 
+    type TagRelation = {
+      workspace_threads_account_tags: {
+        id: string;
+        name: string;
+        color: string;
+      } | null;
+    };
+
     const postIds = (data || []).map(p => p.id);
     const trendMap = await fetchPostTrends(postIds);
 
     const formattedPosts: Post[] = (data || []).map((post) => {
       const accountData = post.workspace_threads_accounts as unknown as AccountData | null;
+      const tagRelations = post.workspace_threads_post_tags as unknown as TagRelation[] | null;
+
+      // 提取標籤
+      const tags: PostTag[] = (tagRelations || [])
+        .map(rel => rel.workspace_threads_account_tags)
+        .filter((tag): tag is NonNullable<typeof tag> => tag !== null)
+        .map(tag => ({
+          id: tag.id,
+          name: tag.name,
+          color: tag.color,
+        }));
 
       return {
         id: post.id,
@@ -194,6 +249,7 @@ export default function PostsPage() {
         virality_score: post.virality_score || 0,
         metrics_updated_at: post.last_metrics_sync_at,
         trend: trendMap.get(post.id),
+        tags,
         account: {
           id: accountData?.id || "",
           username: accountData?.username || "",
@@ -278,6 +334,23 @@ export default function PostsPage() {
     }
   };
 
+  // 處理貼文標籤變更
+  const handlePostTagsChange = (postId: string, tags: PostTag[]) => {
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === postId ? { ...post, tags } : post
+      )
+    );
+    // 重新載入標籤列表以更新貼文數量
+    refetchTags();
+  };
+
+  // 處理新增標籤
+  const handleCreateTag = async (name: string, color: string) => {
+    const newTag = await createTag(name, color);
+    return newTag;
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -299,6 +372,7 @@ export default function PostsPage() {
         <PostsFilters
           filters={filters}
           onFiltersChange={setFilters}
+          tags={accountTags}
         />
       )}
 
@@ -310,6 +384,9 @@ export default function PostsPage() {
           sortOrder={sortOrder}
           onSort={handleSort}
           isLoading={isLoading}
+          accountTags={accountTags}
+          onCreateTag={handleCreateTag}
+          onPostTagsChange={handlePostTagsChange}
         />
       )}
 

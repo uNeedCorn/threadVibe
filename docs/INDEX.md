@@ -299,6 +299,7 @@ docs/
 | [20260110000010_add_system_job_locks.sql](../supabase/migrations/20260110000010_add_system_job_locks.sql) | system_job_locks（排程防重複執行） |
 | [20260110000011_fix_rls_recursion.sql](../supabase/migrations/20260110000011_fix_rls_recursion.sql) | 修復 RLS 遞歸問題（新增 is_workspace_member 函數） |
 | [20260110000012_setup_cron_jobs.sql](../supabase/migrations/20260110000012_setup_cron_jobs.sql) | Cron 排程設定（pg_cron + pg_net） |
+| [20260111200001_create_tags_tables.sql](../supabase/migrations/20260111200001_create_tags_tables.sql) | 用戶自定義標籤系統 |
 
 ---
 

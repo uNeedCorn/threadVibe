@@ -52,6 +52,8 @@ CREATE INDEX idx_post_tags_tag_id ON workspace_threads_post_tags(tag_id);
 
 ## RLS 政策
 
+使用 `is_workspace_member()` 函數避免 RLS 遞歸問題：
+
 ```sql
 -- 啟用 RLS
 ALTER TABLE workspace_threads_post_tags ENABLE ROW LEVEL SECURITY;
@@ -63,9 +65,8 @@ CREATE POLICY "Members can view post tags"
     EXISTS (
       SELECT 1 FROM workspace_threads_posts p
       JOIN workspace_threads_accounts a ON a.id = p.workspace_threads_account_id
-      JOIN workspace_members m ON m.workspace_id = a.workspace_id
       WHERE p.id = workspace_threads_post_tags.post_id
-        AND m.user_id = auth.uid()
+        AND is_workspace_member(a.workspace_id)
     )
   );
 
@@ -76,9 +77,8 @@ CREATE POLICY "Members can create post tags"
     EXISTS (
       SELECT 1 FROM workspace_threads_posts p
       JOIN workspace_threads_accounts a ON a.id = p.workspace_threads_account_id
-      JOIN workspace_members m ON m.workspace_id = a.workspace_id
       WHERE p.id = post_id
-        AND m.user_id = auth.uid()
+        AND is_workspace_member(a.workspace_id)
     )
   );
 
@@ -89,9 +89,8 @@ CREATE POLICY "Members can delete post tags"
     EXISTS (
       SELECT 1 FROM workspace_threads_posts p
       JOIN workspace_threads_accounts a ON a.id = p.workspace_threads_account_id
-      JOIN workspace_members m ON m.workspace_id = a.workspace_id
       WHERE p.id = workspace_threads_post_tags.post_id
-        AND m.user_id = auth.uid()
+        AND is_workspace_member(a.workspace_id)
     )
   );
 ```

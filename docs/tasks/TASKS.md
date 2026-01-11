@@ -193,6 +193,46 @@
 
 ## 本週完成
 
+### FE-06：用戶自定義標籤系統 [普通]
+
+**完成日期：** 2026-01-11
+
+**目標：** 實作用戶自定義標籤功能，讓用戶可為貼文分類
+
+**完成內容：**
+
+1. **資料庫**
+   - 建立 `workspace_threads_account_tags` 標籤表
+   - 建立 `workspace_threads_post_tags` 關聯表
+   - 使用 `is_workspace_member()` 函數設定 RLS 政策
+
+2. **標籤管理頁 `/tags`**
+   - 卡片式標籤列表
+   - 新增/編輯/刪除對話框
+   - 8 色預設 + 自訂 HEX 顏色選擇器
+
+3. **貼文列表整合**
+   - 新增「標籤」欄位顯示
+   - 快速貼標 Popover（可多選、可新增標籤）
+   - 標籤篩選器（多選）
+
+4. **貼文詳細頁整合**
+   - 標籤顯示與編輯區塊
+
+**相關檔案：**
+- Migration: `20260111200001_create_tags_tables.sql`
+- Hook: `hooks/use-account-tags.ts`
+- 元件: `components/tags/`、`components/posts/post-tag-popover.tsx`
+- 頁面: `app/(auth)/tags/page.tsx`
+
+**相關文件：**
+- [workspace-threads-account-tags.md](../03-database/tables/workspace-threads-account-tags.md)
+- [workspace-threads-post-tags.md](../03-database/tables/workspace-threads-post-tags.md)
+- [pages.md](../05-frontend/pages.md)
+- [components.md](../05-frontend/components.md)
+
+---
+
 ### FE-05：Dashboard 頁面 [普通]
 
 **完成日期：** 2026-01-11

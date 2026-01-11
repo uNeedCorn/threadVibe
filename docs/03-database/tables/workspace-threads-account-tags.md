@@ -56,6 +56,8 @@ CREATE INDEX idx_account_tags_account_id
 
 ## RLS 政策
 
+使用 `is_workspace_member()` 函數避免 RLS 遞歸問題：
+
 ```sql
 -- 啟用 RLS
 ALTER TABLE workspace_threads_account_tags ENABLE ROW LEVEL SECURITY;
@@ -66,9 +68,8 @@ CREATE POLICY "Members can view account tags"
   USING (
     EXISTS (
       SELECT 1 FROM workspace_threads_accounts a
-      JOIN workspace_members m ON m.workspace_id = a.workspace_id
       WHERE a.id = workspace_threads_account_tags.workspace_threads_account_id
-        AND m.user_id = auth.uid()
+        AND is_workspace_member(a.workspace_id)
     )
   );
 
@@ -78,9 +79,8 @@ CREATE POLICY "Members can create account tags"
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM workspace_threads_accounts a
-      JOIN workspace_members m ON m.workspace_id = a.workspace_id
       WHERE a.id = workspace_threads_account_id
-        AND m.user_id = auth.uid()
+        AND is_workspace_member(a.workspace_id)
     )
   );
 
@@ -90,9 +90,8 @@ CREATE POLICY "Members can update account tags"
   USING (
     EXISTS (
       SELECT 1 FROM workspace_threads_accounts a
-      JOIN workspace_members m ON m.workspace_id = a.workspace_id
       WHERE a.id = workspace_threads_account_tags.workspace_threads_account_id
-        AND m.user_id = auth.uid()
+        AND is_workspace_member(a.workspace_id)
     )
   );
 
@@ -102,9 +101,8 @@ CREATE POLICY "Members can delete account tags"
   USING (
     EXISTS (
       SELECT 1 FROM workspace_threads_accounts a
-      JOIN workspace_members m ON m.workspace_id = a.workspace_id
       WHERE a.id = workspace_threads_account_tags.workspace_threads_account_id
-        AND m.user_id = auth.uid()
+        AND is_workspace_member(a.workspace_id)
     )
   );
 ```
