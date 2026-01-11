@@ -161,6 +161,7 @@ docs/
 | 文件 | 說明 |
 |------|------|
 | [tagging-system.md](04-backend/ai/tagging-system.md) | 標籤系統（用戶自定義 + AI 建議） |
+| [ai-tagging.md](04-backend/ai/ai-tagging.md) | AI 標籤 Edge Function（Gemini API） |
 
 ---
 
@@ -302,6 +303,10 @@ docs/
 | [20260110000011_fix_rls_recursion.sql](../supabase/migrations/20260110000011_fix_rls_recursion.sql) | 修復 RLS 遞歸問題（新增 is_workspace_member 函數） |
 | [20260110000012_setup_cron_jobs.sql](../supabase/migrations/20260110000012_setup_cron_jobs.sql) | Cron 排程設定（pg_cron + pg_net） |
 | [20260111200001_create_tags_tables.sql](../supabase/migrations/20260111200001_create_tags_tables.sql) | 用戶自定義標籤系統 |
+| [20260111200002_create_ai_tag_queue.sql](../supabase/migrations/20260111200002_create_ai_tag_queue.sql) | AI 標籤任務佇列 |
+| [20260111200003_add_ai_tags_to_posts.sql](../supabase/migrations/20260111200003_add_ai_tags_to_posts.sql) | 貼文 AI 標籤欄位 |
+| [20260111200004_create_llm_usage_logs.sql](../supabase/migrations/20260111200004_create_llm_usage_logs.sql) | LLM 使用記錄表 |
+| [20260111400001_add_ai_tagging_cron.sql](../supabase/migrations/20260111400001_add_ai_tagging_cron.sql) | AI 標籤 Cron 排程 |
 
 ---
 

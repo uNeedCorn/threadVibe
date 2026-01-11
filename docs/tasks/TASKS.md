@@ -77,11 +77,49 @@
 
 ---
 
-**驗證期（1-3 天）** `確認新表資料正確`
+**Phase 4b：Legacy 資料遷移** ✅ 完成
 
-- [ ] 比對新舊表數據一致性
-- [ ] 驗證 Rollup 結果正確
-- [ ] 監控同步效能
+- [x] 建立 `migrate-legacy-metrics` Edge Function
+- [x] 修正 CORS 導入問題（handleCors(req), jsonResponse, errorResponse）
+- [x] 修正 key 分隔符問題（`:` → `|` 避免與 ISO 時間衝突）
+- [x] 執行遷移並驗證
+
+> Edge Function: `migrate-legacy-metrics/index.ts`
+> 遷移結果（2026-01-11）：
+> - Post Metrics: 4768 (15m), 1711 (hourly), 406 (daily)
+> - Account Insights: 231 (15m), 71 (hourly), 4 (daily)
+
+---
+
+**Phase 4c：安全性修復** ✅ 完成
+
+- [x] 修復 `trigger_edge_function` 權限問題
+  - REVOKE PUBLIC/anon/authenticated 執行權限
+  - 只允許 postgres (pg_cron) 和 service_role
+  - 新增白名單驗證（限制可觸發的函數）
+  - 新增參數驗證（防止注入攻擊）
+- [x] 設定 Vault CRON_SECRET
+
+> Migration: `20260111300001_fix_trigger_edge_function_security.sql`
+
+---
+
+**驗證期（1-3 天）** `確認新表資料正確` ✅ 驗證通過
+
+- [x] 執行 Legacy 資料遷移
+- [x] 比對新舊表數據一致性
+  - Legacy 最新: `07:30:02` ↔ 15m 最新 bucket: `07:30:00` ✅
+  - hourly 持續更新（每小時約 19-22 筆）✅
+  - daily 今日資料已寫入 ✅
+- [x] 驗證 Rollup 結果正確
+  - Hourly Rollup: 19 筆處理，0 錯誤，0 差異 ✅
+  - Daily Rollup: 22 筆處理，0 錯誤，0 差異 ✅
+- [x] 監控同步效能
+  - 雙寫模式正常運作 ✅
+  - 三個分層表（15m/hourly/daily）同步更新 ✅
+
+> 驗證日期：2026-01-11
+> 當前狀態：Legacy 5,006 筆 | 15m 4,787 筆 | hourly 1,497 筆 | daily 86 筆
 
 ---
 
