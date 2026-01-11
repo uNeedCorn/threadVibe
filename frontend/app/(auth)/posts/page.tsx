@@ -8,27 +8,38 @@ import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { useAccountTags } from "@/hooks/use-account-tags";
 import { createClient } from "@/lib/supabase/client";
 
-// 取得貼文的趨勢資料
+// 計算增量值（delta）：將絕對值陣列轉換為相鄰差值
+function calculateDeltas(values: number[]): number[] {
+  if (values.length < 2) return [];
+  const deltas: number[] = [];
+  for (let i = 1; i < values.length; i++) {
+    deltas.push(Math.max(0, values[i] - values[i - 1])); // 確保非負
+  }
+  return deltas;
+}
+
+// 取得貼文的趨勢資料（從 hourly 表抓取近 6 小時）
+// - 計數類（views, likes 等）顯示增量值
+// - 比率類（engagement_rate 等）顯示原始比率
 async function fetchPostTrends(postIds: string[]): Promise<Map<string, PostTrend>> {
   if (postIds.length === 0) return new Map();
 
   const supabase = createClient();
   const trendMap = new Map<string, PostTrend>();
 
-  const promises = postIds.map(async (postId) => {
-    const { data: deltas } = await supabase
-      .from("workspace_threads_post_metrics_deltas")
-      .select("views_delta, likes_delta, replies_delta, reposts_delta, quotes_delta")
-      .eq("workspace_threads_post_id", postId)
-      .order("period_end", { ascending: false })
-      .limit(12);
+  // 計算 6 小時前的時間
+  const sixHoursAgo = new Date();
+  sixHoursAgo.setHours(sixHoursAgo.getHours() - 6);
 
-    const { data: snapshots } = await supabase
-      .from("workspace_threads_post_metrics")
-      .select("engagement_rate, reply_rate, repost_rate, quote_rate, virality_score")
+  const promises = postIds.map(async (postId) => {
+    // 從 hourly 表取得近 6 小時的資料（含 rate/score 欄位）
+    const { data: hourlyData } = await supabase
+      .from("workspace_threads_post_metrics_hourly")
+      .select("bucket_ts, views, likes, replies, reposts, quotes, shares, engagement_rate, reply_rate, repost_rate, quote_rate, virality_score")
       .eq("workspace_threads_post_id", postId)
-      .order("captured_at", { ascending: false })
-      .limit(12);
+      .gte("bucket_ts", sixHoursAgo.toISOString())
+      .order("bucket_ts", { ascending: true })
+      .limit(7); // 多取一筆用於計算 6 個增量
 
     const trend: PostTrend = {
       views: [],
@@ -43,25 +54,29 @@ async function fetchPostTrends(postIds: string[]): Promise<Map<string, PostTrend
       virality_score: [],
     };
 
-    if (deltas && deltas.length >= 2) {
-      const reversed = deltas.reverse();
-      trend.views = reversed.map(d => d.views_delta);
-      trend.likes = reversed.map(d => d.likes_delta);
-      trend.replies = reversed.map(d => d.replies_delta);
-      trend.reposts = reversed.map(d => d.reposts_delta);
-      trend.quotes = reversed.map(d => d.quotes_delta);
+    if (hourlyData && hourlyData.length >= 2) {
+      // 計數類：計算增量
+      const rawViews = hourlyData.map(d => d.views || 0);
+      const rawLikes = hourlyData.map(d => d.likes || 0);
+      const rawReplies = hourlyData.map(d => d.replies || 0);
+      const rawReposts = hourlyData.map(d => d.reposts || 0);
+      const rawQuotes = hourlyData.map(d => d.quotes || 0);
+
+      trend.views = calculateDeltas(rawViews);
+      trend.likes = calculateDeltas(rawLikes);
+      trend.replies = calculateDeltas(rawReplies);
+      trend.reposts = calculateDeltas(rawReposts);
+      trend.quotes = calculateDeltas(rawQuotes);
+
+      // 比率類：直接使用原始值（跳過第一筆，對齊增量的時間點）
+      trend.engagement_rate = hourlyData.slice(1).map(d => d.engagement_rate || 0);
+      trend.reply_rate = hourlyData.slice(1).map(d => d.reply_rate || 0);
+      trend.repost_rate = hourlyData.slice(1).map(d => d.repost_rate || 0);
+      trend.quote_rate = hourlyData.slice(1).map(d => d.quote_rate || 0);
+      trend.virality_score = hourlyData.slice(1).map(d => d.virality_score || 0);
     }
 
-    if (snapshots && snapshots.length >= 2) {
-      const reversed = snapshots.reverse();
-      trend.engagement_rate = reversed.map(s => Number(s.engagement_rate) || 0);
-      trend.reply_rate = reversed.map(s => Number(s.reply_rate) || 0);
-      trend.repost_rate = reversed.map(s => Number(s.repost_rate) || 0);
-      trend.quote_rate = reversed.map(s => Number(s.quote_rate) || 0);
-      trend.virality_score = reversed.map(s => Number(s.virality_score) || 0);
-    }
-
-    if (trend.views.length > 0 || trend.engagement_rate.length > 0) {
+    if (trend.views.length > 0) {
       trendMap.set(postId, trend);
     }
   });

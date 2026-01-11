@@ -88,19 +88,6 @@ export function AiTagPopover({
     return result;
   };
 
-  // 取得每個維度最高信心度的標籤作為預設顯示
-  const getTopTags = (): Array<{ tag: string; dimension: string; confidence: number }> => {
-    if (!aiSuggestedTags) return [];
-    const result: Array<{ tag: string; dimension: string; confidence: number }> = [];
-    for (const dim of DIMENSION_ORDER) {
-      const tags = aiSuggestedTags[dim as keyof AiSuggestedTags];
-      if (tags && tags.length > 0) {
-        result.push({ tag: tags[0].tag, dimension: dim, confidence: tags[0].confidence });
-      }
-    }
-    return result.slice(0, 3); // 只顯示前 3 個維度的最高標籤
-  };
-
   const isTagSelected = (dimension: string, tag: string): boolean => {
     if (!aiSelectedTags) return false;
     const selected = aiSelectedTags[dimension as keyof AiSelectedTags];
@@ -121,40 +108,90 @@ export function AiTagPopover({
   }
 
   const selectedTags = getSelectedTags();
-  const topTags = getTopTags();
-  const displayTags = selectedCount > 0 ? selectedTags.slice(0, 3) : topTags;
-  const remainingCount = selectedCount > 0 ? selectedCount - 3 : topTags.length - 3;
+
+  // 取得信心度排序的所有 AI 建議標籤
+  const getAllSuggestedTags = (): Array<{ tag: string; dimension: string; confidence: number }> => {
+    if (!aiSuggestedTags) return [];
+    const result: Array<{ tag: string; dimension: string; confidence: number }> = [];
+    for (const dim of DIMENSION_ORDER) {
+      const tags = aiSuggestedTags[dim as keyof AiSuggestedTags];
+      if (tags) {
+        tags.forEach(t => result.push({ tag: t.tag, dimension: dim, confidence: t.confidence }));
+      }
+    }
+    return result.sort((a, b) => b.confidence - a.confidence);
+  };
+
+  // 顯示邏輯：
+  // - 選擇數量 <= 2：已選擇的（彩色）+ 補上信心度最高未選擇的（灰色），總共 3 個
+  // - 選擇數量 >= 3：只顯示全部已選擇的標籤（彩色）
+  const getDisplayTags = (): Array<{ tag: string; dimension: string }> => {
+    if (selectedCount >= 3) {
+      // 顯示全部已選擇的
+      return selectedTags;
+    }
+
+    // 選擇數量 <= 2：已選擇 + 補上未選擇的建議
+    const allSuggested = getAllSuggestedTags();
+    const result: Array<{ tag: string; dimension: string }> = [...selectedTags];
+    const needed = 3 - selectedCount;
+
+    for (const suggested of allSuggested) {
+      if (result.length >= 3) break;
+      // 跳過已選擇的
+      if (!isTagSelected(suggested.dimension, suggested.tag)) {
+        result.push({ tag: suggested.tag, dimension: suggested.dimension });
+      }
+    }
+
+    return result.slice(0, 3);
+  };
+
+  const displayTags = getDisplayTags();
+
+  // 計算剩餘數量（選單中還有多少標籤）
+  const totalAiTagCount = DIMENSION_ORDER.reduce((sum, dim) => {
+    const tags = aiSuggestedTags?.[dim as keyof AiSuggestedTags];
+    return sum + (tags?.length || 0);
+  }, 0);
+  const remainingCount = totalAiTagCount - displayTags.length;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          className="flex flex-wrap items-center gap-1 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted/50"
-        >
-          {displayTags.map((item, i) => {
-            const colors = DIMENSION_COLORS[item.dimension];
-            return (
-              <span
-                key={i}
-                className={cn(
-                  "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
-                  colors.bg,
-                  colors.text,
-                  colors.border
-                )}
-              >
-                {item.tag}
-              </span>
-            );
-          })}
-          {remainingCount > 0 && (
-            <span className="text-xs text-muted-foreground">
-              +{remainingCount}
-            </span>
-          )}
-          <ChevronDown className="size-3 shrink-0 opacity-50" />
-        </button>
-      </PopoverTrigger>
+    <div className="flex flex-wrap items-center gap-1">
+      {/* 可直接點擊的標籤 */}
+      {displayTags.map((item, i) => {
+        const colors = DIMENSION_COLORS[item.dimension];
+        const selected = isTagSelected(item.dimension, item.tag);
+        return (
+          <button
+            key={i}
+            onClick={() => handleTagClick(item.dimension, item.tag)}
+            className={cn(
+              "inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-xs font-medium transition-all",
+              selected
+                ? cn(colors.bg, colors.text, colors.border)
+                : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+            )}
+          >
+            {selected && <Check className="size-3" />}
+            {item.tag}
+          </button>
+        );
+      })}
+      {remainingCount > 0 && (
+        <span className="text-xs text-muted-foreground">
+          +{remainingCount}
+        </span>
+      )}
+      {/* 展開箭頭觸發 Popover */}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            className="rounded p-0.5 transition-colors hover:bg-muted"
+          >
+            <ChevronDown className="size-3.5 text-muted-foreground" />
+          </button>
+        </PopoverTrigger>
       <PopoverContent className="w-[420px] p-0" align="start">
         <div className="max-h-[400px] overflow-y-auto p-3">
           <div className="mb-2 flex items-center gap-2 text-sm font-medium">
@@ -205,6 +242,7 @@ export function AiTagPopover({
           </div>
         </div>
       </PopoverContent>
-    </Popover>
+      </Popover>
+    </div>
   );
 }

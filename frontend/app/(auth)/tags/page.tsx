@@ -2,16 +2,18 @@
 
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { useAccountTags } from "@/hooks/use-account-tags";
-import { TagsList } from "@/components/tags";
+import { useAiTags } from "@/hooks/use-ai-tags";
+import { TagsList, AiTagsSection } from "@/components/tags";
 
 export default function TagsPage() {
   const { selectedAccountId, isLoading: isAccountLoading } = useSelectedAccount();
   const { tags, isLoading, createTag, updateTag, deleteTag } = useAccountTags();
+  const { selectedTags, unselectedTags, isLoading: isAiTagsLoading } = useAiTags();
 
   const hasNoAccount = !isAccountLoading && !selectedAccountId;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* 標題 */}
       <div>
         <h1 className="text-2xl font-bold">標籤管理</h1>
@@ -29,15 +31,30 @@ export default function TagsPage() {
         </div>
       )}
 
-      {/* 標籤列表 */}
+      {/* 自訂標籤列表 */}
       {!hasNoAccount && (
-        <TagsList
-          tags={tags}
-          isLoading={isLoading || isAccountLoading}
-          onCreateTag={createTag}
-          onUpdateTag={updateTag}
-          onDeleteTag={deleteTag}
-        />
+        <>
+          <section>
+            <h2 className="mb-4 text-lg font-semibold">自訂標籤</h2>
+            <TagsList
+              tags={tags}
+              isLoading={isLoading || isAccountLoading}
+              onCreateTag={createTag}
+              onUpdateTag={updateTag}
+              onDeleteTag={deleteTag}
+            />
+          </section>
+
+          {/* AI 標籤區塊 */}
+          <section>
+            <h2 className="mb-4 text-lg font-semibold">AI 標籤分析</h2>
+            <AiTagsSection
+              selectedTags={selectedTags}
+              unselectedTags={unselectedTags}
+              isLoading={isAiTagsLoading}
+            />
+          </section>
+        </>
       )}
     </div>
   );
