@@ -22,6 +22,21 @@ verify_jwt = false
 [functions.workspace-cleanup]
 verify_jwt = false
 
+[functions.hourly-rollup]
+verify_jwt = false
+
+[functions.daily-rollup]
+verify_jwt = false
+
+[functions.metrics-cleanup]
+verify_jwt = false
+
+[functions.ai-tagging]
+verify_jwt = false
+
+[functions.migrate-legacy-metrics]
+verify_jwt = false
+
 # NOTE: Edge Function schedules are configured on the Supabase platform (Dashboard -> Edge Functions -> Schedules).
 # Intended schedules (reference):
 # - scheduled-sync:    0,15,30,45 * * * *

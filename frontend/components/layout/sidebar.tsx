@@ -14,6 +14,7 @@ import {
   Users,
   Eye,
   MessageSquare,
+  Radar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { featureFlags } from "@/lib/feature-flags";
@@ -55,6 +56,11 @@ const navItems: NavEntry[] = [
         title: "總覽",
         href: "/insights",
         icon: LayoutDashboard,
+      },
+      {
+        title: "發文追蹤雷達",
+        href: "/insights/radar",
+        icon: Radar,
       },
       {
         title: "曝光分析",

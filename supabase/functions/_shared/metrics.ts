@@ -63,9 +63,10 @@ export function calculateRates(metrics: PostMetrics): CalculatedRates {
   const quoteRate = (quotes / views) * 100;
 
   // 病毒傳播分數（加權）
-  const spreadScore = reposts * 3 + quotes * 2.5 + shares * 3;
-  const engagementScore = likes + replies * 1.5;
-  const viralityScore = ((spreadScore * 2 + engagementScore) / views) * 100;
+  // 公式：(replies × 3 + reposts × 2.5 + quotes × 2 + likes) / views × 100
+  // 權重依據 Threads 演算法：Replies > Reposts > Likes
+  const weightedSum = replies * 3 + reposts * 2.5 + quotes * 2 + likes * 1;
+  const viralityScore = (weightedSum / views) * 100;
 
   return {
     engagementRate: Math.round(engagementRate * 10000) / 10000,

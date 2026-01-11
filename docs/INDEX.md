@@ -156,6 +156,17 @@ docs/
 | [workspace-deletion.md](04-backend/jobs/workspace-deletion.md) | Workspace 刪除任務 |
 | [token-auto-revoke.md](04-backend/jobs/token-auto-revoke.md) | Token 自動撤銷 |
 
+### 共用模組 (_shared/)
+
+| 檔案 | 說明 |
+|------|------|
+| `tiered-storage.ts` | 分層同步邏輯（頻率判斷、時間視窗、bucket 對齊） |
+| `metrics.ts` | 成效計算（engagement_rate, virality_score 等） |
+| `sync.ts` | 同步核心邏輯（syncPosts, syncMetrics, syncAccountInsights） |
+| `threads-api.ts` | Threads API 封裝 |
+| `crypto.ts` | Token 加解密 |
+| `auth.ts` | 認證輔助函數 |
+
 ### AI 功能 (ai/)
 
 | 文件 | 說明 |
@@ -172,6 +183,7 @@ docs/
 | [pages.md](05-frontend/pages.md) | 頁面清單 |
 | [insight-page.md](05-frontend/insight-page.md) | Insight 頁面設計（問題導向） |
 | [insights-overview-dashboard.md](05-frontend/insights-overview-dashboard.md) | Insights 總覽儀表板規格 |
+| [post-tracking-dashboard.md](05-frontend/post-tracking-dashboard.md) | 發文追蹤雷達規格（早期爆紅偵測） |
 | [components.md](05-frontend/components.md) | 元件清單 |
 | [ui-guidelines.md](05-frontend/ui-guidelines.md) | UI 開發指引（Square UI） |
 

@@ -231,6 +231,48 @@
 
 ## 本週完成
 
+### FIX-02：修復 Hourly 貼文同步時間錯誤 [深夜]
+
+**完成日期：** 2026-01-11
+
+**問題：**
+- Hourly 貼文（72h+ 年齡）每 15 分鐘都在同步，而非每小時一次
+- 同步時間不固定（:00, :15, :30, :45 都可能觸發）
+- 原因：`shouldSyncPost()` 使用相對時間間隔判斷
+
+**修正前（錯誤邏輯）：**
+```typescript
+// 檢查距離上次同步是否超過 55 分鐘
+const diffMinutes = (now - lastSync) / 60000;
+return diffMinutes >= 55;
+```
+
+**修正後（正確邏輯）：**
+```typescript
+// 固定時間視窗 + 時間槽位檢查
+case 'hourly':
+  // 只在 :10~:24 視窗內同步
+  if (!(currentMinute >= 10 && currentMinute < 25)) return false;
+  // 檢查是否已在當前小時同步過
+  return alignToHour(now) !== alignToHour(lastSync);
+```
+
+**同步視窗設定：**
+
+| 頻率 | 同步視窗 (UTC) | Cron 觸發點 |
+|------|----------------|-------------|
+| 15m | :00, :15, :30, :45 | 每次都同步 |
+| hourly | :10 ~ :24 | :15 觸發 |
+| daily | 00:30 ~ 00:44 | 00:30 觸發 |
+| weekly | 週日 01:00 ~ 01:14 | 週日 01:00 觸發 |
+
+**相關檔案：**
+- `supabase/functions/_shared/tiered-storage.ts`（`shouldSyncPost()` 函數）
+- `docs/decisions/002-data-retention-rollup-strategy.md`（新增同步視窗章節）
+- `docs/04-backend/sync/scheduled-sync.md`（更新同步頻率說明）
+
+---
+
 ### FE-06：用戶自定義標籤系統 [普通]
 
 **完成日期：** 2026-01-11

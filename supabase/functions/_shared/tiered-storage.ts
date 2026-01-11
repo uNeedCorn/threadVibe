@@ -159,10 +159,15 @@ export function getBucketValue(
 }
 
 /**
- * 檢查貼文是否需要同步（根據上次同步時間和同步頻率）
+ * 檢查貼文是否需要同步（根據固定時間槽位）
  *
- * 注意：加入 5 分鐘容錯，避免因排程器微小時間差導致跳過同步
- * 例如：上次 07:30:02，本次 07:45:01，時間差 14:59 < 15 分鐘會被跳過
+ * 同步時間規則：
+ * - 15m: 每 15 分鐘（:00, :15, :30, :45）
+ * - hourly: 每小時整點（:00）
+ * - daily: 每天 00:00 UTC
+ * - weekly: 每週日 00:00 UTC
+ *
+ * 每個時間槽位有 15 分鐘的同步視窗（用於重試）
  */
 export function shouldSyncPost(
   publishedAt: Date | string,
@@ -175,29 +180,70 @@ export function shouldSyncPost(
     return false;
   }
 
+  // 從未同步過，立即同步
   if (!lastSyncAt) {
     return true;
   }
 
   const lastSync = typeof lastSyncAt === 'string' ? new Date(lastSyncAt) : lastSyncAt;
-  const diffMs = now.getTime() - lastSync.getTime();
-  const diffMinutes = diffMs / (1000 * 60);
+  const currentMinute = now.getMinutes();
+  const currentHour = now.getHours();
+  const currentDay = now.getDay(); // 0 = Sunday
 
-  // 5 分鐘容錯
-  const TOLERANCE_MINUTES = 5;
+  // 檢查是否在同步視窗內
+  const inSyncWindow = (): boolean => {
+    switch (frequency) {
+      case '15m':
+        return true; // cron 每 15 分鐘執行，永遠在視窗內
+      case 'hourly':
+        return currentMinute >= 10 && currentMinute < 25; // :10 ~ :24 同步
+      case 'daily':
+        return currentHour === 0 && currentMinute >= 30 && currentMinute < 45; // 00:30 ~ 00:44 同步
+      case 'weekly':
+        return currentDay === 0 && currentHour === 1 && currentMinute < 15; // 週日 01:00 ~ 01:14
+      default:
+        return false;
+    }
+  };
 
-  switch (frequency) {
-    case '15m':
-      return diffMinutes >= 15 - TOLERANCE_MINUTES; // >= 10 分鐘
-    case 'hourly':
-      return diffMinutes >= 60 - TOLERANCE_MINUTES; // >= 55 分鐘
-    case 'daily':
-      return diffMinutes >= 24 * 60 - TOLERANCE_MINUTES; // >= 1435 分鐘
-    case 'weekly':
-      return diffMinutes >= 7 * 24 * 60 - TOLERANCE_MINUTES; // >= 10075 分鐘
-    default:
-      return false;
+  // 不在同步視窗內，跳過
+  if (!inSyncWindow()) {
+    return false;
   }
+
+  // 檢查是否已在當前時間槽位同步過
+  const alreadySyncedInSlot = (): boolean => {
+    switch (frequency) {
+      case '15m': {
+        // 同一個 15 分鐘桶？
+        const nowBucket = alignTo15Min(now).getTime();
+        const lastBucket = alignTo15Min(lastSync).getTime();
+        return nowBucket === lastBucket;
+      }
+      case 'hourly': {
+        // 同一個小時？
+        return alignToHour(now).getTime() === alignToHour(lastSync).getTime();
+      }
+      case 'daily': {
+        // 同一天？
+        return alignToDate(now) === alignToDate(lastSync);
+      }
+      case 'weekly': {
+        // 同一週？
+        const getWeekStart = (d: Date): number => {
+          const date = new Date(d);
+          date.setDate(date.getDate() - date.getDay());
+          date.setHours(0, 0, 0, 0);
+          return date.getTime();
+        };
+        return getWeekStart(now) === getWeekStart(lastSync);
+      }
+      default:
+        return true;
+    }
+  };
+
+  return !alreadySyncedInSlot();
 }
 
 // ============================================

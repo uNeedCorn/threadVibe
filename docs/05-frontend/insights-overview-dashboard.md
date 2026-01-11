@@ -395,6 +395,7 @@ interface PostContribution {
 
 ## 相關文件
 
+- [發文追蹤雷達](post-tracking-dashboard.md) - 發文後即時追蹤
 - [Insight 頁面設計（問題導向）](insight-page.md)
 - [UI 開發指引](ui-guidelines.md)
 - [設計 Tokens](../references/design-tokens.md)

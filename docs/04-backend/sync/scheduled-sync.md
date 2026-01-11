@@ -223,8 +223,56 @@ Deno.serve(async (req) => {
 
 ---
 
+## 分層同步頻率
+
+根據貼文年齡決定同步頻率，節省 API 配額：
+
+| 貼文年齡 | 同步頻率 | 同步視窗 (UTC) |
+|----------|----------|----------------|
+| 0-72 小時 | 每 15 分鐘 | :00, :15, :30, :45 |
+| 72 小時 - 3 個月 | 每小時 | :10 ~ :24 |
+| 3-6 個月 | 每天 | 00:30 ~ 00:44 |
+| 6-12 個月 | 每週 | 週日 01:00 ~ 01:14 |
+| > 12 個月 | 停止同步 | - |
+
+### 同步視窗說明
+
+錯開不同頻率的同步時間，避免同時大量 API 呼叫：
+- `15m`: 每次 cron 執行都同步
+- `hourly`: 每小時的 :10 ~ :24 之間同步（避開整點的 15m 同步）
+- `daily`: 00:30 ~ 00:44 之間同步
+- `weekly`: 週日 01:00 ~ 01:14 之間同步
+
+### 實作邏輯
+
+```typescript
+// _shared/tiered-storage.ts
+export function shouldSyncPost(publishedAt, lastSyncAt, now): boolean {
+  // 1. 根據貼文年齡決定同步頻率
+  const frequency = getSyncFrequency(publishedAt, now);
+
+  // 2. 檢查是否在同步視窗內
+  if (!inSyncWindow(frequency, now)) return false;
+
+  // 3. 檢查是否已在當前時間槽位同步過
+  return !alreadySyncedInSlot(frequency, lastSyncAt, now);
+}
+```
+
+### 重要修正（2026-01-11）
+
+修正 `shouldSyncPost()` 使用相對時間間隔導致 hourly 貼文每 15 分鐘都同步的問題。
+
+**修正前**：檢查 `now - lastSync >= 55 分鐘`（相對間隔）
+**修正後**：檢查固定時間視窗 + 時間槽位（絕對時間）
+
+詳見：[TASKS.md - FIX-02](../../tasks/TASKS.md)
+
+---
+
 ## 效能考量
 
 1. **批次處理**：每批 5 個帳號並行處理
 2. **批次延遲**：批次間延遲 2 秒，避免 Rate Limit
 3. **超時保護**：Edge Function 預設 60 秒超時
+4. **分層同步**：根據貼文年齡降低同步頻率，節省 API 配額

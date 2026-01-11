@@ -162,6 +162,19 @@ function getSyncFrequency(publishedAt: Date): SyncFrequency {
 }
 ```
 
+### 同步視窗設定
+
+各頻率的同步時間錯開，避免同時大量 API 呼叫：
+
+| 頻率 | 同步視窗 (UTC) | 說明 |
+|------|----------------|------|
+| 15m | :00, :15, :30, :45 | 每次 cron 執行都同步 |
+| hourly | :10 ~ :24 | 避開整點的 15m 同步 |
+| daily | 00:30 ~ 00:44 | 凌晨低峰時段 |
+| weekly | 週日 01:00 ~ 01:14 | 凌晨低峰時段 |
+
+實作位置：`supabase/functions/_shared/tiered-storage.ts` 的 `shouldSyncPost()` 函式
+
 ---
 
 ## Rollup 機制
@@ -584,3 +597,98 @@ Phase 2b：停止雙寫
     ↓
 Phase 6：標記舊表為 legacy
 ```
+
+---
+
+## 舊表遷移計畫（待執行）
+
+> **狀態**：觀察期（2026-01-11 ~ 2026-01-14）
+> **更新日期**：2026-01-11
+
+### 當前資料庫大小（2026-01-11 統計）
+
+| 分類 | 大小 | 說明 |
+|------|------|------|
+| 🔵 **舊表（待移除）** | **4.9 MB** | L1 + L2 共 4 張表 |
+| 🟢 **新分層表（保留）** | **3.5 MB** | 15m + hourly + daily 共 6 張表 |
+| **L3 Current（保留）** | **336 KB** | posts + accounts 的 current_* 欄位 |
+| **資料庫總大小** | **~10.2 MB** | - |
+| **遷移後可節省** | **~4.9 MB (48%)** | - |
+
+各表詳細大小：
+
+| 資料表 | 類型 | 大小 |
+|--------|------|------|
+| `workspace_threads_post_metrics_deltas` | 🔵 舊表 L2 | 2,304 KB |
+| `workspace_threads_post_metrics` | 🔵 舊表 L1 | 2,296 KB |
+| `workspace_threads_post_metrics_15m` | 🟢 新表 | 2,264 KB |
+| `workspace_threads_post_metrics_hourly` | 🟢 新表 | 896 KB |
+| `workspace_threads_posts` | L3 Current | 336 KB |
+| `workspace_threads_account_insights_15m` | 🟢 新表 | 224 KB |
+| `workspace_threads_account_insights_deltas` | 🔵 舊表 L2 | 216 KB |
+| `workspace_threads_account_insights` | 🔵 舊表 L1 | 208 KB |
+| `workspace_threads_post_metrics_daily` | 🟢 新表 | 168 KB |
+| `workspace_threads_account_insights_hourly` | 🟢 新表 | 80 KB |
+| `workspace_threads_account_insights_daily` | 🟢 新表 | 80 KB |
+
+### 最終目標架構
+
+| 類型 | 保留 | 移除 | 說明 |
+|------|------|------|------|
+| **L3 Current** | ✅ 保留 | - | `workspace_threads_posts.current_*` 欄位保留，方便快速查詢 |
+| **L2 Delta** | - | ❌ 移除 | `*_deltas` 表移除，Delta 可從分層表即時計算 |
+| **L1 Snapshot** | - | ❌ 移除 | `workspace_threads_post_metrics` 移除，被新分層表取代 |
+| **新分層表** | ✅ 保留 | - | `*_15m`, `*_hourly`, `*_daily` 作為歷史資料來源 |
+
+### 待移除的舊表
+
+```
+Post Metrics:
+├── workspace_threads_post_metrics          ← L1，待移除
+└── workspace_threads_post_metrics_deltas   ← L2，待移除
+
+Account Insights:
+├── workspace_threads_account_insights        ← L1，待移除
+└── workspace_threads_account_insights_deltas ← L2，待移除
+```
+
+### 保留的表
+
+```
+Post Metrics:
+├── workspace_threads_posts.current_*         ← L3，保留
+├── workspace_threads_post_metrics_15m        ← 新表，保留
+├── workspace_threads_post_metrics_hourly     ← 新表，保留
+└── workspace_threads_post_metrics_daily      ← 新表，保留
+
+Account Insights:
+├── workspace_threads_accounts.current_*      ← L3，保留
+├── workspace_threads_account_insights_15m    ← 新表，保留
+├── workspace_threads_account_insights_hourly ← 新表，保留
+└── workspace_threads_account_insights_daily  ← 新表，保留
+```
+
+### 遷移步驟
+
+1. **觀察期**（目前）
+   - 持續雙寫新舊表
+   - 驗證新分層表資料完整性
+   - 確認同步頻率邏輯正確
+
+2. **停止寫入舊表**
+   - 修改 `_shared/sync.ts`，移除寫入 L1/L2 的程式碼
+   - 保留 L3 Current 更新邏輯
+
+3. **前端驗證**
+   - 確認前端查詢新分層表正常
+   - 趨勢圖表使用 `*_hourly` 表
+
+4. **標記舊表為 legacy**
+   - 保留舊表資料（不刪除）
+   - 文件標記為 deprecated
+
+### 注意事項
+
+- L3 Current 欄位**必須保留**，這是前端快速查詢當前值的來源
+- Delta 計算改為使用 SQL Window Function（`LAG()`），從分層表即時計算
+- 舊表資料**不刪除**，保留作為歷史備份
