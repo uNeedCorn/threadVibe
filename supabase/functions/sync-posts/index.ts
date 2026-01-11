@@ -135,6 +135,8 @@ Deno.serve(async (req) => {
         published_at: post.timestamp ? new Date(post.timestamp).toISOString() : new Date().toISOString(),
       }));
 
+      let enqueueCount = 0;
+
       if (normalizedPosts.length > 0) {
         const { error: upsertError } = await serviceClient
           .from('workspace_threads_posts')
@@ -143,6 +145,36 @@ Deno.serve(async (req) => {
           });
 
         if (upsertError) throw upsertError;
+
+        // 查詢需要 AI tagging 的貼文（尚未分析的）
+        const { data: postsNeedTagging } = await serviceClient
+          .from('workspace_threads_posts')
+          .select('id')
+          .eq('workspace_threads_account_id', workspace_threads_account_id)
+          .is('ai_suggested_tags', null);
+
+        // 入隊 AI tagging
+        if (postsNeedTagging && postsNeedTagging.length > 0) {
+          const queueItems = postsNeedTagging.map((post) => ({
+            workspace_threads_account_id,
+            post_id: post.id,
+            status: 'pending',
+          }));
+
+          // ON CONFLICT DO NOTHING 避免重複入隊
+          const { error: queueError } = await serviceClient
+            .from('ai_tag_queue')
+            .upsert(queueItems, {
+              onConflict: 'post_id',
+              ignoreDuplicates: true,
+            });
+
+          if (queueError) {
+            console.error('Failed to enqueue AI tagging:', queueError);
+          } else {
+            enqueueCount = postsNeedTagging.length;
+          }
+        }
       }
 
       // 更新同步記錄
@@ -151,13 +183,14 @@ Deno.serve(async (req) => {
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
-          metadata: { synced_count: normalizedPosts.length },
+          metadata: { synced_count: normalizedPosts.length, enqueue_count: enqueueCount },
         })
         .eq('id', syncLog?.id);
 
       return jsonResponse(req, {
         success: true,
         synced_count: normalizedPosts.length,
+        enqueue_count: enqueueCount,
       });
 
     } catch (syncError) {

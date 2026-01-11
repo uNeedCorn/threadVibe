@@ -12,8 +12,30 @@ import {
   PostMetricsCards,
   PostMetricsChart,
   TimeRangeTabs,
+  AiTagsSection,
   type TimeRange,
 } from "@/components/posts/post-detail";
+
+interface TagResult {
+  tag: string;
+  confidence: number;
+}
+
+interface AiSuggestedTags {
+  content_type?: TagResult[];
+  tone?: TagResult[];
+  intent?: TagResult[];
+  emotion?: TagResult[];
+  audience?: TagResult[];
+}
+
+interface AiSelectedTags {
+  content_type?: string[];
+  tone?: string[];
+  intent?: string[];
+  emotion?: string[];
+  audience?: string[];
+}
 
 interface PostDetail {
   id: string;
@@ -34,6 +56,8 @@ interface PostDetail {
   virality_score: number;
   last_metrics_sync_at: string | null;
   tags?: PostTag[];
+  ai_suggested_tags?: AiSuggestedTags | null;
+  ai_selected_tags?: AiSelectedTags | null;
   account: {
     id: string;
     username: string;
@@ -110,6 +134,8 @@ export default function PostDetailPage() {
           quote_rate,
           virality_score,
           last_metrics_sync_at,
+          ai_suggested_tags,
+          ai_selected_tags,
           workspace_threads_accounts!inner (
             id,
             username,
@@ -273,6 +299,12 @@ export default function PostDetailPage() {
         accountTags={accountTags}
         onTagsChange={(tags) => setPost(prev => prev ? { ...prev, tags } : null)}
         onCreateTag={createTag}
+      />
+
+      {/* AI 標籤分析 */}
+      <AiTagsSection
+        aiSuggestedTags={post.ai_suggested_tags ?? null}
+        aiSelectedTags={post.ai_selected_tags}
       />
 
       {/* 時間範圍切換 */}

@@ -45,6 +45,7 @@ docs/
 | [user-stories.md](01-requirements/user-stories.md) | 使用者故事 |
 | [user-flows.md](01-requirements/user-flows.md) | 使用者流程 |
 | [feature-list.md](01-requirements/feature-list.md) | 功能清單 |
+| [subscription-plans.md](01-requirements/subscription-plans.md) | 訂閱方案規劃（付費功能） |
 
 ---
 
@@ -99,6 +100,7 @@ docs/
 |------|------|
 | [workspace-threads-account-tags.md](03-database/tables/workspace-threads-account-tags.md) | 用戶自定義標籤 |
 | [workspace-threads-post-tags.md](03-database/tables/workspace-threads-post-tags.md) | 貼文與標籤關聯 |
+| [ai-tag-queue.md](03-database/tables/ai-tag-queue.md) | AI Tagging Job Queue |
 
 ### 系統資料表
 
