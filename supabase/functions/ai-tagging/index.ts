@@ -58,11 +58,11 @@ Deno.serve(async (req) => {
     const serviceClient = createServiceClient();
     const gemini = new GeminiClient(GEMINI_API_KEY);
 
-    // 取得待處理任務（pending 或可重試的 failed）
+    // 取得待處理任務（pending 或可重試的 failed，預設 max_attempts=3）
     const { data: jobs, error: fetchError } = await serviceClient
       .from('ai_tag_queue')
       .select('id, workspace_threads_account_id, post_id, attempts, max_attempts')
-      .or('status.eq.pending,and(status.eq.failed,attempts.lt.max_attempts)')
+      .or('status.eq.pending,and(status.eq.failed,attempts.lt.3)')
       .order('created_at', { ascending: true })
       .limit(BATCH_SIZE);
 

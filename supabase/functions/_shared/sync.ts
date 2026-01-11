@@ -23,6 +23,7 @@ import {
 
 export interface SyncPostsResult {
   synced_count: number;
+  enqueue_count: number;
   posts: Array<{ threads_post_id: string; text?: string }>;
 }
 
@@ -74,6 +75,8 @@ export async function syncPostsForAccount(
       : new Date().toISOString(),
   }));
 
+  let enqueueCount = 0;
+
   if (normalizedPosts.length > 0) {
     const { error } = await serviceClient
       .from('workspace_threads_posts')
@@ -82,10 +85,41 @@ export async function syncPostsForAccount(
       });
 
     if (error) throw error;
+
+    // 查詢需要 AI tagging 的貼文（尚未分析的）
+    const { data: postsNeedTagging } = await serviceClient
+      .from('workspace_threads_posts')
+      .select('id')
+      .eq('workspace_threads_account_id', accountId)
+      .is('ai_suggested_tags', null);
+
+    // 入隊 AI tagging
+    if (postsNeedTagging && postsNeedTagging.length > 0) {
+      const queueItems = postsNeedTagging.map((post) => ({
+        workspace_threads_account_id: accountId,
+        post_id: post.id,
+        status: 'pending',
+      }));
+
+      // ON CONFLICT DO NOTHING 避免重複入隊
+      const { error: queueError } = await serviceClient
+        .from('ai_tag_queue')
+        .upsert(queueItems, {
+          onConflict: 'post_id',
+          ignoreDuplicates: true,
+        });
+
+      if (queueError) {
+        console.error('Failed to enqueue AI tagging:', queueError);
+      } else {
+        enqueueCount = postsNeedTagging.length;
+      }
+    }
   }
 
   return {
     synced_count: normalizedPosts.length,
+    enqueue_count: enqueueCount,
     posts: normalizedPosts.map((p) => ({
       threads_post_id: p.threads_post_id,
       text: p.text,

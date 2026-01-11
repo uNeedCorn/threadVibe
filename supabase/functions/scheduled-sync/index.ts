@@ -41,6 +41,7 @@ interface AccountSyncResult {
   account_id: string;
   username: string;
   posts_synced: number;
+  posts_enqueued: number;
   metrics_success: number;
   metrics_error: number;
   insights_synced: boolean;
@@ -147,6 +148,7 @@ Deno.serve(async (req) => {
             account_id: account.id,
             username: account.username,
             posts_synced: 0,
+            posts_enqueued: 0,
             metrics_success: 0,
             metrics_error: 0,
             insights_synced: false,
@@ -166,6 +168,7 @@ Deno.serve(async (req) => {
               50
             );
             result.posts_synced = postsResult.synced_count;
+            result.posts_enqueued = postsResult.enqueue_count;
 
             // 記錄單一帳號的貼文同步到 sync_logs
             await serviceClient.from('sync_logs').insert({
@@ -173,7 +176,7 @@ Deno.serve(async (req) => {
               job_type: 'sync_posts',
               status: 'completed',
               completed_at: new Date().toISOString(),
-              metadata: { synced_count: postsResult.synced_count },
+              metadata: { synced_count: postsResult.synced_count, enqueue_count: postsResult.enqueue_count },
             });
 
             // 2. 同步貼文成效（三層式）

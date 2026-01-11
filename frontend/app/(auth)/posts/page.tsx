@@ -151,6 +151,8 @@ export default function PostsPage() {
         quote_rate,
         virality_score,
         last_metrics_sync_at,
+        ai_suggested_tags,
+        ai_selected_tags,
         workspace_threads_accounts!inner (
           id,
           username,
@@ -250,6 +252,8 @@ export default function PostsPage() {
         metrics_updated_at: post.last_metrics_sync_at,
         trend: trendMap.get(post.id),
         tags,
+        ai_suggested_tags: post.ai_suggested_tags,
+        ai_selected_tags: post.ai_selected_tags,
         account: {
           id: accountData?.id || "",
           username: accountData?.username || "",
@@ -351,6 +355,49 @@ export default function PostsPage() {
     return newTag;
   };
 
+  // 處理 AI 標籤選擇
+  const handleAiTagSelect = async (postId: string, dimension: string, tag: string, selected: boolean) => {
+    const supabase = createClient();
+
+    // 取得目前貼文的 ai_selected_tags
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    const currentSelected = post.ai_selected_tags || {};
+    const dimTags = currentSelected[dimension as keyof typeof currentSelected] || [];
+
+    // 更新標籤
+    let newDimTags: string[];
+    if (selected) {
+      newDimTags = [...dimTags, tag];
+    } else {
+      newDimTags = dimTags.filter(t => t !== tag);
+    }
+
+    const newSelectedTags = {
+      ...currentSelected,
+      [dimension]: newDimTags,
+    };
+
+    // 更新資料庫
+    const { error } = await supabase
+      .from("workspace_threads_posts")
+      .update({ ai_selected_tags: newSelectedTags })
+      .eq("id", postId);
+
+    if (error) {
+      console.error("Error updating ai_selected_tags:", error);
+      return;
+    }
+
+    // 更新本地狀態
+    setPosts(prev =>
+      prev.map(p =>
+        p.id === postId ? { ...p, ai_selected_tags: newSelectedTags } : p
+      )
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -387,6 +434,7 @@ export default function PostsPage() {
           accountTags={accountTags}
           onCreateTag={handleCreateTag}
           onPostTagsChange={handlePostTagsChange}
+          onAiTagSelect={handleAiTagSelect}
         />
       )}
 
