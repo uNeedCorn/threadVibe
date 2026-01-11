@@ -40,7 +40,8 @@ CREATE TABLE workspace_threads_account_insights (
   likes_count_7d                INTEGER NOT NULL DEFAULT 0,
   views_count_7d                INTEGER NOT NULL DEFAULT 0,
   demographics                  JSONB,
-  captured_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  captured_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  sync_batch_at                 TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 
@@ -54,7 +55,17 @@ CREATE TABLE workspace_threads_account_insights (
 |------|------|----------|------|
 | `id` | UUID | NO | 主鍵 |
 | `workspace_threads_account_id` | UUID | NO | 所屬帳號 (FK) |
-| `captured_at` | TIMESTAMPTZ | NO | 快照時間 |
+| `captured_at` | TIMESTAMPTZ | NO | 實際寫入時間（技術用） |
+| `sync_batch_at` | TIMESTAMPTZ | NO | 排程批次時間（業務用，對齊到 15 分鐘） |
+
+### sync_batch_at vs captured_at
+
+| 欄位 | 用途 | 範例 |
+|------|------|------|
+| `captured_at` | 記錄實際寫入時間，用於除錯 | `2026-01-11 13:15:45.123` |
+| `sync_batch_at` | 記錄排程邏輯時間，用於趨勢查詢 | `2026-01-11 13:15:00` |
+
+> 詳細設計請參考 [ADR-001: 同步批次時間戳](../../decisions/001-sync-batch-timestamp.md)
 
 ### Insights 數值
 

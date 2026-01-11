@@ -4,17 +4,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export interface PostsFiltersValue {
   timeRange: string;
-  accountId: string;
   mediaType: string;
 }
 
 interface PostsFiltersProps {
   filters: PostsFiltersValue;
   onFiltersChange: (filters: PostsFiltersValue) => void;
-  accounts: { id: string; username: string }[];
 }
 
-export function PostsFilters({ filters, onFiltersChange, accounts }: PostsFiltersProps) {
+export function PostsFilters({ filters, onFiltersChange }: PostsFiltersProps) {
   const handleChange = (key: keyof PostsFiltersValue, value: string) => {
     onFiltersChange({ ...filters, [key]: value });
   };
@@ -33,23 +31,6 @@ export function PostsFilters({ filters, onFiltersChange, accounts }: PostsFilter
           <SelectItem value="all">全部時間</SelectItem>
         </SelectContent>
       </Select>
-
-      {/* 帳號篩選 */}
-      {accounts.length > 1 && (
-        <Select value={filters.accountId} onValueChange={(v) => handleChange("accountId", v)}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="所有帳號" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">所有帳號</SelectItem>
-            {accounts.map((account) => (
-              <SelectItem key={account.id} value={account.id}>
-                @{account.username}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
 
       {/* 媒體類型 */}
       <Select value={filters.mediaType} onValueChange={(v) => handleChange("mediaType", v)}>

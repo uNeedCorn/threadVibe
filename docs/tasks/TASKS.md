@@ -4,7 +4,130 @@
 
 ## 進行中
 
-<!-- 進行中的任務放這裡 -->
+### ARCH-01：資料保留與 Rollup 策略實作 [深夜]
+
+**目標：** 實作 ADR-002 定義的分層資料保留與 Rollup 機制
+
+**背景：** 參考 [ADR-002: 資料保留與 Rollup 策略](../decisions/002-data-retention-rollup-strategy.md)
+
+**過渡策略：** 採用雙寫模式（Dual-Write），確保平滑過渡
+
+---
+
+**Phase 1：資料表建立** `可獨立執行，不影響現有系統` ✅ 完成
+
+- [x] 建立 `workspace_threads_post_metrics_15m` 表
+- [x] 建立 `workspace_threads_post_metrics_hourly` 表
+- [x] 建立 `workspace_threads_post_metrics_daily` 表
+- [x] 建立 `workspace_threads_account_insights_15m` 表
+- [x] 建立 `workspace_threads_account_insights_hourly` 表
+- [x] 建立 `workspace_threads_account_insights_daily` 表
+- [x] 建立各表索引
+- [x] 設定 RLS 政策
+
+> Migration: `20260111100001_add_tiered_metrics_tables.sql`
+
+---
+
+**Phase 2a：同步邏輯修改 - 雙寫模式** `同時寫入新舊表` ✅ 完成
+
+- [x] 新增 `getSyncFrequency()` 函數（依貼文年齡決定同步頻率）
+- [x] 新增 `getTargetTable()` 函數（依貼文年齡決定寫入目標）
+- [x] 修改 `sync-metrics`：
+  - 維持寫入舊表（不變）
+  - 新增寫入分層表邏輯
+- [x] 修改 `sync-account-insights`：
+  - 維持寫入舊表（不變）
+  - 新增寫入分層表邏輯
+
+> 新增檔案: `_shared/tiered-storage.ts`
+> 修改檔案: `_shared/sync.ts`
+
+---
+
+**Phase 3：Rollup Jobs** `可與 Phase 2a 並行開發` ✅ 完成
+
+- [x] 建立 `hourly_rollup` Edge Function
+  - 每小時 :05 分執行
+  - 15m → hourly rollup（取最後一筆）
+- [x] 建立 `daily_rollup` Edge Function
+  - 每日 01:00 UTC 執行
+  - hourly → daily rollup（取最後一筆）
+- [x] 設定 pg_cron 排程
+
+> Edge Functions: `hourly-rollup/index.ts`, `daily-rollup/index.ts`
+> Migration: `20260111100002_add_rollup_cron_jobs.sql`
+
+---
+
+**Phase 4：Cleanup Jobs** `可與 Phase 2a 並行開發` ✅ 完成
+
+- [x] 建立 `metrics-cleanup` 統一清理函數
+  - Post Metrics 15m：168h（系統保留，用戶存取 72h）
+  - Post Metrics hourly：90 天
+  - Post Metrics daily：365 天
+  - Account Insights 15m：168h
+  - Account Insights hourly：30 天
+  - Account Insights daily：365 天
+- [x] 設定 pg_cron 排程（每日 UTC 05:00）
+
+> Edge Function: `metrics-cleanup/index.ts`
+> Migration: `20260111100003_add_cleanup_cron_job.sql`
+> 注意：15m 多保留 96h 作為系統緩衝，用於異常回滾
+
+---
+
+**驗證期（1-3 天）** `確認新表資料正確`
+
+- [ ] 比對新舊表數據一致性
+- [ ] 驗證 Rollup 結果正確
+- [ ] 監控同步效能
+
+---
+
+**Phase 5：前端切換** `驗證通過後執行`
+
+- [ ] 修改趨勢圖查詢（根據時間範圍選擇對應粒度表）
+- [ ] 新增 API 層方案存取控制
+- [ ] 測試前端功能正常
+
+---
+
+**Phase 2b：停止雙寫** `前端切換成功後執行`
+
+- [ ] 移除 `sync-metrics` 寫入舊表的邏輯
+- [ ] 移除 `sync-account-insights` 寫入舊表的邏輯
+- [ ] 修改 `scheduled-sync` 排程邏輯（依頻率分組）
+
+---
+
+**Phase 6：Legacy 處理**
+
+- [ ] 標記現有 `workspace_threads_post_metrics` 為 legacy
+- [ ] 標記現有 `workspace_threads_account_insights` 為 legacy
+- [ ] 更新文件
+
+---
+
+**回滾計劃：**
+
+若新表出現問題：
+1. 前端切回讀取舊表
+2. 停止寫入新表
+3. 修復問題後重新開始
+
+**驗收標準：**
+
+1. 雙寫期間：新舊表數據一致
+2. 新貼文（72h 內）每 15 分鐘同步，寫入 15m 表
+3. 舊貼文依年齡降頻同步，寫入對應粒度表
+4. Rollup Job 正確產生 hourly/daily 資料
+5. Cleanup Job 正確清除過期資料
+6. 前端趨勢圖正常顯示
+
+**相關文件：**
+- [ADR-002](../decisions/002-data-retention-rollup-strategy.md)
+- [schema-overview.md](../03-database/schema-overview.md)
 
 ---
 

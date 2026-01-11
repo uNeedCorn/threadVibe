@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, FileText, BarChart3, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { featureFlags } from "@/lib/feature-flags";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { WorkspaceSwitcher } from "./workspace-switcher";
+import { ThreadsAccountSwitcher } from "./threads-account-switcher";
 
 const navItems = [
   {
@@ -26,6 +29,10 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { isAdmin } = useCurrentUser();
+
+  // 顯示 Workspace 切換器的條件：團隊模式 或 管理員
+  const showWorkspaceSwitcher = featureFlags.workspaceTeamMode || isAdmin;
 
   return (
     <aside className="flex h-screen w-64 flex-col border-r bg-card">
@@ -53,8 +60,11 @@ export function Sidebar() {
         <span className="text-lg font-semibold">ThreadsVibe</span>
       </div>
 
-      {/* Workspace Switcher */}
-      <WorkspaceSwitcher />
+      {/* Workspace Switcher - 團隊模式或管理員可見 */}
+      {showWorkspaceSwitcher && <WorkspaceSwitcher isAdmin={isAdmin} />}
+
+      {/* Threads Account Switcher */}
+      <ThreadsAccountSwitcher />
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-4">

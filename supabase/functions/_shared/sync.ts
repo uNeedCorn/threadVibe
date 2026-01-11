@@ -1,10 +1,21 @@
 /**
  * 共用同步模組
  * 確保手動同步與排程同步使用相同邏輯
+ *
+ * ADR-002: 資料保留與 Rollup 策略
+ * - 雙寫模式：同時寫入舊表（legacy）和新分層表
+ * - 新分層表：15m / hourly / daily
  */
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { ThreadsApiClient } from './threads-api.ts';
+import {
+  getPostMetricsTargetTable,
+  getAccountInsightsTargetTable,
+  getBucketValue,
+  shouldSyncPost,
+  getSyncFrequency,
+} from './tiered-storage.ts';
 
 // ============================================
 // Types
@@ -90,12 +101,15 @@ export async function syncMetricsForAccount(
   serviceClient: SupabaseClient,
   accountId: string,
   threadsClient: ThreadsApiClient,
-  now: string
+  now: string,
+  syncBatchAt: string
 ): Promise<SyncMetricsResult> {
-  // 取得該帳號所有貼文
+  const nowDate = new Date(now);
+
+  // 取得該帳號所有貼文（含 published_at 用於判斷同步頻率）
   const { data: posts } = await serviceClient
     .from('workspace_threads_posts')
-    .select('id, threads_post_id')
+    .select('id, threads_post_id, published_at, last_metrics_sync_at')
     .eq('workspace_threads_account_id', accountId);
 
   if (!posts || posts.length === 0) {
@@ -107,6 +121,19 @@ export async function syncMetricsForAccount(
 
   for (const post of posts) {
     try {
+      // 0. 檢查是否需要同步（根據貼文生命週期）
+      const syncFrequency = getSyncFrequency(post.published_at, nowDate);
+      if (syncFrequency === 'skip') {
+        console.log(`Skipping post ${post.id}: older than 365 days`);
+        continue;
+      }
+
+      // 檢查是否已達同步間隔
+      if (!shouldSyncPost(post.published_at, post.last_metrics_sync_at, nowDate)) {
+        console.log(`Skipping post ${post.id}: not yet due for ${syncFrequency} sync`);
+        continue;
+      }
+
       // 1. 從 Threads API 取得成效
       const insights = await threadsClient.getPostInsights(post.threads_post_id);
       const metrics: Metrics = {
@@ -130,7 +157,7 @@ export async function syncMetricsForAccount(
       // 3. 計算比率指標
       const rates = calculateRates(metrics);
 
-      // 4. Layer 1: 寫入 Snapshot（不可變，含比率指標）
+      // 4. Layer 1: 寫入 Snapshot（不可變，含比率指標）- Legacy 表
       await serviceClient
         .from('workspace_threads_post_metrics')
         .insert({
@@ -142,6 +169,50 @@ export async function syncMetricsForAccount(
           quote_rate: rates.quoteRate,
           virality_score: rates.viralityScore,
           captured_at: now,
+          sync_batch_at: syncBatchAt,
+        });
+
+      // 4b. 雙寫：寫入新分層表（ADR-002）
+      // 同時寫入 15m + hourly + daily，讓用戶即時看到當前數據
+      // Rollup Job 會在 :05 和 01:00 確保資料正確性
+      const bucket15m = getBucketValue('workspace_threads_post_metrics_15m', now);
+      const bucketHourly = getBucketValue('workspace_threads_post_metrics_hourly', now);
+      const bucketDaily = getBucketValue('workspace_threads_post_metrics_daily', now);
+
+      // 寫入 15m 表
+      await serviceClient
+        .from('workspace_threads_post_metrics_15m')
+        .upsert({
+          workspace_threads_post_id: post.id,
+          ...metrics,
+          ...bucket15m,
+          captured_at: now,
+        }, {
+          onConflict: 'workspace_threads_post_id,bucket_ts',
+        });
+
+      // 寫入 hourly 表（即時更新當前小時）
+      await serviceClient
+        .from('workspace_threads_post_metrics_hourly')
+        .upsert({
+          workspace_threads_post_id: post.id,
+          ...metrics,
+          ...bucketHourly,
+          captured_at: now,
+        }, {
+          onConflict: 'workspace_threads_post_id,bucket_ts',
+        });
+
+      // 寫入 daily 表（即時更新當天）
+      await serviceClient
+        .from('workspace_threads_post_metrics_daily')
+        .upsert({
+          workspace_threads_post_id: post.id,
+          ...metrics,
+          ...bucketDaily,
+          captured_at: now,
+        }, {
+          onConflict: 'workspace_threads_post_id,bucket_date',
         });
 
       // 5. Layer 2: 計算並寫入 Delta
@@ -159,6 +230,7 @@ export async function syncMetricsForAccount(
             quotes_delta: metrics.quotes - prevSnapshot.quotes,
             shares_delta: metrics.shares - prevSnapshot.shares,
             is_recalculated: false,
+            sync_batch_at: syncBatchAt,
           });
       }
 
@@ -178,6 +250,7 @@ export async function syncMetricsForAccount(
           quote_rate: rates.quoteRate,
           virality_score: rates.viralityScore,
           last_metrics_sync_at: now,
+          last_sync_batch_at: syncBatchAt,
         })
         .eq('id', post.id);
 
@@ -199,7 +272,8 @@ export async function syncAccountInsightsForAccount(
   serviceClient: SupabaseClient,
   accountId: string,
   threadsClient: ThreadsApiClient,
-  now: string
+  now: string,
+  syncBatchAt: string
 ): Promise<SyncAccountInsightsResult> {
   // 從 Threads API 取得 Insights
   // 注意：Threads API 使用者層級只支援 views 和 followers_count
@@ -223,7 +297,7 @@ export async function syncAccountInsightsForAccount(
     .limit(1)
     .single();
 
-  // Layer 1: 寫入 Snapshot（不可變）
+  // Layer 1: 寫入 Snapshot（不可變）- Legacy 表
   await serviceClient
     .from('workspace_threads_account_insights')
     .insert({
@@ -233,6 +307,59 @@ export async function syncAccountInsightsForAccount(
       likes_count_7d: insights.likes_count_7d,
       views_count_7d: insights.views_count_7d,
       captured_at: now,
+      sync_batch_at: syncBatchAt,
+    });
+
+  // Layer 1b: 雙寫：寫入新分層表（ADR-002）
+  // 同時寫入 15m + hourly + daily，讓用戶即時看到當前數據
+  // Rollup Job 會在 :05 和 01:00 確保資料正確性
+  const bucket15m = getBucketValue('workspace_threads_account_insights_15m', now);
+  const bucketHourly = getBucketValue('workspace_threads_account_insights_hourly', now);
+  const bucketDaily = getBucketValue('workspace_threads_account_insights_daily', now);
+
+  // 寫入 15m 表
+  await serviceClient
+    .from('workspace_threads_account_insights_15m')
+    .upsert({
+      workspace_threads_account_id: accountId,
+      followers_count: insights.followers_count,
+      profile_views: insights.profile_views,
+      likes_count_7d: insights.likes_count_7d,
+      views_count_7d: insights.views_count_7d,
+      ...bucket15m,
+      captured_at: now,
+    }, {
+      onConflict: 'workspace_threads_account_id,bucket_ts',
+    });
+
+  // 寫入 hourly 表（即時更新當前小時）
+  await serviceClient
+    .from('workspace_threads_account_insights_hourly')
+    .upsert({
+      workspace_threads_account_id: accountId,
+      followers_count: insights.followers_count,
+      profile_views: insights.profile_views,
+      likes_count_7d: insights.likes_count_7d,
+      views_count_7d: insights.views_count_7d,
+      ...bucketHourly,
+      captured_at: now,
+    }, {
+      onConflict: 'workspace_threads_account_id,bucket_ts',
+    });
+
+  // 寫入 daily 表（即時更新當天）
+  await serviceClient
+    .from('workspace_threads_account_insights_daily')
+    .upsert({
+      workspace_threads_account_id: accountId,
+      followers_count: insights.followers_count,
+      profile_views: insights.profile_views,
+      likes_count_7d: insights.likes_count_7d,
+      views_count_7d: insights.views_count_7d,
+      ...bucketDaily,
+      captured_at: now,
+    }, {
+      onConflict: 'workspace_threads_account_id,bucket_date',
     });
 
   // Layer 2: 計算並寫入 Delta
@@ -248,6 +375,7 @@ export async function syncAccountInsightsForAccount(
         likes_count_7d_delta: insights.likes_count_7d - prevSnapshot.likes_count_7d,
         views_count_7d_delta: insights.views_count_7d - prevSnapshot.views_count_7d,
         is_recalculated: false,
+        sync_batch_at: syncBatchAt,
       });
   }
 
@@ -260,6 +388,7 @@ export async function syncAccountInsightsForAccount(
       current_likes_count_7d: insights.likes_count_7d,
       current_views_count_7d: insights.views_count_7d,
       last_insights_sync_at: now,
+      last_sync_batch_at: syncBatchAt,
     })
     .eq('id', accountId);
 

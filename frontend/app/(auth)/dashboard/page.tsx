@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Users, TrendingUp, FileText, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSelectedAccount } from "@/hooks/use-selected-account";
 import {
   KPICard,
   TrendChart,
@@ -33,8 +33,8 @@ interface KPIData {
 }
 
 export default function DashboardPage() {
-  const [accounts, setAccounts] = useState<ThreadsAccount[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
+  const { selectedAccountId, isLoading: isAccountLoading } = useSelectedAccount();
+  const [account, setAccount] = useState<ThreadsAccount | null>(null);
   const [kpiData, setKpiData] = useState<KPIData>({
     totalFollowers: 0,
     previousFollowers: 0,
@@ -51,173 +51,142 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasNoAccounts, setHasNoAccounts] = useState(false);
 
-  // 取得帳號列表 & 載入所有資料
   useEffect(() => {
-    async function loadDashboardData() {
-      const supabase = createClient();
-      const workspaceId = localStorage.getItem("currentWorkspaceId");
+    if (isAccountLoading) return;
 
-      if (!workspaceId) {
-        setIsLoading(false);
-        setHasNoAccounts(true);
+    async function loadDashboardData() {
+      setIsLoading(true);
+      const supabase = createClient();
+
+      if (!selectedAccountId) {
+        // 沒有選擇帳號，嘗試取得第一個帳號
+        const workspaceId = localStorage.getItem("currentWorkspaceId");
+        if (!workspaceId) {
+          setIsLoading(false);
+          setHasNoAccounts(true);
+          return;
+        }
+
+        const { data: accounts } = await supabase
+          .from("workspace_threads_accounts")
+          .select("id")
+          .eq("workspace_id", workspaceId)
+          .eq("is_active", true)
+          .limit(1);
+
+        if (!accounts || accounts.length === 0) {
+          setIsLoading(false);
+          setHasNoAccounts(true);
+          return;
+        }
+
+        // 設定第一個帳號並存入 localStorage
+        localStorage.setItem("currentThreadsAccountId", accounts[0].id);
+        window.dispatchEvent(new Event("storage"));
         return;
       }
 
-      // 1. 取得帳號列表
-      const { data: accountsData, error: accountsError } = await supabase
+      // 1. 取得帳號資料
+      const { data: accountData } = await supabase
         .from("workspace_threads_accounts")
         .select("id, username, profile_pic_url, current_followers_count")
-        .eq("workspace_id", workspaceId)
-        .order("created_at", { ascending: true });
+        .eq("id", selectedAccountId)
+        .single();
 
-      const accountsList: ThreadsAccount[] = (accountsData || []).map((a) => ({
-        id: a.id,
-        username: a.username,
-        profilePicUrl: a.profile_pic_url,
-        currentFollowers: a.current_followers_count || 0,
-      }));
-
-      setAccounts(accountsList);
-
-      if (accountsList.length === 0) {
+      if (!accountData) {
         setIsLoading(false);
         setHasNoAccounts(true);
         return;
       }
+
+      const currentAccount: ThreadsAccount = {
+        id: accountData.id,
+        username: accountData.username,
+        profilePicUrl: accountData.profile_pic_url,
+        currentFollowers: accountData.current_followers_count || 0,
+      };
+      setAccount(currentAccount);
 
       // 2. 並行載入所有資料
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
-      // KPI 資料
-      const totalFollowers = accountsList.reduce((sum, a) => sum + a.currentFollowers, 0);
-
       try {
-      const [currentPostsRes, previousPostsRes, topPostsRes, recentPostsRes] = await Promise.all([
-        // 當週貼文
-        supabase
-          .from("workspace_threads_posts")
-          .select(`
-            id,
-            current_views,
-            current_likes,
-            current_replies,
-            current_reposts,
-            current_quotes,
-            workspace_threads_accounts!inner (workspace_id)
-          `)
-          .eq("workspace_threads_accounts.workspace_id", workspaceId)
-          .gte("published_at", sevenDaysAgo.toISOString()),
+        const [currentPostsRes, previousPostsRes, topPostsRes, recentPostsRes] = await Promise.all([
+          // 當週貼文
+          supabase
+            .from("workspace_threads_posts")
+            .select("id, current_views, current_likes, current_replies, current_reposts, current_quotes")
+            .eq("workspace_threads_account_id", selectedAccountId)
+            .gte("published_at", sevenDaysAgo.toISOString()),
 
-        // 上週貼文
-        supabase
-          .from("workspace_threads_posts")
-          .select(`
-            id,
-            current_views,
-            current_likes,
-            current_replies,
-            current_reposts,
-            current_quotes,
-            workspace_threads_accounts!inner (workspace_id)
-          `)
-          .eq("workspace_threads_accounts.workspace_id", workspaceId)
-          .gte("published_at", fourteenDaysAgo.toISOString())
-          .lt("published_at", sevenDaysAgo.toISOString()),
+          // 上週貼文
+          supabase
+            .from("workspace_threads_posts")
+            .select("id, current_views, current_likes, current_replies, current_reposts, current_quotes")
+            .eq("workspace_threads_account_id", selectedAccountId)
+            .gte("published_at", fourteenDaysAgo.toISOString())
+            .lt("published_at", sevenDaysAgo.toISOString()),
 
-        // 熱門貼文
-        supabase
-          .from("workspace_threads_posts")
-          .select(`
-            id,
-            text,
-            permalink,
-            published_at,
-            current_views,
-            current_likes,
-            current_replies,
-            workspace_threads_accounts!inner (
-              id,
-              username,
-              profile_pic_url,
-              workspace_id
-            )
-          `)
-          .eq("workspace_threads_accounts.workspace_id", workspaceId)
-          .order("current_views", { ascending: false })
-          .limit(5),
+          // 熱門貼文
+          supabase
+            .from("workspace_threads_posts")
+            .select("id, text, permalink, published_at, current_views, current_likes, current_replies")
+            .eq("workspace_threads_account_id", selectedAccountId)
+            .order("current_views", { ascending: false })
+            .limit(5),
 
-        // 最新貼文
-        supabase
-          .from("workspace_threads_posts")
-          .select(`
-            id,
-            text,
-            media_type,
-            permalink,
-            published_at,
-            workspace_threads_accounts!inner (
-              id,
-              username,
-              profile_pic_url,
-              workspace_id
-            )
-          `)
-          .eq("workspace_threads_accounts.workspace_id", workspaceId)
-          .order("published_at", { ascending: false })
-          .limit(5),
-      ]);
+          // 最新貼文
+          supabase
+            .from("workspace_threads_posts")
+            .select("id, text, media_type, permalink, published_at")
+            .eq("workspace_threads_account_id", selectedAccountId)
+            .order("published_at", { ascending: false })
+            .limit(5),
+        ]);
 
-      // 計算 KPI
-      const currentPosts = currentPostsRes.data || [];
-      const previousPosts = previousPostsRes.data || [];
+        // 計算 KPI
+        const currentPosts = currentPostsRes.data || [];
+        const previousPosts = previousPostsRes.data || [];
 
-      const currentViews = currentPosts.reduce((sum, p) => sum + (p.current_views || 0), 0);
-      const previousViews = previousPosts.reduce((sum, p) => sum + (p.current_views || 0), 0);
+        const currentViews = currentPosts.reduce((sum, p) => sum + (p.current_views || 0), 0);
+        const previousViews = previousPosts.reduce((sum, p) => sum + (p.current_views || 0), 0);
 
-      const currentInteractions = currentPosts.reduce(
-        (sum, p) =>
-          sum +
-          (p.current_likes || 0) +
-          (p.current_replies || 0) +
-          (p.current_reposts || 0) +
-          (p.current_quotes || 0),
-        0
-      );
-      const previousInteractions = previousPosts.reduce(
-        (sum, p) =>
-          sum +
-          (p.current_likes || 0) +
-          (p.current_replies || 0) +
-          (p.current_reposts || 0) +
-          (p.current_quotes || 0),
-        0
-      );
+        const currentInteractions = currentPosts.reduce(
+          (sum, p) =>
+            sum +
+            (p.current_likes || 0) +
+            (p.current_replies || 0) +
+            (p.current_reposts || 0) +
+            (p.current_quotes || 0),
+          0
+        );
+        const previousInteractions = previousPosts.reduce(
+          (sum, p) =>
+            sum +
+            (p.current_likes || 0) +
+            (p.current_replies || 0) +
+            (p.current_reposts || 0) +
+            (p.current_quotes || 0),
+          0
+        );
 
-      setKpiData({
-        totalFollowers,
-        previousFollowers: totalFollowers,
-        totalViews: currentViews,
-        previousViews,
-        totalPosts: currentPosts.length,
-        previousPosts: previousPosts.length,
-        totalInteractions: currentInteractions,
-        previousInteractions,
-      });
+        setKpiData({
+          totalFollowers: currentAccount.currentFollowers,
+          previousFollowers: currentAccount.currentFollowers,
+          totalViews: currentViews,
+          previousViews,
+          totalPosts: currentPosts.length,
+          previousPosts: previousPosts.length,
+          totalInteractions: currentInteractions,
+          previousInteractions,
+        });
 
-      // 處理熱門貼文
-      type AccountData = {
-        id: string;
-        username: string;
-        profile_pic_url: string | null;
-      };
-
-      if (topPostsRes.data) {
-        setTopPosts(
-          topPostsRes.data.map((p) => {
-            const accountData = p.workspace_threads_accounts as unknown as AccountData;
-            return {
+        // 處理熱門貼文
+        if (topPostsRes.data) {
+          setTopPosts(
+            topPostsRes.data.map((p) => ({
               id: p.id,
               text: p.text,
               permalink: p.permalink,
@@ -226,81 +195,67 @@ export default function DashboardPage() {
               likes: p.current_likes || 0,
               replies: p.current_replies || 0,
               account: {
-                id: accountData?.id || "",
-                username: accountData?.username || "",
-                profilePicUrl: accountData?.profile_pic_url || null,
+                id: currentAccount.id,
+                username: currentAccount.username,
+                profilePicUrl: currentAccount.profilePicUrl,
               },
-            };
-          })
-        );
-      }
+            }))
+          );
+        }
 
-      // 處理最新貼文
-      if (recentPostsRes.data) {
-        setRecentPosts(
-          recentPostsRes.data.map((p) => {
-            const accountData = p.workspace_threads_accounts as unknown as AccountData;
-            return {
+        // 處理最新貼文
+        if (recentPostsRes.data) {
+          setRecentPosts(
+            recentPostsRes.data.map((p) => ({
               id: p.id,
               text: p.text,
               mediaType: p.media_type,
               permalink: p.permalink,
               publishedAt: p.published_at,
               account: {
-                id: accountData?.id || "",
-                username: accountData?.username || "",
-                profilePicUrl: accountData?.profile_pic_url || null,
+                id: currentAccount.id,
+                username: currentAccount.username,
+                profilePicUrl: currentAccount.profilePicUrl,
               },
-            };
-          })
-        );
-      }
+            }))
+          );
+        }
 
-      // 趨勢資料（過去 7 天，每日匯總）
-      const trendPromises = accountsList.map(async (account) => {
-        const { data } = await supabase
+        // 趨勢資料（過去 7 天，每日匯總）
+        const { data: trendPosts } = await supabase
           .from("workspace_threads_posts")
           .select("published_at, current_views")
-          .eq("workspace_threads_account_id", account.id)
+          .eq("workspace_threads_account_id", selectedAccountId)
           .gte("published_at", sevenDaysAgo.toISOString())
           .order("published_at", { ascending: true });
 
-        return { accountId: account.id, posts: data || [] };
-      });
+        // 建立日期對應表
+        const dateMap = new Map<string, number>();
+        for (let i = 0; i < 7; i++) {
+          const date = new Date();
+          date.setDate(date.getDate() - (6 - i));
+          const dateStr = date.toISOString().split("T")[0];
+          dateMap.set(dateStr, 0);
+        }
 
-      const trendResults = await Promise.all(trendPromises);
-
-      // 建立日期對應表
-      const dateMap = new Map<string, Record<string, number>>();
-      for (let i = 0; i < 7; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() - (6 - i));
-        const dateStr = date.toISOString().split("T")[0];
-        dateMap.set(dateStr, {});
-      }
-
-      // 填入各帳號數據
-      trendResults.forEach(({ accountId, posts }) => {
-        posts.forEach((post) => {
+        // 填入數據
+        (trendPosts || []).forEach((post) => {
           const dateStr = post.published_at.split("T")[0];
-          const dayData = dateMap.get(dateStr);
-          if (dayData) {
-            dayData[accountId] = (dayData[accountId] || 0) + (post.current_views || 0);
+          if (dateMap.has(dateStr)) {
+            dateMap.set(dateStr, (dateMap.get(dateStr) || 0) + (post.current_views || 0));
           }
         });
-      });
 
-      // 轉換為陣列
-      const trendArray: TrendDataPoint[] = [];
-      dateMap.forEach((values, date) => {
-        const point: TrendDataPoint = { date };
-        accountsList.forEach((account) => {
-          point[account.id] = values[account.id] || 0;
+        // 轉換為陣列
+        const trendArray: TrendDataPoint[] = [];
+        dateMap.forEach((views, date) => {
+          trendArray.push({
+            date,
+            [selectedAccountId]: views,
+          });
         });
-        trendArray.push(point);
-      });
 
-      setTrendData(trendArray);
+        setTrendData(trendArray);
       } catch (error) {
         console.error("[Dashboard] Error loading data:", error);
       } finally {
@@ -309,21 +264,7 @@ export default function DashboardPage() {
     }
 
     loadDashboardData();
-  }, []);
-
-  const handleTabChange = (value: string) => {
-    setSelectedAccountId(value);
-  };
-
-  // 根據選擇的帳號篩選資料
-  const filteredTopPosts = selectedAccountId === "all"
-    ? topPosts
-    : topPosts.filter((p) => p.account.id === selectedAccountId);
-
-  const filteredTrendData = trendData;
-  const displayAccounts = selectedAccountId === "all"
-    ? accounts
-    : accounts.filter((a) => a.id === selectedAccountId);
+  }, [selectedAccountId, isAccountLoading]);
 
   return (
     <div className="space-y-6">
@@ -375,42 +316,28 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* 帳號切換 Tabs */}
-      {accounts.length > 0 && (
-        <Tabs value={selectedAccountId} onValueChange={handleTabChange}>
-          <TabsList>
-            <TabsTrigger value="all">全部帳號</TabsTrigger>
-            {accounts.map((account) => (
-              <TabsTrigger key={account.id} value={account.id}>
-                @{account.username}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+      {/* 趨勢圖表 */}
+      {account && (
+        <TrendChart
+          title="觀看數趨勢"
+          data={trendData}
+          accounts={[account]}
+          selectedAccountId={selectedAccountId}
+          isLoading={isLoading}
+        />
+      )}
 
-          <TabsContent value={selectedAccountId} className="mt-6 space-y-6">
-            {/* 趨勢圖表（全寬） */}
-            <TrendChart
-              title="觀看數趨勢"
-              data={filteredTrendData}
-              accounts={displayAccounts}
-              selectedAccountId={
-                selectedAccountId === "all" ? null : selectedAccountId
-              }
-              isLoading={isLoading}
-            />
-
-            {/* 熱門貼文 */}
-            <TopPosts
-              posts={filteredTopPosts}
-              showAccount={selectedAccountId === "all"}
-              isLoading={isLoading}
-            />
-          </TabsContent>
-        </Tabs>
+      {/* 熱門貼文 */}
+      {account && (
+        <TopPosts
+          posts={topPosts}
+          showAccount={false}
+          isLoading={isLoading}
+        />
       )}
 
       {/* 最新貼文 */}
-      {accounts.length > 0 && (
+      {account && (
         <RecentPosts posts={recentPosts} isLoading={isLoading} />
       )}
     </div>

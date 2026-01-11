@@ -6,6 +6,7 @@ import {
   DangerZoneSection,
 } from "@/components/settings";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { featureFlags } from "@/lib/feature-flags";
 
 function ThreadsAccountsSkeleton() {
   return (
@@ -26,7 +27,11 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-3xl space-y-8">
       <div>
         <h1 className="text-2xl font-bold">設定</h1>
-        <p className="text-muted-foreground">管理你的 Workspace 設定</p>
+        <p className="text-muted-foreground">
+          {featureFlags.workspaceTeamMode
+            ? "管理你的工作區設定"
+            : "管理你的帳號設定"}
+        </p>
       </div>
 
       {/* Threads 帳號管理 */}
@@ -34,14 +39,14 @@ export default function SettingsPage() {
         <ThreadsAccountsSection />
       </Suspense>
 
-      {/* Workspace 設定 */}
-      <WorkspaceSettingsSection />
+      {/* Workspace 設定 - 僅團隊模式顯示 */}
+      {featureFlags.workspaceTeamMode && <WorkspaceSettingsSection />}
 
-      {/* 成員管理 */}
-      <MembersSection />
+      {/* 成員管理 - 僅團隊模式顯示 */}
+      {featureFlags.workspaceTeamMode && <MembersSection />}
 
-      {/* 危險區域 */}
-      <DangerZoneSection />
+      {/* 危險區域 - 僅團隊模式顯示 */}
+      {featureFlags.workspaceTeamMode && <DangerZoneSection />}
     </div>
   );
 }

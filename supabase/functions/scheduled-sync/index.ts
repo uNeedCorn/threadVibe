@@ -25,6 +25,18 @@ const BATCH_SIZE = 5;
 const BATCH_DELAY_MS = 2000;
 const JOB_LOCK_TTL_SECONDS = 30 * 60;
 
+/**
+ * 計算同步批次時間（對齊到 15 分鐘區間）
+ * 例如：13:17:45 → 13:15:00
+ */
+function calculateSyncBatchAt(date: Date): string {
+  const minutes = date.getMinutes();
+  const alignedMinutes = Math.floor(minutes / 15) * 15;
+  const aligned = new Date(date);
+  aligned.setMinutes(alignedMinutes, 0, 0);
+  return aligned.toISOString();
+}
+
 interface AccountSyncResult {
   account_id: string;
   username: string;
@@ -125,6 +137,9 @@ Deno.serve(async (req) => {
     // 批次處理帳號
     for (let i = 0; i < accounts.length; i += BATCH_SIZE) {
       const batch = accounts.slice(i, i + BATCH_SIZE);
+      // 計算此批次的同步批次時間（對齊到 15 分鐘）
+      const batchStartTime = new Date();
+      const syncBatchAt = calculateSyncBatchAt(batchStartTime);
 
       await Promise.all(
         batch.map(async (account) => {
@@ -166,7 +181,8 @@ Deno.serve(async (req) => {
               serviceClient,
               account.id,
               threadsClient,
-              syncTime
+              syncTime,
+              syncBatchAt
             );
             result.metrics_success = metricsResult.success_count;
             result.metrics_error = metricsResult.error_count;
@@ -185,7 +201,8 @@ Deno.serve(async (req) => {
               serviceClient,
               account.id,
               threadsClient,
-              syncTime
+              syncTime,
+              syncBatchAt
             );
             result.insights_synced = true;
 

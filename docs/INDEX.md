@@ -233,7 +233,8 @@ docs/
 
 | 編號 | 標題 | 狀態 |
 |------|------|------|
-| — | 尚無決策記錄 | — |
+| [ADR-001](decisions/001-sync-batch-timestamp.md) | 同步批次時間戳 (sync_batch_at) | ✅ 已採納 |
+| [ADR-002](decisions/002-data-retention-rollup-strategy.md) | 資料保留與 Rollup 策略 | ✅ 已採納 |
 
 ---
 
