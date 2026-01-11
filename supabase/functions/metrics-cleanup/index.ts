@@ -18,7 +18,10 @@
  */
 
 import { createServiceClient } from '../_shared/supabase.ts';
-import { corsHeaders, handleCors } from '../_shared/cors.ts';
+import { handleCors } from '../_shared/cors.ts';
+import { jsonResponse, errorResponse, unauthorizedResponse } from '../_shared/response.ts';
+
+const CRON_SECRET = Deno.env.get('CRON_SECRET');
 
 // ============================================
 // 保留期設定（小時）
@@ -46,8 +49,14 @@ interface CleanupResult {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return handleCors();
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
+  // 驗證 CRON_SECRET
+  const authHeader = req.headers.get('Authorization');
+  const token = authHeader?.replace('Bearer ', '');
+  if (!CRON_SECRET || token !== CRON_SECRET) {
+    return unauthorizedResponse(req, 'Invalid cron secret');
   }
 
   try {
@@ -218,37 +227,27 @@ Deno.serve(async (req) => {
 
     console.log(`Metrics cleanup completed. Total deleted: ${totalDeleted}, Has errors: ${hasErrors}`);
 
-    return new Response(
-      JSON.stringify({
-        success: !hasErrors,
-        timestamp: now.toISOString(),
-        total_deleted: totalDeleted,
-        result,
-        retention_config: {
-          post_metrics_15m: `${RETENTION.post_metrics_15m}h (user access: 72h)`,
-          post_metrics_hourly: `${RETENTION.post_metrics_hourly / 24} days`,
-          post_metrics_daily: `${RETENTION.post_metrics_daily} days`,
-          account_insights_15m: `${RETENTION.account_insights_15m}h`,
-          account_insights_hourly: `${RETENTION.account_insights_hourly / 24} days`,
-          account_insights_daily: `${RETENTION.account_insights_daily} days`,
-        },
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: hasErrors ? 207 : 200, // 207 Multi-Status if partial success
-      }
-    );
+    return jsonResponse(req, {
+      success: !hasErrors,
+      timestamp: now.toISOString(),
+      total_deleted: totalDeleted,
+      result,
+      retention_config: {
+        post_metrics_15m: `${RETENTION.post_metrics_15m}h (user access: 72h)`,
+        post_metrics_hourly: `${RETENTION.post_metrics_hourly / 24} days`,
+        post_metrics_daily: `${RETENTION.post_metrics_daily} days`,
+        account_insights_15m: `${RETENTION.account_insights_15m}h`,
+        account_insights_hourly: `${RETENTION.account_insights_hourly / 24} days`,
+        account_insights_daily: `${RETENTION.account_insights_daily} days`,
+      },
+    }, hasErrors ? 207 : 200);
   } catch (error) {
     console.error('Metrics cleanup failed:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+    return errorResponse(
+      req,
+      error instanceof Error ? error.message : 'Unknown error',
+      500,
+      'CLEANUP_ERROR'
     );
   }
 });

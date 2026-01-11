@@ -160,6 +160,9 @@ export function getBucketValue(
 
 /**
  * 檢查貼文是否需要同步（根據上次同步時間和同步頻率）
+ *
+ * 注意：加入 5 分鐘容錯，避免因排程器微小時間差導致跳過同步
+ * 例如：上次 07:30:02，本次 07:45:01，時間差 14:59 < 15 分鐘會被跳過
  */
 export function shouldSyncPost(
   publishedAt: Date | string,
@@ -180,15 +183,18 @@ export function shouldSyncPost(
   const diffMs = now.getTime() - lastSync.getTime();
   const diffMinutes = diffMs / (1000 * 60);
 
+  // 5 分鐘容錯
+  const TOLERANCE_MINUTES = 5;
+
   switch (frequency) {
     case '15m':
-      return diffMinutes >= 15;
+      return diffMinutes >= 15 - TOLERANCE_MINUTES; // >= 10 分鐘
     case 'hourly':
-      return diffMinutes >= 60;
+      return diffMinutes >= 60 - TOLERANCE_MINUTES; // >= 55 分鐘
     case 'daily':
-      return diffMinutes >= 24 * 60;
+      return diffMinutes >= 24 * 60 - TOLERANCE_MINUTES; // >= 1435 分鐘
     case 'weekly':
-      return diffMinutes >= 7 * 24 * 60;
+      return diffMinutes >= 7 * 24 * 60 - TOLERANCE_MINUTES; // >= 10075 分鐘
     default:
       return false;
   }

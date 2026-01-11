@@ -171,6 +171,7 @@ docs/
 |------|------|
 | [pages.md](05-frontend/pages.md) | 頁面清單 |
 | [insight-page.md](05-frontend/insight-page.md) | Insight 頁面設計（問題導向） |
+| [insights-overview-dashboard.md](05-frontend/insights-overview-dashboard.md) | Insights 總覽儀表板規格 |
 | [components.md](05-frontend/components.md) | 元件清單 |
 | [ui-guidelines.md](05-frontend/ui-guidelines.md) | UI 開發指引（Square UI） |
 

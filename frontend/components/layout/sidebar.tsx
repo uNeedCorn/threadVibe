@@ -1,19 +1,77 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, BarChart3, Settings, Tags } from "lucide-react";
+import {
+  LayoutDashboard,
+  FileText,
+  BarChart3,
+  Settings,
+  Tags,
+  ChevronRight,
+  TrendingUp,
+  Users,
+  Eye,
+  MessageSquare,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { featureFlags } from "@/lib/feature-flags";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import { ThreadsAccountSwitcher } from "./threads-account-switcher";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
-const navItems = [
+interface NavItem {
+  title: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface NavGroup {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  basePath: string;
+  children: NavItem[];
+}
+
+type NavEntry = NavItem | NavGroup;
+
+const isNavGroup = (item: NavEntry): item is NavGroup => {
+  return "children" in item;
+};
+
+const navItems: NavEntry[] = [
   {
-    title: "總覽",
-    href: "/dashboard",
-    icon: LayoutDashboard,
+    title: "成效洞察",
+    icon: BarChart3,
+    basePath: "/insights",
+    children: [
+      {
+        title: "總覽",
+        href: "/insights",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "曝光分析",
+        href: "/insights/reach",
+        icon: Eye,
+      },
+      {
+        title: "互動分析",
+        href: "/insights/engagement",
+        icon: MessageSquare,
+      },
+      {
+        title: "粉絲趨勢",
+        href: "/insights/followers",
+        icon: Users,
+      },
+    ],
   },
   {
     title: "貼文",
@@ -25,16 +83,27 @@ const navItems = [
     href: "/tags",
     icon: Tags,
   },
-  {
-    title: "數據分析",
-    href: "/insights",
-    icon: BarChart3,
-  },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { isAdmin } = useCurrentUser();
+
+  // 展開狀態：當路徑匹配時自動展開
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  // 根據當前路徑自動展開對應的群組
+  useEffect(() => {
+    navItems.forEach((item) => {
+      if (isNavGroup(item) && pathname.startsWith(item.basePath)) {
+        setOpenGroups((prev) => ({ ...prev, [item.basePath]: true }));
+      }
+    });
+  }, [pathname]);
+
+  const toggleGroup = (basePath: string) => {
+    setOpenGroups((prev) => ({ ...prev, [basePath]: !prev[basePath] }));
+  };
 
   // 顯示 Workspace 切換器的條件：團隊模式 或 管理員
   const showWorkspaceSwitcher = featureFlags.workspaceTeamMode || isAdmin;
@@ -72,8 +141,61 @@ export function Sidebar() {
       <ThreadsAccountSwitcher />
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-4">
         {navItems.map((item) => {
+          if (isNavGroup(item)) {
+            // 樹狀選單群組
+            const isGroupActive = pathname.startsWith(item.basePath);
+            const isOpen = openGroups[item.basePath] ?? isGroupActive;
+
+            return (
+              <Collapsible
+                key={item.basePath}
+                open={isOpen}
+                onOpenChange={() => toggleGroup(item.basePath)}
+              >
+                <CollapsibleTrigger
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    isGroupActive
+                      ? "text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  <item.icon className="size-5" />
+                  <span className="flex-1 text-left">{item.title}</span>
+                  <ChevronRight
+                    className={cn(
+                      "size-4 transition-transform duration-200",
+                      isOpen && "rotate-90"
+                    )}
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-1 space-y-1 pl-4">
+                  {item.children.map((child) => {
+                    const isChildActive = pathname === child.href;
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          isChildActive
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        )}
+                      >
+                        <child.icon className="size-4" />
+                        {child.title}
+                      </Link>
+                    );
+                  })}
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          }
+
+          // 一般導航項目
           const isActive = pathname.startsWith(item.href);
           return (
             <Link

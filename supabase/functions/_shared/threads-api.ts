@@ -89,6 +89,11 @@ export interface ThreadsPost {
   permalink?: string;
   timestamp?: string;
   children?: { data: ThreadsPost[] };
+  // Post type 相關欄位
+  is_reply?: boolean;
+  replied_to?: { id: string };
+  is_quote_post?: boolean;
+  root_post?: { id: string };
 }
 
 export interface ThreadsPostInsights {
@@ -192,7 +197,7 @@ export class ThreadsApiClient {
    */
   async getUserPosts(userId: string = 'me', limit: number = 25): Promise<ThreadsPost[]> {
     const response = await this.request<{ data: ThreadsPost[] }>(`/${userId}/threads`, {
-      fields: 'id,text,media_type,media_url,permalink,timestamp',
+      fields: 'id,text,media_type,media_url,permalink,timestamp,is_reply,replied_to,is_quote_post,root_post',
       limit: limit.toString(),
     });
     return response.data;

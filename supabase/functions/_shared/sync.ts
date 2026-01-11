@@ -16,6 +16,7 @@ import {
   shouldSyncPost,
   getSyncFrequency,
 } from './tiered-storage.ts';
+import { calculateRates, PostMetrics } from './metrics.ts';
 
 // ============================================
 // Types
@@ -42,14 +43,8 @@ export interface SyncAccountInsightsResult {
   has_previous: boolean;
 }
 
-interface Metrics {
-  views: number;
-  likes: number;
-  replies: number;
-  reposts: number;
-  quotes: number;
-  shares: number;
-}
+// 使用 PostMetrics 從 metrics.ts
+type Metrics = PostMetrics;
 
 // ============================================
 // Sync Posts
@@ -63,17 +58,38 @@ export async function syncPostsForAccount(
 ): Promise<SyncPostsResult> {
   const posts = await threadsClient.getUserPosts('me', limit);
 
-  const normalizedPosts = posts.map((post) => ({
-    workspace_threads_account_id: accountId,
-    threads_post_id: post.id,
-    text: post.text,
-    media_type: post.media_type,
-    media_url: post.media_url,
-    permalink: post.permalink,
-    published_at: post.timestamp
-      ? new Date(post.timestamp).toISOString()
-      : new Date().toISOString(),
-  }));
+  // Debug: 記錄 API 回傳的原始資料，確認有哪些欄位
+  if (posts.length > 0) {
+    console.log('syncPostsForAccount: Sample post from API:', JSON.stringify(posts[0], null, 2));
+    console.log('syncPostsForAccount: Available fields:', Object.keys(posts[0]));
+  }
+
+  const normalizedPosts = posts.map((post) => {
+    // 判斷 post_type
+    let postType: 'original' | 'reply' | 'quote' = 'original';
+    if (post.is_reply) {
+      postType = 'reply';
+    } else if (post.is_quote_post) {
+      postType = 'quote';
+    }
+
+    return {
+      workspace_threads_account_id: accountId,
+      threads_post_id: post.id,
+      text: post.text,
+      media_type: post.media_type,
+      media_url: post.media_url,
+      permalink: post.permalink,
+      published_at: post.timestamp
+        ? new Date(post.timestamp).toISOString()
+        : new Date().toISOString(),
+      // Post type 相關欄位
+      post_type: postType,
+      is_reply: post.is_reply ?? false,
+      replied_to_post_id: post.replied_to?.id ?? null,
+      root_post_id: post.root_post?.id ?? null,
+    };
+  });
 
   let enqueueCount = 0;
 
@@ -213,36 +229,51 @@ export async function syncMetricsForAccount(
       const bucketHourly = getBucketValue('workspace_threads_post_metrics_hourly', now);
       const bucketDaily = getBucketValue('workspace_threads_post_metrics_daily', now);
 
-      // 寫入 15m 表
+      // 寫入 15m 表（含 rate/score）
       await serviceClient
         .from('workspace_threads_post_metrics_15m')
         .upsert({
           workspace_threads_post_id: post.id,
           ...metrics,
+          engagement_rate: rates.engagementRate,
+          reply_rate: rates.replyRate,
+          repost_rate: rates.repostRate,
+          quote_rate: rates.quoteRate,
+          virality_score: rates.viralityScore,
           ...bucket15m,
           captured_at: now,
         }, {
           onConflict: 'workspace_threads_post_id,bucket_ts',
         });
 
-      // 寫入 hourly 表（即時更新當前小時）
+      // 寫入 hourly 表（即時更新當前小時，含 rate/score）
       await serviceClient
         .from('workspace_threads_post_metrics_hourly')
         .upsert({
           workspace_threads_post_id: post.id,
           ...metrics,
+          engagement_rate: rates.engagementRate,
+          reply_rate: rates.replyRate,
+          repost_rate: rates.repostRate,
+          quote_rate: rates.quoteRate,
+          virality_score: rates.viralityScore,
           ...bucketHourly,
           captured_at: now,
         }, {
           onConflict: 'workspace_threads_post_id,bucket_ts',
         });
 
-      // 寫入 daily 表（即時更新當天）
+      // 寫入 daily 表（即時更新當天，含 rate/score）
       await serviceClient
         .from('workspace_threads_post_metrics_daily')
         .upsert({
           workspace_threads_post_id: post.id,
           ...metrics,
+          engagement_rate: rates.engagementRate,
+          reply_rate: rates.replyRate,
+          repost_rate: rates.repostRate,
+          quote_rate: rates.quoteRate,
+          virality_score: rates.viralityScore,
           ...bucketDaily,
           captured_at: now,
         }, {
@@ -432,45 +463,3 @@ export async function syncAccountInsightsForAccount(
   };
 }
 
-// ============================================
-// Helper Functions
-// ============================================
-
-function calculateRates(metrics: Metrics) {
-  const { views, likes, replies, reposts, quotes, shares } = metrics;
-
-  if (views === 0) {
-    return {
-      engagementRate: 0,
-      replyRate: 0,
-      repostRate: 0,
-      quoteRate: 0,
-      viralityScore: 0,
-    };
-  }
-
-  // 互動率 = (likes + replies + reposts + quotes) / views * 100
-  const engagementRate = ((likes + replies + reposts + quotes) / views) * 100;
-
-  // 回覆率 = replies / views * 100
-  const replyRate = (replies / views) * 100;
-
-  // 轉發率 = reposts / views * 100
-  const repostRate = (reposts / views) * 100;
-
-  // 引用率 = quotes / views * 100
-  const quoteRate = (quotes / views) * 100;
-
-  // 病毒傳播分數（加權）
-  const spreadScore = reposts * 3 + quotes * 2.5 + shares * 3;
-  const engagementScore = likes + replies * 1.5;
-  const viralityScore = ((spreadScore * 2 + engagementScore) / views) * 100;
-
-  return {
-    engagementRate: Math.round(engagementRate * 10000) / 10000,
-    replyRate: Math.round(replyRate * 10000) / 10000,
-    repostRate: Math.round(repostRate * 10000) / 10000,
-    quoteRate: Math.round(quoteRate * 10000) / 10000,
-    viralityScore: Math.round(viralityScore * 100) / 100,
-  };
-}

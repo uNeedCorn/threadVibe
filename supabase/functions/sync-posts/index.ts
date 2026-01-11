@@ -124,16 +124,37 @@ Deno.serve(async (req) => {
       // 拉取所有貼文
       const posts = await threadsClient.getUserPosts('me', 100);
 
+      // Debug: 記錄 API 回傳的原始資料，確認有哪些欄位
+      if (posts.length > 0) {
+        console.log('sync-posts: Sample post from API:', JSON.stringify(posts[0], null, 2));
+        console.log('sync-posts: Available fields:', Object.keys(posts[0]));
+      }
+
       // 正規化並寫入資料庫
-      const normalizedPosts = posts.map((post) => ({
-        workspace_threads_account_id,
-        threads_post_id: post.id,
-        text: post.text,
-        media_type: post.media_type,
-        media_url: post.media_url,
-        permalink: post.permalink,
-        published_at: post.timestamp ? new Date(post.timestamp).toISOString() : new Date().toISOString(),
-      }));
+      const normalizedPosts = posts.map((post) => {
+        // 判斷 post_type
+        let postType: 'original' | 'reply' | 'quote' = 'original';
+        if (post.is_reply) {
+          postType = 'reply';
+        } else if (post.is_quote_post) {
+          postType = 'quote';
+        }
+
+        return {
+          workspace_threads_account_id,
+          threads_post_id: post.id,
+          text: post.text,
+          media_type: post.media_type,
+          media_url: post.media_url,
+          permalink: post.permalink,
+          published_at: post.timestamp ? new Date(post.timestamp).toISOString() : new Date().toISOString(),
+          // Post type 相關欄位
+          post_type: postType,
+          is_reply: post.is_reply ?? false,
+          replied_to_post_id: post.replied_to?.id ?? null,
+          root_post_id: post.root_post?.id ?? null,
+        };
+      });
 
       let enqueueCount = 0;
 

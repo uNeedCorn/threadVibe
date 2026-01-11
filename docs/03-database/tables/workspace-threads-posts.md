@@ -41,6 +41,12 @@ CREATE TABLE workspace_threads_posts (
   permalink                     TEXT,
   published_at                  TIMESTAMPTZ NOT NULL,
 
+  -- Post type (貼文類型)
+  post_type                     TEXT NOT NULL DEFAULT 'original',
+  is_reply                      BOOLEAN NOT NULL DEFAULT false,
+  replied_to_post_id            TEXT,
+  root_post_id                  TEXT,
+
   -- Layer 3: Current metrics (最新成效)
   current_views                 INTEGER NOT NULL DEFAULT 0,
   current_likes                 INTEGER NOT NULL DEFAULT 0,
@@ -77,6 +83,15 @@ CREATE TABLE workspace_threads_posts (
 | `media_url` | TEXT | YES | 媒體 URL |
 | `permalink` | TEXT | YES | 貼文連結 |
 | `published_at` | TIMESTAMPTZ | NO | 發布時間 |
+
+### 貼文類型欄位
+
+| 欄位 | 類型 | Nullable | 說明 |
+|------|------|----------|------|
+| `post_type` | TEXT | NO | 貼文類型：`original`(原創) / `reply`(回覆) / `quote`(引用) |
+| `is_reply` | BOOLEAN | NO | 是否為回覆貼文（來自 Threads API） |
+| `replied_to_post_id` | TEXT | YES | 回覆的目標貼文 ID（Threads media_id） |
+| `root_post_id` | TEXT | YES | 對話串的根貼文 ID（Threads media_id） |
 
 ### Layer 3: Current 欄位
 
@@ -117,6 +132,12 @@ ON workspace_threads_posts(workspace_threads_account_id, published_at DESC);
 
 CREATE INDEX idx_posts_threads_id
 ON workspace_threads_posts(threads_post_id);
+
+CREATE INDEX idx_workspace_threads_posts_post_type
+ON workspace_threads_posts(post_type);
+
+CREATE INDEX idx_workspace_threads_posts_is_reply
+ON workspace_threads_posts(is_reply);
 ```
 
 ---
@@ -138,6 +159,21 @@ UNIQUE (workspace_threads_account_id, threads_post_id)
 | `workspace_threads_accounts` | n:1 | 所屬帳號 |
 | `workspace_threads_post_metrics` | 1:n | 成效快照 |
 | `workspace_threads_post_tags` | 1:n | 用戶自定義標籤關聯 |
+
+---
+
+## Post Type 對應
+
+| 值 | 說明 |
+|------|------|
+| `original` | 原創貼文（自己發的文） |
+| `reply` | 回覆貼文（回覆別人或自己的貼文） |
+| `quote` | 引用貼文（引用他人貼文並加註評論） |
+
+判斷邏輯：
+- `is_reply = true` → `post_type = 'reply'`
+- `is_quote_post = true` → `post_type = 'quote'`
+- 其他情況 → `post_type = 'original'`
 
 ---
 

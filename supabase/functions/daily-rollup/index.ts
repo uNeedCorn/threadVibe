@@ -9,7 +9,11 @@
  */
 
 import { createServiceClient } from '../_shared/supabase.ts';
-import { corsHeaders, handleCors } from '../_shared/cors.ts';
+import { handleCors } from '../_shared/cors.ts';
+import { jsonResponse, errorResponse, unauthorizedResponse } from '../_shared/response.ts';
+import { calculateRates } from '../_shared/metrics.ts';
+
+const CRON_SECRET = Deno.env.get('CRON_SECRET');
 
 interface DiffRecord {
   id: string;
@@ -37,8 +41,14 @@ interface RollupResult {
 const DIFF_THRESHOLD_PERCENT = 5;
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return handleCors();
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
+  // 驗證 CRON_SECRET
+  const authHeader = req.headers.get('Authorization');
+  const token = authHeader?.replace('Bearer ', '');
+  if (!CRON_SECRET || token !== CRON_SECRET) {
+    return unauthorizedResponse(req, 'Invalid cron secret');
   }
 
   try {
@@ -115,7 +125,17 @@ Deno.serve(async (req) => {
             }
           }
 
-          // 3. Upsert（以 Rollup 計算值為準）
+          // 3. 計算 rate/score
+          const rates = calculateRates({
+            views: calculated.views ?? 0,
+            likes: calculated.likes ?? 0,
+            replies: calculated.replies ?? 0,
+            reposts: calculated.reposts ?? 0,
+            quotes: calculated.quotes ?? 0,
+            shares: calculated.shares ?? 0,
+          });
+
+          // 4. Upsert（以 Rollup 計算值為準，含 rate/score）
           const { error } = await serviceClient
             .from('workspace_threads_post_metrics_daily')
             .upsert({
@@ -126,6 +146,11 @@ Deno.serve(async (req) => {
               reposts: calculated.reposts,
               quotes: calculated.quotes,
               shares: calculated.shares,
+              engagement_rate: rates.engagementRate,
+              reply_rate: rates.replyRate,
+              repost_rate: rates.repostRate,
+              quote_rate: rates.quoteRate,
+              virality_score: rates.viralityScore,
               bucket_date: targetDate,
               captured_at: new Date().toISOString(),
             }, {
@@ -245,41 +270,31 @@ Deno.serve(async (req) => {
       account_insights: { processed: result.account_insights.processed, errors: result.account_insights.errors, diffs: result.account_insights.diffs.length },
     });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        date: targetDate,
-        result: {
-          post_metrics: {
-            processed: result.post_metrics.processed,
-            errors: result.post_metrics.errors,
-            diffs_count: result.post_metrics.diffs.length,
-            diffs: result.post_metrics.diffs,
-          },
-          account_insights: {
-            processed: result.account_insights.processed,
-            errors: result.account_insights.errors,
-            diffs_count: result.account_insights.diffs.length,
-            diffs: result.account_insights.diffs,
-          },
+    return jsonResponse(req, {
+      success: true,
+      date: targetDate,
+      result: {
+        post_metrics: {
+          processed: result.post_metrics.processed,
+          errors: result.post_metrics.errors,
+          diffs_count: result.post_metrics.diffs.length,
+          diffs: result.post_metrics.diffs,
         },
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
+        account_insights: {
+          processed: result.account_insights.processed,
+          errors: result.account_insights.errors,
+          diffs_count: result.account_insights.diffs.length,
+          diffs: result.account_insights.diffs,
+        },
+      },
+    });
   } catch (error) {
     console.error('Daily rollup failed:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+    return errorResponse(
+      req,
+      error instanceof Error ? error.message : 'Unknown error',
+      500,
+      'ROLLUP_ERROR'
     );
   }
 });
