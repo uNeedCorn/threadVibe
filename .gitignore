@@ -48,3 +48,11 @@ coverage/
 # Misc
 .cache/
 .turbo/
+
+# AI Tools (Claude Code, Cursor)
+.claude/
+.cursor/
+*.local.json
+
+# Documentation (local only)
+docs/
