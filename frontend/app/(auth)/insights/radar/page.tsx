@@ -282,10 +282,11 @@ function DiffusionStatusIcon({ diffusion }: { diffusion: DiffusionMetrics | null
   if (!diffusion) {
     return (
       <span
-        className="text-muted-foreground text-xs"
-        title="資料不足"
+        className="text-muted-foreground text-xs cursor-help"
+        title="需要至少 45 分鐘的數據才能計算擴散動態"
       >
-        —
+        <Clock className="inline size-3 mr-0.5" />
+        累積中
       </span>
     );
   }
@@ -1373,8 +1374,9 @@ function ViewsRHatQuadrantChart({
         </CardHeader>
         <CardContent className="flex h-64 items-center justify-center">
           <div className="text-center text-muted-foreground">
-            <Eye className="mx-auto mb-2 size-10 opacity-20" />
-            <p className="text-sm">尚無擴散動態資料</p>
+            <Clock className="mx-auto mb-2 size-10 opacity-20" />
+            <p className="text-sm">擴散動態數據累積中</p>
+            <p className="text-xs mt-1">新貼文需約 45 分鐘才能計算 R̂</p>
           </div>
         </CardContent>
       </Card>
@@ -1696,7 +1698,7 @@ function PostsTable({
                 <TableHead className="w-20 text-right">曝光</TableHead>
                 <TableHead className="w-36">互動</TableHead>
                 <TableHead className="w-32">傳播力</TableHead>
-                <TableHead className="w-20 text-center">擴散</TableHead>
+                <TableHead className="w-20 text-center" title="擴散動態 R̂：需累積約 45 分鐘數據">擴散</TableHead>
                 <TableHead className="w-28">趨勢</TableHead>
               </TableRow>
             </TableHeader>
@@ -1746,7 +1748,7 @@ function PostsTable({
               <TableHead className="w-20 text-right">曝光</TableHead>
               <TableHead className="w-36">互動</TableHead>
               <TableHead className="w-32">傳播力</TableHead>
-              <TableHead className="w-20 text-center">擴散</TableHead>
+              <TableHead className="w-20 text-center" title="擴散動態 R̂：需累積約 45 分鐘數據">擴散</TableHead>
               <TableHead className="w-28">趨勢</TableHead>
             </TableRow>
           </TableHeader>
@@ -1839,7 +1841,18 @@ export default function RadarPage() {
   const [sortBy, setSortBy] = useState<SortOption>("latest");
   const [filterBy, setFilterBy] = useState<FilterOption>("all");
   const [hasNoAccounts, setHasNoAccounts] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(() => {
+    // 從 localStorage 讀取，預設不開啟
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("radar-auto-refresh") === "true";
+    }
+    return false;
+  });
+
+  // 儲存自動同步狀態到 localStorage
+  useEffect(() => {
+    localStorage.setItem("radar-auto-refresh", autoRefresh.toString());
+  }, [autoRefresh]);
 
   // 載入資料（透過 Edge Function API）
   const loadData = useCallback(async () => {
@@ -1932,7 +1945,7 @@ export default function RadarPage() {
 
     const interval = setInterval(() => {
       loadData();
-    }, 60 * 1000);
+    }, 15 * 60 * 1000); // 15 分鐘
 
     return () => clearInterval(interval);
   }, [selectedAccountId, loadData, autoRefresh]);

@@ -15,12 +15,14 @@ import { createAnonClient, createServiceClient } from '../_shared/supabase.ts';
 import { getAuthenticatedUser, validateWorkspaceMembership } from '../_shared/auth.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse, forbiddenResponse } from '../_shared/response.ts';
 import { isUuid } from '../_shared/validation.ts';
-import { calculateRates } from '../_shared/metrics.ts';
+import { calculateRates, RHatStatus } from '../_shared/metrics.ts';
 
 // ============ Types ============
 
 type TimeStatus = 'golden' | 'early' | 'tracking';
 type ViralityLevel = 'viral' | 'excellent' | 'good' | 'normal';
+type HeatType = 'early' | 'slow' | 'steady';
+type DiffusionStatus = 'accelerating' | 'stable' | 'decelerating';
 
 interface TrendPoint {
   timestamp: number;
@@ -28,7 +30,40 @@ interface TrendPoint {
   likes: number;
   replies: number;
   reposts: number;
+  quotes: number;
   viralityScore: number;
+}
+
+interface IgnitionDataPoint {
+  timestamp: number;
+  timeLabel: string;
+  engagementPct: number;
+  viewsPct: number;
+}
+
+interface IgnitionMetrics {
+  dataPoints: IgnitionDataPoint[];
+  engagementLeadScore: number;
+  peakEngagementTime: string;
+  peakViewsTime: string;
+}
+
+interface HeatmapCell {
+  bucketIndex: number;
+  viralityDelta: number;
+  intensity: number;
+}
+
+interface HeatmapMetrics {
+  cells: HeatmapCell[];
+  heatType: HeatType;
+  earlyDelta: number;
+  lateDelta: number;
+}
+
+interface DiffusionMetrics {
+  rHat: number;
+  status: DiffusionStatus;
 }
 
 interface RadarPost {
@@ -52,6 +87,10 @@ interface RadarPost {
   repostRate: number;
   // Trend data
   trend: TrendPoint[];
+  // Advanced metrics
+  ignition: IgnitionMetrics | null;
+  heatmap: HeatmapMetrics | null;
+  diffusion: DiffusionMetrics | null;
 }
 
 interface RadarSummary {
@@ -89,6 +128,260 @@ function getTimeStatus(ageMinutes: number): TimeStatus {
   if (ageMinutes <= 30) return 'golden';
   if (ageMinutes <= 120) return 'early';
   return 'tracking';
+}
+
+/**
+ * 計算點火曲線指標 - 前 3 小時內 Engagement vs Views 累計比例
+ *
+ * engagementLeadScore 計算方式：
+ * 計算「互動曲線面積 - 曝光曲線面積」的差值
+ * 正值表示互動訊號領先曝光增長（早期點火成功）
+ * 負值表示曝光領先互動（互動較慢熱）
+ */
+function calculateIgnitionMetrics(
+  trend: TrendPoint[],
+  publishedAt: Date
+): IgnitionMetrics | null {
+  if (trend.length < 2) return null;
+
+  const threeHoursMs = 3 * 60 * 60 * 1000;
+  const cutoff = publishedAt.getTime() + threeHoursMs;
+
+  // 過濾 3 小時內的資料點
+  const earlyTrend = trend.filter((t) => t.timestamp <= cutoff);
+  if (earlyTrend.length < 2) return null;
+
+  // 最終值（用於計算百分比）
+  const finalViews = earlyTrend[earlyTrend.length - 1].views || 1;
+  const finalEngagement =
+    earlyTrend[earlyTrend.length - 1].likes +
+    earlyTrend[earlyTrend.length - 1].replies +
+    earlyTrend[earlyTrend.length - 1].reposts +
+    earlyTrend[earlyTrend.length - 1].quotes || 1;
+
+  let maxEngagementPct = 0;
+  let maxViewsPct = 0;
+  let peakEngagementTime = '';
+  let peakViewsTime = '';
+
+  // 用於計算曲線下面積（AUC）差異
+  let engagementAucSum = 0;
+  let viewsAucSum = 0;
+
+  const dataPoints: IgnitionDataPoint[] = earlyTrend.map((t) => {
+    const minutesSincePublish = Math.round(
+      (t.timestamp - publishedAt.getTime()) / 60000
+    );
+    const timeLabel =
+      minutesSincePublish < 60
+        ? `${minutesSincePublish}m`
+        : `${Math.floor(minutesSincePublish / 60)}h${minutesSincePublish % 60}m`;
+
+    const engagement = t.likes + t.replies + t.reposts + t.quotes;
+    const engagementPct = Math.round((engagement / finalEngagement) * 100);
+    const viewsPct = Math.round((t.views / finalViews) * 100);
+
+    // 累計 AUC（簡化：直接加總每個時間點的百分比值）
+    engagementAucSum += engagementPct;
+    viewsAucSum += viewsPct;
+
+    // 追蹤峰值
+    if (engagementPct > maxEngagementPct) {
+      maxEngagementPct = engagementPct;
+      peakEngagementTime = timeLabel;
+    }
+    if (viewsPct > maxViewsPct) {
+      maxViewsPct = viewsPct;
+      peakViewsTime = timeLabel;
+    }
+
+    return { timestamp: t.timestamp, timeLabel, engagementPct, viewsPct };
+  });
+
+  // engagementLeadScore = 互動曲線面積 - 曝光曲線面積（正規化到合理範圍）
+  // 正值：互動領先曝光；負值：曝光領先互動
+  // 除以資料點數量來正規化，結果約在 -20 ~ +20 範圍
+  const engagementLeadScore = Math.round(
+    (engagementAucSum - viewsAucSum) / dataPoints.length
+  );
+
+  return {
+    dataPoints,
+    engagementLeadScore,
+    peakEngagementTime: peakEngagementTime || 'N/A',
+    peakViewsTime: peakViewsTime || 'N/A',
+  };
+}
+
+/**
+ * 計算熱力圖指標 - 前 3 小時每個 15 分鐘 bucket 的 Virality Delta
+ * 固定產生 12 個區間（對應 0-15m, 15-30m, ..., 165-180m）
+ *
+ * 規格：
+ * - viralityDelta = (repliesDelta×3 + repostsDelta×2.5 + quotesDelta×2 + likesDelta) / viewsDelta × 100
+ * - Heat Type 閾值：1.2
+ */
+function calculateHeatmapMetrics(
+  trend: TrendPoint[],
+  publishedAt: Date
+): HeatmapMetrics | null {
+  if (trend.length < 2) return null;
+
+  const BUCKET_COUNT = 12; // 3 小時 = 12 個 15 分鐘區間
+  const BUCKET_MS = 15 * 60 * 1000; // 15 分鐘
+  const threeHoursMs = 3 * 60 * 60 * 1000;
+  const publishedTime = publishedAt.getTime();
+
+  // 過濾前 3 小時的資料點
+  const earlyTrend = trend.filter(
+    (t) => t.timestamp <= publishedTime + threeHoursMs
+  );
+
+  if (earlyTrend.length < 2) return null;
+
+  // 每個 bucket 的累積指標（取該 bucket 最後一個值）
+  interface BucketMetrics {
+    views: number;
+    likes: number;
+    replies: number;
+    reposts: number;
+    quotes: number;
+  }
+
+  const bucketMetrics: BucketMetrics[] = new Array(BUCKET_COUNT)
+    .fill(null)
+    .map(() => ({ views: 0, likes: 0, replies: 0, reposts: 0, quotes: 0 }));
+
+  // 將資料點分配到對應的 bucket
+  for (const t of earlyTrend) {
+    const ageMs = t.timestamp - publishedTime;
+    const bucketIndex = Math.min(
+      BUCKET_COUNT - 1,
+      Math.max(0, Math.floor(ageMs / BUCKET_MS))
+    );
+    // 取該 bucket 最後一個值（累積值）
+    bucketMetrics[bucketIndex] = {
+      views: t.views,
+      likes: t.likes,
+      replies: t.replies,
+      reposts: t.reposts,
+      quotes: t.quotes,
+    };
+  }
+
+  // 填補空值：用前一個 bucket 的值
+  for (let i = 1; i < BUCKET_COUNT; i++) {
+    if (bucketMetrics[i].views === 0 && bucketMetrics[i - 1].views > 0) {
+      bucketMetrics[i] = { ...bucketMetrics[i - 1] };
+    }
+  }
+
+  // 計算每區間的 Virality Delta
+  // 規格：viralityDelta = (repliesDelta×3 + repostsDelta×2.5 + quotesDelta×2 + likesDelta) / viewsDelta × 100
+  const cells: HeatmapCell[] = [];
+  for (let i = 0; i < BUCKET_COUNT; i++) {
+    const curr = bucketMetrics[i];
+    const prev = i > 0 ? bucketMetrics[i - 1] : { views: 0, likes: 0, replies: 0, reposts: 0, quotes: 0 };
+
+    const viewsDelta = curr.views - prev.views;
+    const likesDelta = curr.likes - prev.likes;
+    const repliesDelta = curr.replies - prev.replies;
+    const repostsDelta = curr.reposts - prev.reposts;
+    const quotesDelta = curr.quotes - prev.quotes;
+
+    // 加權 Delta
+    const weightedDelta = repliesDelta * 3 + repostsDelta * 2.5 + quotesDelta * 2 + likesDelta;
+
+    // 計算 Virality Delta（避免除以 0）
+    const viralityDelta = viewsDelta > 0 ? (weightedDelta / viewsDelta) * 100 : 0;
+
+    cells.push({
+      bucketIndex: i,
+      viralityDelta: Math.round(viralityDelta * 100) / 100,
+      intensity: 0, // 稍後正規化
+    });
+  }
+
+  // 計算早期 vs 晚期 delta 來判斷熱度類型
+  const midpoint = BUCKET_COUNT / 2; // 6
+  const earlyDeltaSum =
+    cells.slice(0, midpoint).reduce((sum, c) => sum + c.viralityDelta, 0) / midpoint;
+  const lateDeltaSum =
+    cells.slice(midpoint).reduce((sum, c) => sum + c.viralityDelta, 0) / midpoint;
+
+  // 規格：閾值 1.2
+  let heatType: HeatType = 'steady';
+  if (earlyDeltaSum > lateDeltaSum * 1.2) {
+    heatType = 'early';
+  } else if (lateDeltaSum > earlyDeltaSum * 1.2) {
+    heatType = 'slow';
+  }
+
+  return {
+    cells,
+    heatType,
+    earlyDelta: Math.round(earlyDeltaSum * 100) / 100,
+    lateDelta: Math.round(lateDeltaSum * 100) / 100,
+  };
+}
+
+const DIFFUSION_STATUS_MAP: Record<RHatStatus, DiffusionStatus | null> = {
+  viral: 'accelerating',
+  accelerating: 'accelerating',
+  stable: 'stable',
+  decaying: 'decelerating',
+  fading: 'decelerating',
+  insufficient: null,
+  emerging: 'accelerating',
+  dormant: 'decelerating',
+};
+
+function mapDiffusionStatus(dbStatus: string | null): DiffusionStatus | null {
+  if (!dbStatus) return null;
+  return DIFFUSION_STATUS_MAP[dbStatus as RHatStatus] ?? null;
+}
+
+/**
+ * 從 DB 預計算值建立 DiffusionMetrics
+ * 優先使用 r-hat-calculator 預計算的值
+ */
+function getDiffusionMetrics(
+  currentRHat: number | null,
+  currentRHatStatus: string | null
+): DiffusionMetrics | null {
+  const status = mapDiffusionStatus(currentRHatStatus);
+  if (status === null || currentRHat === null) return null;
+
+  return {
+    rHat: Number(currentRHat),
+    status,
+  };
+}
+
+/**
+ * 正規化所有貼文的熱力圖強度
+ */
+function normalizeHeatmapIntensity(posts: RadarPost[]): void {
+  // 找出全域最大 delta
+  let maxDelta = 0;
+  for (const post of posts) {
+    if (post.heatmap) {
+      for (const cell of post.heatmap.cells) {
+        maxDelta = Math.max(maxDelta, Math.abs(cell.viralityDelta));
+      }
+    }
+  }
+
+  // 正規化
+  if (maxDelta > 0) {
+    for (const post of posts) {
+      if (post.heatmap) {
+        for (const cell of post.heatmap.cells) {
+          cell.intensity = Math.round((cell.viralityDelta / maxDelta) * 100) / 100;
+        }
+      }
+    }
+  }
 }
 
 // ============ Main Handler ============
@@ -168,10 +461,10 @@ Deno.serve(async (req) => {
     const now = new Date();
     const hours72Ago = new Date(now.getTime() - 72 * 60 * 60 * 1000);
 
-    // 查詢 72 小時內的貼文（排除回覆）
+    // 查詢 72 小時內的貼文（排除回覆），包含預計算的 R̂_t
     const { data: postsData, error: postsError } = await serviceClient
       .from('workspace_threads_posts')
-      .select('id, text, media_type, media_url, published_at')
+      .select('id, text, media_type, media_url, published_at, current_r_hat, current_r_hat_status')
       .eq('workspace_threads_account_id', accountId)
       .eq('is_reply', false)
       .gte('published_at', hours72Ago.toISOString())
@@ -246,6 +539,7 @@ Deno.serve(async (req) => {
         likes: m.likes,
         replies: m.replies,
         reposts: m.reposts,
+        quotes: m.quotes,
         viralityScore: rates.viralityScore,
       });
 
@@ -277,6 +571,13 @@ Deno.serve(async (req) => {
       const rates = calculateRates({ views, likes, replies, reposts, quotes, shares });
       const viralityLevel = getViralityLevel(rates.viralityScore);
       const timeStatus = getTimeStatus(ageMinutes);
+      const trend = trendByPost[post.id] || [];
+
+      // 計算進階指標
+      const ignition = calculateIgnitionMetrics(trend, publishedAt);
+      const heatmap = calculateHeatmapMetrics(trend, publishedAt);
+      // 使用 DB 預計算的 R̂_t（由 r-hat-calculator 計算）
+      const diffusion = getDiffusionMetrics(post.current_r_hat, post.current_r_hat_status);
 
       return {
         id: post.id,
@@ -295,9 +596,15 @@ Deno.serve(async (req) => {
         viralityLevel,
         engagementRate: rates.engagementRate,
         repostRate: rates.repostRate,
-        trend: trendByPost[post.id] || [],
+        trend,
+        ignition,
+        heatmap,
+        diffusion,
       };
     });
+
+    // 正規化熱力圖強度
+    normalizeHeatmapIntensity(radarPosts);
 
     // 計算摘要
     const summary: RadarSummary = {
