@@ -158,7 +158,16 @@ export class ThreadsApiClient {
    * followers_count 需要帳號有 100+ 粉絲才會回傳
    */
   async getUserInsights(userId: string = 'me'): Promise<ThreadsUserInsights> {
-    const response = await this.request<{ data?: Array<{ name: string; values?: Array<{ value: number }> }> }>(
+    // API 回傳格式：
+    // - views: { name, values: [{ value, end_time }] } - 時間序列
+    // - followers_count: { name, total_value: { value } } - 當前總數
+    const response = await this.request<{
+      data?: Array<{
+        name: string;
+        values?: Array<{ value: number; end_time?: string }>;
+        total_value?: { value: number };
+      }>;
+    }>(
       `/${userId}/threads_insights`,
       {
         metric: 'views,followers_count',
@@ -176,8 +185,21 @@ export class ThreadsApiClient {
     console.log('getUserInsights: API response data:', JSON.stringify(response.data));
 
     for (const metric of response.data) {
-      // 防護：確保 metric.values 存在且有值
-      const value = metric.values?.[0]?.value;
+      // views 使用 values 陣列（時間序列），followers_count 使用 total_value（當前總數）
+      let value: number | undefined;
+
+      if (metric.name === 'followers_count') {
+        // followers_count 使用 total_value 結構
+        value = metric.total_value?.value;
+      } else {
+        // views 等其他指標使用 values 陣列，取最新一筆
+        const values = metric.values;
+        if (values && values.length > 0) {
+          // 取最後一筆（最新的）
+          value = values[values.length - 1]?.value;
+        }
+      }
+
       if (value === undefined) {
         console.warn(`getUserInsights: No value for metric ${metric.name}`);
         continue;

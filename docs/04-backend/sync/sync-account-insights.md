@@ -66,36 +66,47 @@ GET /me/threads_insights
 
 ### 可用指標
 
-| 指標 | 說明 |
-|------|------|
-| followers_count | 粉絲數 |
-| profile_views | Profile 觀看數 |
-| likes | 7 天按讚數 |
-| views | 7 天觀看數 |
-| follower_demographics | 受眾輪廓（需額外權限） |
+| 指標 | 說明 | 回應結構 |
+|------|------|----------|
+| followers_count | 粉絲數（需 100+ 粉絲） | `total_value.value`（當前總數） |
+| views | 觀看數 | `values[]`（時間序列） |
+
+> **注意**：Threads API 使用者層級只支援 `views` 和 `followers_count`。`likes` 只在貼文層級可用。
 
 ### 回應範例
 
 ```json
 {
   "data": [
-    { "name": "followers_count", "values": [{ "value": 12345 }] },
-    { "name": "profile_views", "values": [{ "value": 5678 }] },
-    { "name": "likes", "values": [{ "value": 890 }] },
-    { "name": "views", "values": [{ "value": 45000 }] },
     {
-      "name": "follower_demographics",
-      "values": [{
-        "value": {
-          "gender": { "male": 45.2, "female": 52.8, "other": 2.0 },
-          "age": { "18-24": 25.0, "25-34": 40.0, "35-44": 20.0 },
-          "country": { "TW": 60.0, "US": 15.0, "JP": 10.0 }
-        }
-      }]
+      "name": "views",
+      "period": "day",
+      "values": [
+        { "value": 2789, "end_time": "2026-01-11T08:00:00+0000" },
+        { "value": 481, "end_time": "2026-01-12T08:00:00+0000" }
+      ],
+      "title": "閲覧",
+      "id": "xxx/insights/views/day"
+    },
+    {
+      "name": "followers_count",
+      "period": "day",
+      "total_value": {
+        "value": 21
+      },
+      "title": "フォロワー数",
+      "id": "xxx/insights/followers_count/day"
     }
   ]
 }
 ```
+
+### 回應結構差異
+
+| 指標 | 結構 | 截取方式 |
+|------|------|----------|
+| `views` | `values: [{ value, end_time }]` | 取 `values[最後一筆].value`（最新） |
+| `followers_count` | `total_value: { value }` | 取 `total_value.value` |
 
 ---
 
@@ -192,10 +203,20 @@ async function syncAccountInsights(
 }
 
 // 解析 Insights 回應
+// 注意：views 使用 values 陣列，followers_count 使用 total_value
 function parseInsightsResponse(data: any[]): Record<string, any> {
   const result: Record<string, any> = {};
   for (const item of data) {
-    result[item.name] = item.values?.[0]?.value;
+    if (item.name === 'followers_count') {
+      // followers_count 使用 total_value 結構（當前總數）
+      result[item.name] = item.total_value?.value;
+    } else {
+      // views 等其他指標使用 values 陣列（時間序列），取最新一筆
+      const values = item.values;
+      if (values && values.length > 0) {
+        result[item.name] = values[values.length - 1]?.value;
+      }
+    }
   }
   return result;
 }

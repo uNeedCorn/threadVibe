@@ -15,6 +15,8 @@ import {
   Eye,
   MessageSquare,
   Radar,
+  FileSpreadsheet,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { featureFlags } from "@/lib/feature-flags";
@@ -88,6 +90,16 @@ const navItems: NavEntry[] = [
     title: "標籤",
     href: "/tags",
     icon: Tags,
+  },
+  {
+    title: "報表",
+    href: "/reports",
+    icon: FileSpreadsheet,
+  },
+  {
+    title: "API 測試",
+    href: "/api-test",
+    icon: FlaskConical,
   },
 ];
 

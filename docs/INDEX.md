@@ -139,6 +139,7 @@ docs/
 | [sync-metrics.md](04-backend/sync/sync-metrics.md) | 同步貼文成效（三層式） |
 | [sync-account-profile.md](04-backend/sync/sync-account-profile.md) | 同步帳號 Profile |
 | [sync-account-insights.md](04-backend/sync/sync-account-insights.md) | 同步帳號 Insights（三層式） |
+| [account-insights-architecture.md](04-backend/sync/account-insights-architecture.md) | Account Insights 同步與 Rollup 架構總覽 |
 
 ### API 端點 (api/)
 
@@ -165,7 +166,7 @@ docs/
 | `tiered-storage.ts` | 分層同步邏輯（頻率判斷、時間視窗、bucket 對齊） |
 | `metrics.ts` | 成效計算（engagement_rate, virality_score 等） |
 | `sync.ts` | 同步核心邏輯（syncPosts, syncMetrics, syncAccountInsights） |
-| `threads-api.ts` | Threads API 封裝 |
+| `threads-api.ts` | Threads API 封裝（處理 `values[]` 與 `total_value` 兩種回應結構） |
 | `crypto.ts` | Token 加解密 |
 | `auth.ts` | 認證輔助函數 |
 
@@ -195,6 +196,8 @@ docs/
 | [post-tracking-dashboard.md](05-frontend/post-tracking-dashboard.md) | 發文追蹤雷達規格（早期爆紅偵測） |
 | [components.md](05-frontend/components.md) | 元件清單 |
 | [ui-guidelines.md](05-frontend/ui-guidelines.md) | UI 開發指引（Square UI） |
+| [reports-page.md](05-frontend/reports-page.md) | 報表下載頁面 |
+| [api-test-page.md](05-frontend/api-test-page.md) | API 測試頁面（開發工具） |
 
 ---
 
