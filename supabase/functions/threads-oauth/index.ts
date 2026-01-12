@@ -101,11 +101,6 @@ Deno.serve(async (req) => {
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('state', state);
 
-    // Debug logging
-    console.log('[threads-oauth] THREADS_APP_ID:', THREADS_APP_ID?.substring(0, 10) + '...');
-    console.log('[threads-oauth] Redirect URI:', redirectUri);
-    console.log('[threads-oauth] Full Auth URL:', authUrl.toString());
-
     return Response.redirect(authUrl.toString(), 302);
   } catch (error) {
     console.error('Threads OAuth error:', error);

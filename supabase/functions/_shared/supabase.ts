@@ -21,15 +21,10 @@ export function createAnonClient(authHeader: string): SupabaseClient {
   const legacyKey = Deno.env.get('LEGACY_ANON_KEY');
   const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
 
-  console.log('[supabase] LEGACY_ANON_KEY exists:', !!legacyKey, 'starts with eyJ:', legacyKey?.startsWith('eyJ'));
-  console.log('[supabase] SUPABASE_ANON_KEY exists:', !!supabaseKey, 'starts with eyJ:', supabaseKey?.startsWith('eyJ'));
-
   const anonKey = legacyKey || supabaseKey;
   if (!anonKey) {
     throw new Error('LEGACY_ANON_KEY or SUPABASE_ANON_KEY not configured');
   }
-
-  console.log('[supabase] Using key starting with:', anonKey.substring(0, 20));
 
   return createClient(
     getRequiredEnv('SUPABASE_URL'),
