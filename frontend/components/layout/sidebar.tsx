@@ -72,16 +72,19 @@ const navItems: NavEntry[] = [
         title: "曝光分析",
         href: "/insights/reach",
         icon: Eye,
+        adminOnly: true,
       },
       {
         title: "互動分析",
         href: "/insights/engagement",
         icon: MessageSquare,
+        adminOnly: true,
       },
       {
         title: "粉絲趨勢",
         href: "/insights/followers",
         icon: Users,
+        adminOnly: true,
       },
     ],
   },
@@ -209,7 +212,9 @@ export function Sidebar() {
                   />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-1 space-y-1 pl-4">
-                  {item.children.map((child) => {
+                  {item.children
+                    .filter((child) => !child.adminOnly || isAdmin)
+                    .map((child) => {
                     const isChildActive = pathname === child.href;
                     return (
                       <Link
