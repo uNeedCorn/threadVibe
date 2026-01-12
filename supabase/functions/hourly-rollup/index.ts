@@ -6,24 +6,23 @@
  * 功能：
  * 1. 將 15m 資料 rollup 到 hourly 表（取最後一筆）
  * 2. 比對同步時 upsert 的值 vs Rollup 計算的值，記錄差異
+ * 3. 計算 R̂_t（即時再生數）用於擴散預測
  */
 
 import { createServiceClient } from '../_shared/supabase.ts';
 import { handleCors } from '../_shared/cors.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse } from '../_shared/response.ts';
 import { alignToHour } from '../_shared/tiered-storage.ts';
-import { calculateRates } from '../_shared/metrics.ts';
+import { calculateRates, calculateRHat } from '../_shared/metrics.ts';
+import {
+  DiffRecord,
+  compareDiffs,
+  getLatestByKey,
+  POST_METRICS_FIELDS,
+  ACCOUNT_INSIGHTS_FIELDS,
+} from '../_shared/rollup-utils.ts';
 
 const CRON_SECRET = Deno.env.get('CRON_SECRET');
-
-interface DiffRecord {
-  id: string;
-  field: string;
-  existing: number;
-  calculated: number;
-  diff: number;
-  diff_percent: number;
-}
 
 interface RollupResult {
   post_metrics: {
@@ -38,9 +37,6 @@ interface RollupResult {
   };
 }
 
-// 差異閾值：超過此百分比視為異常
-const DIFF_THRESHOLD_PERCENT = 5;
-
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -52,9 +48,22 @@ Deno.serve(async (req) => {
     return unauthorizedResponse(req, 'Invalid cron secret');
   }
 
+  const serviceClient = createServiceClient();
+  let jobLogId: string | null = null;
+
   try {
-    const serviceClient = createServiceClient();
     const now = new Date();
+
+    // 記錄任務開始
+    const { data: jobLog } = await serviceClient
+      .from('system_job_logs')
+      .insert({
+        job_type: 'hourly_rollup',
+        status: 'running',
+      })
+      .select('id')
+      .single();
+    jobLogId = jobLog?.id ?? null;
 
     // Rollup 前一個小時的資料
     const targetHour = new Date(now);
@@ -70,31 +79,43 @@ Deno.serve(async (req) => {
     };
 
     // ============================================
-    // Post Metrics: 15m → hourly (with diff check)
+    // Post Metrics: 15m → hourly (with diff check + R̂_t)
     // ============================================
+
+    // 計算需要回看的時間範圍（當前小時 + 前 2 小時，確保有足夠的 15m 資料）
+    const lookbackStart = new Date(new Date(hourBucket).getTime() - (R_HAT_LOOKBACK + 4) * 15 * 60 * 1000).toISOString();
 
     const { data: postMetrics15m, error: pmError } = await serviceClient
       .from('workspace_threads_post_metrics_15m')
       .select('*')
-      .gte('bucket_ts', hourBucket)
+      .gte('bucket_ts', lookbackStart)
       .lt('bucket_ts', nextHourBucket)
-      .order('bucket_ts', { ascending: false });
+      .order('bucket_ts', { ascending: true });  // 由舊到新排序
 
     if (pmError) {
       console.error('Failed to fetch post metrics 15m:', pmError);
     } else if (postMetrics15m && postMetrics15m.length > 0) {
-      // 按 post_id 分組，取每個 post 的最後一筆
+      // 按 post_id 分組，保留完整時間序列
+      const seriesByPost = new Map<string, typeof postMetrics15m>();
+      for (const record of postMetrics15m) {
+        const list = seriesByPost.get(record.workspace_threads_post_id) ?? [];
+        list.push(record);
+        seriesByPost.set(record.workspace_threads_post_id, list);
+      }
+
+      // 找出每個 post 在目標小時內的最後一筆（用於 rollup）
       const latestByPost = new Map<string, typeof postMetrics15m[0]>();
       for (const record of postMetrics15m) {
-        const existing = latestByPost.get(record.workspace_threads_post_id);
-        if (!existing || new Date(record.bucket_ts) > new Date(existing.bucket_ts)) {
-          latestByPost.set(record.workspace_threads_post_id, record);
+        if (record.bucket_ts >= hourBucket && record.bucket_ts < nextHourBucket) {
+          const existing = latestByPost.get(record.workspace_threads_post_id);
+          if (!existing || new Date(record.bucket_ts) > new Date(existing.bucket_ts)) {
+            latestByPost.set(record.workspace_threads_post_id, record);
+          }
         }
       }
 
       for (const [postId, calculated] of latestByPost) {
         try {
-          // 1. 先取得現有的 hourly 資料（如果有）
           const { data: existingHourly } = await serviceClient
             .from('workspace_threads_post_metrics_hourly')
             .select('*')
@@ -102,29 +123,12 @@ Deno.serve(async (req) => {
             .eq('bucket_ts', hourBucket)
             .single();
 
-          // 2. 比對差異（如果現有資料存在）
           if (existingHourly) {
-            const fields = ['views', 'likes', 'replies', 'reposts', 'quotes', 'shares'] as const;
-            for (const field of fields) {
-              const existingVal = existingHourly[field] as number;
-              const calculatedVal = calculated[field] as number;
-              const diff = calculatedVal - existingVal;
-              const diffPercent = existingVal > 0 ? (diff / existingVal) * 100 : (calculatedVal > 0 ? 100 : 0);
-
-              if (Math.abs(diffPercent) > DIFF_THRESHOLD_PERCENT) {
-                result.post_metrics.diffs.push({
-                  id: postId,
-                  field,
-                  existing: existingVal,
-                  calculated: calculatedVal,
-                  diff,
-                  diff_percent: Math.round(diffPercent * 100) / 100,
-                });
-              }
-            }
+            const diffs = compareDiffs(postId, existingHourly, calculated, POST_METRICS_FIELDS);
+            result.post_metrics.diffs.push(...diffs);
           }
 
-          // 3. 計算 rate/score
+          // 計算 rate/score
           const rates = calculateRates({
             views: calculated.views ?? 0,
             likes: calculated.likes ?? 0,
@@ -134,7 +138,18 @@ Deno.serve(async (req) => {
             shares: calculated.shares ?? 0,
           });
 
-          // 4. Upsert（以 Rollup 計算值為準，含 rate/score）
+          // 4. 計算 R̂_t（從時間序列取得 ΔReposts）
+          const series = seriesByPost.get(postId) ?? [];
+          const deltaReposts: number[] = [];
+          for (let i = 1; i < series.length; i++) {
+            const delta = Math.max(0, (series[i].reposts ?? 0) - (series[i - 1].reposts ?? 0));
+            deltaReposts.push(delta);
+          }
+          const rHatResult = calculateRHat(deltaReposts);
+          const rHat = rHatResult.rHat;
+          const rHatStatus = rHatResult.status;
+
+          // 5. Upsert（以 Rollup 計算值為準，含 rate/score 和 R̂_t）
           const { error } = await serviceClient
             .from('workspace_threads_post_metrics_hourly')
             .upsert({
@@ -150,6 +165,8 @@ Deno.serve(async (req) => {
               repost_rate: rates.repostRate,
               quote_rate: rates.quoteRate,
               virality_score: rates.viralityScore,
+              r_hat: rHat,
+              r_hat_status: rHatStatus,
               bucket_ts: hourBucket,
               captured_at: new Date().toISOString(),
             }, {
@@ -161,6 +178,17 @@ Deno.serve(async (req) => {
             result.post_metrics.errors++;
           } else {
             result.post_metrics.processed++;
+          }
+
+          // 6. 同步更新 L3 Current（workspace_threads_posts）
+          if (rHat !== null || rHatStatus !== 'insufficient') {
+            await serviceClient
+              .from('workspace_threads_posts')
+              .update({
+                current_r_hat: rHat,
+                current_r_hat_status: rHatStatus,
+              })
+              .eq('id', postId);
           }
         } catch (e) {
           console.error(`Exception processing post ${postId}:`, e);
@@ -183,17 +211,13 @@ Deno.serve(async (req) => {
     if (aiError) {
       console.error('Failed to fetch account insights 15m:', aiError);
     } else if (accountInsights15m && accountInsights15m.length > 0) {
-      const latestByAccount = new Map<string, typeof accountInsights15m[0]>();
-      for (const record of accountInsights15m) {
-        const existing = latestByAccount.get(record.workspace_threads_account_id);
-        if (!existing || new Date(record.bucket_ts) > new Date(existing.bucket_ts)) {
-          latestByAccount.set(record.workspace_threads_account_id, record);
-        }
-      }
+      const latestByAccount = getLatestByKey(
+        accountInsights15m,
+        (r) => r.workspace_threads_account_id
+      );
 
       for (const [accountId, calculated] of latestByAccount) {
         try {
-          // 1. 先取得現有的 hourly 資料
           const { data: existingHourly } = await serviceClient
             .from('workspace_threads_account_insights_hourly')
             .select('*')
@@ -201,29 +225,12 @@ Deno.serve(async (req) => {
             .eq('bucket_ts', hourBucket)
             .single();
 
-          // 2. 比對差異
           if (existingHourly) {
-            const fields = ['followers_count', 'profile_views', 'likes_count_7d', 'views_count_7d'] as const;
-            for (const field of fields) {
-              const existingVal = existingHourly[field] as number;
-              const calculatedVal = calculated[field] as number;
-              const diff = calculatedVal - existingVal;
-              const diffPercent = existingVal > 0 ? (diff / existingVal) * 100 : (calculatedVal > 0 ? 100 : 0);
-
-              if (Math.abs(diffPercent) > DIFF_THRESHOLD_PERCENT) {
-                result.account_insights.diffs.push({
-                  id: accountId,
-                  field,
-                  existing: existingVal,
-                  calculated: calculatedVal,
-                  diff,
-                  diff_percent: Math.round(diffPercent * 100) / 100,
-                });
-              }
-            }
+            const diffs = compareDiffs(accountId, existingHourly, calculated, ACCOUNT_INSIGHTS_FIELDS);
+            result.account_insights.diffs.push(...diffs);
           }
 
-          // 3. Upsert
+          // Upsert
           const { error } = await serviceClient
             .from('workspace_threads_account_insights_hourly')
             .upsert({
@@ -269,6 +276,31 @@ Deno.serve(async (req) => {
       account_insights: { processed: result.account_insights.processed, errors: result.account_insights.errors, diffs: result.account_insights.diffs.length },
     });
 
+    // 更新任務日誌為完成
+    const totalErrors = result.post_metrics.errors + result.account_insights.errors;
+    if (jobLogId) {
+      await serviceClient
+        .from('system_job_logs')
+        .update({
+          status: totalErrors > 0 ? 'partial' : 'completed',
+          completed_at: new Date().toISOString(),
+          metadata: {
+            bucket: hourBucket,
+            post_metrics: {
+              processed: result.post_metrics.processed,
+              errors: result.post_metrics.errors,
+              diffs_count: result.post_metrics.diffs.length,
+            },
+            account_insights: {
+              processed: result.account_insights.processed,
+              errors: result.account_insights.errors,
+              diffs_count: result.account_insights.diffs.length,
+            },
+          },
+        })
+        .eq('id', jobLogId);
+    }
+
     return jsonResponse(req, {
       success: true,
       bucket: hourBucket,
@@ -289,6 +321,21 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error('Hourly rollup failed:', error);
+
+    // 更新任務日誌為失敗
+    if (jobLogId) {
+      await serviceClient
+        .from('system_job_logs')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          metadata: {
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
+        })
+        .eq('id', jobLogId);
+    }
+
     return errorResponse(
       req,
       error instanceof Error ? error.message : 'Unknown error',

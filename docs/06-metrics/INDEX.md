@@ -32,6 +32,16 @@
 |------|------|----------|------|
 | Virality Score | [virality-score.md](virality-score.md) | Post | 病毒傳播分數 |
 
+### 獨有指標（Proprietary）
+
+ThreadsVibe 專屬指標，於 API 端計算。
+
+| 指標 | 文件 | 適用層級 | 說明 |
+|------|------|----------|------|
+| Engagement Lead Score | [engagement-lead-score.md](engagement-lead-score.md) | Post | 互動領先指數（點火判斷） |
+| Heat Type | [heat-type.md](heat-type.md) | Post | 熱力類型（早熱/慢熱/穩定） |
+| Diffusion Rate (R̂_t) | [diffusion-modeling.md](diffusion-modeling.md) | Post | 擴散動態（加速/減速判斷） |
+
 ### 成長類指標
 
 天生需要多時間點資料，用於趨勢分析。
@@ -41,6 +51,14 @@
 | Early Velocity | [early-velocity.md](early-velocity.md) | Post | 早期互動速度 |
 | Growth Multiple | [growth-multiple.md](growth-multiple.md) | Post | 曝光成長倍數 |
 | Follower Growth | [follower-growth.md](follower-growth.md) | Account | 粉絲成長 |
+
+### 擴散建模（Algorithm Notes）
+
+以時間序列的方式描述「曝光 → 採納 → 傳播」，並在缺少 `shares` 等欄位時提供可落地的推估方法。
+
+| 指標 | 文件 | 適用層級 | 說明 |
+|------|------|----------|------|
+| Diffusion Modeling | [diffusion-modeling.md](diffusion-modeling.md) | Post | 用 `views/reposts` 估 `lift`（出圈代理）與類 `R̂_t`（加速/衰退） |
 
 ---
 

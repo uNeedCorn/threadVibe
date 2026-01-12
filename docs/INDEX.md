@@ -21,7 +21,8 @@ docs/
 │   ├── coding-best-practices.md
 │   ├── task-workflow.md
 │   ├── telegram-notification.md
-│   └── environment-variables.md
+│   ├── environment-variables.md
+│   └── debug-edge-function-401.md
 │
 ├── references/                 # 參考文件
 │   └── design-tokens.md
@@ -101,6 +102,7 @@ docs/
 | [workspace-threads-account-tags.md](03-database/tables/workspace-threads-account-tags.md) | 用戶自定義標籤 |
 | [workspace-threads-post-tags.md](03-database/tables/workspace-threads-post-tags.md) | 貼文與標籤關聯 |
 | [ai-tag-queue.md](03-database/tables/ai-tag-queue.md) | AI Tagging Job Queue |
+| [r-hat-queue.md](03-database/tables/r-hat-queue.md) | R̂_t 計算 Job Queue（再生數計算任務）|
 
 ### 系統資料表
 
@@ -174,6 +176,13 @@ docs/
 | [tagging-system.md](04-backend/ai/tagging-system.md) | 標籤系統（用戶自定義 + AI 建議） |
 | [ai-tagging.md](04-backend/ai/ai-tagging.md) | AI 標籤 Edge Function（Gemini API） |
 
+### Edge Functions (functions/)
+
+| 文件 | 說明 |
+|------|------|
+| [insights-radar.md](04-backend/functions/insights-radar.md) | 發文追蹤雷達 API（獨有指標計算） |
+| [r-hat-calculator.md](04-backend/functions/r-hat-calculator.md) | R̂_t 計算（再生數估計，每 5 分鐘批次處理） |
+
 ---
 
 ## 05-frontend 前端規格
@@ -208,6 +217,13 @@ docs/
 |------|----------|------|
 | [virality-score.md](06-metrics/virality-score.md) | Post | 病毒傳播分數 |
 
+### 獨有指標（Proprietary）
+
+| 文件 | 適用層級 | 說明 |
+|------|----------|------|
+| [engagement-lead-score.md](06-metrics/engagement-lead-score.md) | Post | 互動領先指數（點火判斷） |
+| [heat-type.md](06-metrics/heat-type.md) | Post | 熱力類型分類 |
+
 ### 成長類指標
 
 | 文件 | 適用層級 | 說明 |
@@ -215,6 +231,13 @@ docs/
 | [early-velocity.md](06-metrics/early-velocity.md) | Post | 早期互動速度 |
 | [growth-multiple.md](06-metrics/growth-multiple.md) | Post | 曝光成長倍數 |
 | [follower-growth.md](06-metrics/follower-growth.md) | Account | 粉絲成長 |
+
+### 擴散建模（Algorithm Notes）
+
+| 文件 | 適用層級 | 說明 |
+|------|----------|------|
+| [diffusion-modeling.md](06-metrics/diffusion-modeling.md) | Post | 社群擴散的「傳染病模型化」（15 分鐘窗），含 `lift`（出圈代理）與類 `R̂_t`（加速/衰退） |
+| [diffusion-model-recommendations.md](06-metrics/diffusion-model-recommendations.md) | Post | 擴散模型理論對比與改進建議（SIR/Hawkes 比較） |
 
 ---
 
@@ -226,6 +249,7 @@ docs/
 | [task-workflow.md](guides/task-workflow.md) | 任務管理流程 | ✅ |
 | [telegram-notification.md](guides/telegram-notification.md) | Telegram 通知設定指南 | ✅ |
 | [environment-variables.md](guides/environment-variables.md) | 環境變數設定指南 | ✅ |
+| [debug-edge-function-401.md](guides/debug-edge-function-401.md) | Edge Function 401 除錯指引 | ✅ |
 
 ---
 
@@ -320,6 +344,9 @@ docs/
 | [20260111200003_add_ai_tags_to_posts.sql](../supabase/migrations/20260111200003_add_ai_tags_to_posts.sql) | 貼文 AI 標籤欄位 |
 | [20260111200004_create_llm_usage_logs.sql](../supabase/migrations/20260111200004_create_llm_usage_logs.sql) | LLM 使用記錄表 |
 | [20260111400001_add_ai_tagging_cron.sql](../supabase/migrations/20260111400001_add_ai_tagging_cron.sql) | AI 標籤 Cron 排程 |
+| [20260111800001_add_r_hat_column.sql](../supabase/migrations/20260111800001_add_r_hat_column.sql) | R̂_t 欄位（再生數估計） |
+| [20260111800002_create_r_hat_queue.sql](../supabase/migrations/20260111800002_create_r_hat_queue.sql) | R̂_t 計算 Job Queue |
+| [20260111800003_add_r_hat_cron_job.sql](../supabase/migrations/20260111800003_add_r_hat_cron_job.sql) | R̂_t 計算 Cron 排程（每 5 分鐘） |
 
 ---
 

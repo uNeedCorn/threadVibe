@@ -24,6 +24,20 @@ export interface CalculatedRates {
   viralityScore: number;
 }
 
+export type RHatStatus = 'viral' | 'accelerating' | 'stable' | 'decaying' | 'fading' | 'insufficient' | 'emerging' | 'dormant';
+
+export interface RHatResult {
+  rHat: number | null;
+  status: RHatStatus;
+}
+
+// ============================================
+// R̂_t Constants
+// ============================================
+
+const R_HAT_LOOKBACK = 6;
+const R_HAT_DECAY = 0.2;
+
 // ============================================
 // Rate Calculation
 // ============================================
@@ -75,4 +89,49 @@ export function calculateRates(metrics: PostMetrics): CalculatedRates {
     quoteRate: Math.round(quoteRate * 10000) / 10000,
     viralityScore: Math.round(viralityScore * 100) / 100,
   };
+}
+
+// ============================================
+// R̂_t Calculation
+// ============================================
+
+/**
+ * 計算 R̂_t（即時再生數）
+ * R̂_t = ΔReposts_t / Σ_{k=1}^{K} w_k × ΔReposts_{t-k}
+ *
+ * @param deltaReposts - 時間序列 ΔReposts（從舊到新排序）
+ */
+export function calculateRHat(deltaReposts: number[]): RHatResult {
+  if (deltaReposts.length < R_HAT_LOOKBACK + 1) {
+    return { rHat: null, status: 'insufficient' };
+  }
+
+  const currentDelta = deltaReposts[deltaReposts.length - 1];
+
+  let denominator = 0;
+  for (let k = 1; k <= R_HAT_LOOKBACK; k++) {
+    const weight = Math.exp(-R_HAT_DECAY * k);
+    const pastDelta = deltaReposts[deltaReposts.length - 1 - k] ?? 0;
+    denominator += weight * pastDelta;
+  }
+
+  if (denominator === 0) {
+    if (currentDelta > 0) {
+      return { rHat: null, status: 'emerging' };
+    }
+    return { rHat: 0, status: 'dormant' };
+  }
+
+  const rHat = currentDelta / denominator;
+  const status = getRHatStatus(rHat);
+
+  return { rHat: Math.round(rHat * 1000) / 1000, status };
+}
+
+function getRHatStatus(rHat: number): RHatStatus {
+  if (rHat > 1.5) return 'viral';
+  if (rHat > 1.2) return 'accelerating';
+  if (rHat >= 0.8) return 'stable';
+  if (rHat >= 0.3) return 'decaying';
+  return 'fading';
 }

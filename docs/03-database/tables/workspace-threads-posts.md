@@ -55,6 +55,8 @@ CREATE TABLE workspace_threads_posts (
   current_quotes                INTEGER NOT NULL DEFAULT 0,
   current_shares                INTEGER NOT NULL DEFAULT 0,
   virality_score                NUMERIC(10,2) DEFAULT 0,
+  current_r_hat                 NUMERIC(10,4),
+  current_r_hat_status          TEXT,
   last_metrics_sync_at          TIMESTAMPTZ,
 
   -- AI 標籤
@@ -104,7 +106,11 @@ CREATE TABLE workspace_threads_posts (
 | `current_quotes` | INTEGER | NO | 當前引用數 |
 | `current_shares` | INTEGER | NO | 當前分享數 |
 | `virality_score` | NUMERIC(10,2) | YES | 病毒傳播分數 |
+| `current_r_hat` | NUMERIC(10,4) | YES | 預計算的 R̂_t（再生數估計） |
+| `current_r_hat_status` | TEXT | YES | R̂_t 狀態：viral/accelerating/stable/decaying/fading/insufficient |
 | `last_metrics_sync_at` | TIMESTAMPTZ | YES | 最後成效同步時間 |
+
+> **R̂_t 欄位**：由 [r-hat-calculator](../../04-backend/functions/r-hat-calculator.md) 每 5 分鐘批次計算並更新。
 
 ### AI 標籤欄位
 
@@ -159,6 +165,7 @@ UNIQUE (workspace_threads_account_id, threads_post_id)
 | `workspace_threads_accounts` | n:1 | 所屬帳號 |
 | `workspace_threads_post_metrics` | 1:n | 成效快照 |
 | `workspace_threads_post_tags` | 1:n | 用戶自定義標籤關聯 |
+| `r_hat_queue` | 1:1 | R̂_t 計算任務佇列 |
 
 ---
 

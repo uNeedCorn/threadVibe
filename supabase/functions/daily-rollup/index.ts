@@ -6,23 +6,22 @@
  * 功能：
  * 1. 將 hourly 資料 rollup 到 daily 表（取最後一筆）
  * 2. 比對同步時 upsert 的值 vs Rollup 計算的值，記錄差異
+ * 3. 保留 R̂_t（當日最後值）用於歷史分析
  */
 
 import { createServiceClient } from '../_shared/supabase.ts';
 import { handleCors } from '../_shared/cors.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse } from '../_shared/response.ts';
 import { calculateRates } from '../_shared/metrics.ts';
+import {
+  DiffRecord,
+  compareDiffs,
+  getLatestByKey,
+  POST_METRICS_FIELDS,
+  ACCOUNT_INSIGHTS_FIELDS,
+} from '../_shared/rollup-utils.ts';
 
 const CRON_SECRET = Deno.env.get('CRON_SECRET');
-
-interface DiffRecord {
-  id: string;
-  field: string;
-  existing: number;
-  calculated: number;
-  diff: number;
-  diff_percent: number;
-}
 
 interface RollupResult {
   post_metrics: {
@@ -37,9 +36,6 @@ interface RollupResult {
   };
 }
 
-// 差異閾值：超過此百分比視為異常
-const DIFF_THRESHOLD_PERCENT = 5;
-
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -51,9 +47,22 @@ Deno.serve(async (req) => {
     return unauthorizedResponse(req, 'Invalid cron secret');
   }
 
+  const serviceClient = createServiceClient();
+  let jobLogId: string | null = null;
+
   try {
-    const serviceClient = createServiceClient();
     const now = new Date();
+
+    // 記錄任務開始
+    const { data: jobLog } = await serviceClient
+      .from('system_job_logs')
+      .insert({
+        job_type: 'daily_rollup',
+        status: 'running',
+      })
+      .select('id')
+      .single();
+    jobLogId = jobLog?.id ?? null;
 
     // Rollup 前一天的資料
     const yesterday = new Date(now);
@@ -84,18 +93,13 @@ Deno.serve(async (req) => {
     if (pmError) {
       console.error('Failed to fetch post metrics hourly:', pmError);
     } else if (postMetricsHourly && postMetricsHourly.length > 0) {
-      // 按 post_id 分組，取每個 post 的最後一筆
-      const latestByPost = new Map<string, typeof postMetricsHourly[0]>();
-      for (const record of postMetricsHourly) {
-        const existing = latestByPost.get(record.workspace_threads_post_id);
-        if (!existing || new Date(record.bucket_ts) > new Date(existing.bucket_ts)) {
-          latestByPost.set(record.workspace_threads_post_id, record);
-        }
-      }
+      const latestByPost = getLatestByKey(
+        postMetricsHourly,
+        (r) => r.workspace_threads_post_id
+      );
 
       for (const [postId, calculated] of latestByPost) {
         try {
-          // 1. 先取得現有的 daily 資料（如果有）
           const { data: existingDaily } = await serviceClient
             .from('workspace_threads_post_metrics_daily')
             .select('*')
@@ -103,26 +107,9 @@ Deno.serve(async (req) => {
             .eq('bucket_date', targetDate)
             .single();
 
-          // 2. 比對差異
           if (existingDaily) {
-            const fields = ['views', 'likes', 'replies', 'reposts', 'quotes', 'shares'] as const;
-            for (const field of fields) {
-              const existingVal = existingDaily[field] as number;
-              const calculatedVal = calculated[field] as number;
-              const diff = calculatedVal - existingVal;
-              const diffPercent = existingVal > 0 ? (diff / existingVal) * 100 : (calculatedVal > 0 ? 100 : 0);
-
-              if (Math.abs(diffPercent) > DIFF_THRESHOLD_PERCENT) {
-                result.post_metrics.diffs.push({
-                  id: postId,
-                  field,
-                  existing: existingVal,
-                  calculated: calculatedVal,
-                  diff,
-                  diff_percent: Math.round(diffPercent * 100) / 100,
-                });
-              }
-            }
+            const diffs = compareDiffs(postId, existingDaily, calculated, POST_METRICS_FIELDS);
+            result.post_metrics.diffs.push(...diffs);
           }
 
           // 3. 計算 rate/score
@@ -184,17 +171,13 @@ Deno.serve(async (req) => {
     if (aiError) {
       console.error('Failed to fetch account insights hourly:', aiError);
     } else if (accountInsightsHourly && accountInsightsHourly.length > 0) {
-      const latestByAccount = new Map<string, typeof accountInsightsHourly[0]>();
-      for (const record of accountInsightsHourly) {
-        const existing = latestByAccount.get(record.workspace_threads_account_id);
-        if (!existing || new Date(record.bucket_ts) > new Date(existing.bucket_ts)) {
-          latestByAccount.set(record.workspace_threads_account_id, record);
-        }
-      }
+      const latestByAccount = getLatestByKey(
+        accountInsightsHourly,
+        (r) => r.workspace_threads_account_id
+      );
 
       for (const [accountId, calculated] of latestByAccount) {
         try {
-          // 1. 先取得現有的 daily 資料
           const { data: existingDaily } = await serviceClient
             .from('workspace_threads_account_insights_daily')
             .select('*')
@@ -202,29 +185,12 @@ Deno.serve(async (req) => {
             .eq('bucket_date', targetDate)
             .single();
 
-          // 2. 比對差異
           if (existingDaily) {
-            const fields = ['followers_count', 'profile_views', 'likes_count_7d', 'views_count_7d'] as const;
-            for (const field of fields) {
-              const existingVal = existingDaily[field] as number;
-              const calculatedVal = calculated[field] as number;
-              const diff = calculatedVal - existingVal;
-              const diffPercent = existingVal > 0 ? (diff / existingVal) * 100 : (calculatedVal > 0 ? 100 : 0);
-
-              if (Math.abs(diffPercent) > DIFF_THRESHOLD_PERCENT) {
-                result.account_insights.diffs.push({
-                  id: accountId,
-                  field,
-                  existing: existingVal,
-                  calculated: calculatedVal,
-                  diff,
-                  diff_percent: Math.round(diffPercent * 100) / 100,
-                });
-              }
-            }
+            const diffs = compareDiffs(accountId, existingDaily, calculated, ACCOUNT_INSIGHTS_FIELDS);
+            result.account_insights.diffs.push(...diffs);
           }
 
-          // 3. Upsert
+          // Upsert
           const { error } = await serviceClient
             .from('workspace_threads_account_insights_daily')
             .upsert({
@@ -270,6 +236,31 @@ Deno.serve(async (req) => {
       account_insights: { processed: result.account_insights.processed, errors: result.account_insights.errors, diffs: result.account_insights.diffs.length },
     });
 
+    // 更新任務日誌為完成
+    const totalErrors = result.post_metrics.errors + result.account_insights.errors;
+    if (jobLogId) {
+      await serviceClient
+        .from('system_job_logs')
+        .update({
+          status: totalErrors > 0 ? 'partial' : 'completed',
+          completed_at: new Date().toISOString(),
+          metadata: {
+            date: targetDate,
+            post_metrics: {
+              processed: result.post_metrics.processed,
+              errors: result.post_metrics.errors,
+              diffs_count: result.post_metrics.diffs.length,
+            },
+            account_insights: {
+              processed: result.account_insights.processed,
+              errors: result.account_insights.errors,
+              diffs_count: result.account_insights.diffs.length,
+            },
+          },
+        })
+        .eq('id', jobLogId);
+    }
+
     return jsonResponse(req, {
       success: true,
       date: targetDate,
@@ -290,6 +281,21 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error('Daily rollup failed:', error);
+
+    // 更新任務日誌為失敗
+    if (jobLogId) {
+      await serviceClient
+        .from('system_job_logs')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          metadata: {
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
+        })
+        .eq('id', jobLogId);
+    }
+
     return errorResponse(
       req,
       error instanceof Error ? error.message : 'Unknown error',

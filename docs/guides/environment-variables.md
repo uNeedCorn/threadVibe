@@ -128,6 +128,7 @@ if (!THREADS_APP_ID) {
 | `token-refresh` | `CRON_SECRET`, `ENCRYPTION_SECRET` |
 | `token-auto-revoke` | `CRON_SECRET` |
 | `workspace-cleanup` | `CRON_SECRET` |
+| `r-hat-calculator` | `CRON_SECRET` |
 | `quota-check` | 無（使用 JWT 驗證） |
 | `threads-account-status` | 無（使用 JWT 驗證） |
 | `threads-account-unlink` | 無（使用 JWT 驗證） |

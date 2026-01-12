@@ -31,6 +31,7 @@ export interface SyncPostsResult {
 export interface SyncMetricsResult {
   success_count: number;
   error_count: number;
+  synced_post_ids: string[];
 }
 
 export interface SyncAccountInsightsResult {
@@ -58,20 +59,8 @@ export async function syncPostsForAccount(
 ): Promise<SyncPostsResult> {
   const posts = await threadsClient.getUserPosts('me', limit);
 
-  // Debug: 記錄 API 回傳的原始資料，確認有哪些欄位
-  if (posts.length > 0) {
-    console.log('syncPostsForAccount: Sample post from API:', JSON.stringify(posts[0], null, 2));
-    console.log('syncPostsForAccount: Available fields:', Object.keys(posts[0]));
-  }
-
   const normalizedPosts = posts.map((post) => {
-    // 判斷 post_type
-    let postType: 'original' | 'reply' | 'quote' = 'original';
-    if (post.is_reply) {
-      postType = 'reply';
-    } else if (post.is_quote_post) {
-      postType = 'quote';
-    }
+    const postType = post.is_reply ? 'reply' : post.is_quote_post ? 'quote' : 'original';
 
     return {
       workspace_threads_account_id: accountId,
@@ -163,11 +152,12 @@ export async function syncMetricsForAccount(
     .eq('workspace_threads_account_id', accountId);
 
   if (!posts || posts.length === 0) {
-    return { success_count: 0, error_count: 0 };
+    return { success_count: 0, error_count: 0, synced_post_ids: [] };
   }
 
   let successCount = 0;
   let errorCount = 0;
+  const syncedPostIds: string[] = [];
 
   for (const post of posts) {
     try {
@@ -320,13 +310,54 @@ export async function syncMetricsForAccount(
         .eq('id', post.id);
 
       successCount++;
+      syncedPostIds.push(post.id);
     } catch (error) {
       console.error(`Failed to sync metrics for post ${post.id}:`, error);
       errorCount++;
     }
   }
 
-  return { success_count: successCount, error_count: errorCount };
+  // 將成功同步的貼文入隊 r_hat_queue（非同步計算 R̂_t）
+  if (syncedPostIds.length > 0) {
+    const queueItems = syncedPostIds.map((postId) => {
+      // 計算優先級：新貼文（48 小時內）優先
+      const postData = posts.find((p) => p.id === postId);
+      const publishedAt = postData?.published_at ? new Date(postData.published_at) : null;
+      const hoursOld = publishedAt
+        ? (nowDate.getTime() - publishedAt.getTime()) / (1000 * 60 * 60)
+        : 999;
+
+      let priority = 0;
+      if (hoursOld <= 48) priority = 10; // 新貼文優先
+
+      return {
+        workspace_threads_post_id: postId,
+        status: 'pending',
+        priority,
+        attempts: 0, // 重置嘗試次數
+        error_message: null,
+        started_at: null,
+        completed_at: null,
+        calculated_r_hat: null,
+        calculated_r_hat_status: null,
+      };
+    });
+
+    // ON CONFLICT 更新為 pending，觸發重新計算
+    const { error: queueError } = await serviceClient
+      .from('r_hat_queue')
+      .upsert(queueItems, {
+        onConflict: 'workspace_threads_post_id',
+      });
+
+    if (queueError) {
+      console.error('Failed to enqueue r_hat calculation:', queueError);
+    } else {
+      console.log(`Enqueued ${syncedPostIds.length} posts for R̂_t calculation`);
+    }
+  }
+
+  return { success_count: successCount, error_count: errorCount, synced_post_ids: syncedPostIds };
 }
 
 // ============================================
