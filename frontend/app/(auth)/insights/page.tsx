@@ -936,10 +936,21 @@ export default function InsightsOverviewPage() {
         let previousStart: Date;
         let previousEnd: Date;
 
+        // 取得本週日 00:00（日曆週以週日開始）
+        const getStartOfWeek = (date: Date): Date => {
+          const d = new Date(date);
+          const day = d.getDay(); // 0 = 週日
+          d.setDate(d.getDate() - day);
+          d.setHours(0, 0, 0, 0);
+          return d;
+        };
+
         if (period === "week") {
-          currentStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          // 日曆週：本週日 00:00 ~ 現在
+          currentStart = getStartOfWeek(now);
+          // 上週：上週日 00:00 ~ 本週日 00:00
           previousEnd = currentStart;
-          previousStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+          previousStart = new Date(currentStart.getTime() - 7 * 24 * 60 * 60 * 1000);
         } else {
           currentStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
           previousEnd = currentStart;
