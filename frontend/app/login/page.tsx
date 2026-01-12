@@ -27,7 +27,7 @@ export default function LoginPage() {
               </svg>
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">ThreadsVibe</h1>
+          <h1 className="text-2xl font-bold text-foreground">Postlyzer</h1>
           <p className="text-muted-foreground">
             追蹤、分析你的 Threads 貼文成效
           </p>

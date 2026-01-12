@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ThreadsVibe - Threads 發文成效儀表板",
+  title: "Postlyzer - 社群貼文成效分析",
   description: "追蹤、分析你的 Threads 貼文成效",
 };
 

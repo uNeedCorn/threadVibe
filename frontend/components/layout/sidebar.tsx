@@ -166,7 +166,7 @@ export function Sidebar() {
             <path d="M7 14v.01" />
           </svg>
         </div>
-        <span className="text-lg font-semibold">ThreadsVibe</span>
+        <span className="text-lg font-semibold">Postlyzer</span>
       </div>
 
       {/* Workspace Switcher - 團隊模式或管理員可見 */}
