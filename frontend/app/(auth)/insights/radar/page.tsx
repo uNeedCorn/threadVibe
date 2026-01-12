@@ -317,7 +317,7 @@ function DiffusionStatusIcon({ diffusion }: { diffusion: DiffusionMetrics | null
   return (
     <span
       className={cn("cursor-default flex items-center gap-0.5 text-xs", className)}
-      title={`${tooltip} (R̂=${diffusion.rHat})`}
+      title={`${tooltip} (擴散指數 ${diffusion.rHat})`}
     >
       <span>{icon}</span>
       <span>{label}</span>
@@ -1289,7 +1289,7 @@ function QuadrantChart({
 
 // ============ 曝光 vs 擴散動態 四象限圖 ============
 
-// 擴散動態臨界點 (R̂ = 1.0)
+// 擴散動態臨界點 (擴散指數 = 1.0)
 const RHAT_THRESHOLD = 1.0;
 
 interface ViewsRHatDataPoint {
@@ -1376,7 +1376,7 @@ function ViewsRHatQuadrantChart({
           <div className="text-center text-muted-foreground">
             <Clock className="mx-auto mb-2 size-10 opacity-20" />
             <p className="text-sm">擴散動態數據累積中</p>
-            <p className="text-xs mt-1">新貼文需約 45 分鐘才能計算 R̂</p>
+            <p className="text-xs mt-1">新貼文需約 45 分鐘才能計算擴散指數</p>
           </div>
         </CardContent>
       </Card>
@@ -1451,7 +1451,7 @@ function ViewsRHatQuadrantChart({
                 strokeDasharray="4 4"
                 strokeWidth={1.5}
                 label={{
-                  value: "R̂=1.0",
+                  value: "臨界值 1.0",
                   position: "right",
                   fontSize: 10,
                   fill: "#DC2626",
@@ -1698,7 +1698,7 @@ function PostsTable({
                 <TableHead className="w-20 text-right">曝光</TableHead>
                 <TableHead className="w-36">互動</TableHead>
                 <TableHead className="w-32">傳播力</TableHead>
-                <TableHead className="w-20 text-center" title="擴散動態 R̂：需累積約 45 分鐘數據">擴散</TableHead>
+                <TableHead className="w-20 text-center" title="擴散動態：需累積約 45 分鐘數據">擴散</TableHead>
                 <TableHead className="w-28">趨勢</TableHead>
               </TableRow>
             </TableHeader>
@@ -1748,7 +1748,7 @@ function PostsTable({
               <TableHead className="w-20 text-right">曝光</TableHead>
               <TableHead className="w-36">互動</TableHead>
               <TableHead className="w-32">傳播力</TableHead>
-              <TableHead className="w-20 text-center" title="擴散動態 R̂：需累積約 45 分鐘數據">擴散</TableHead>
+              <TableHead className="w-20 text-center" title="擴散動態：需累積約 45 分鐘數據">擴散</TableHead>
               <TableHead className="w-28">趨勢</TableHead>
             </TableRow>
           </TableHeader>
