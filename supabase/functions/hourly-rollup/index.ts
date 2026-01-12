@@ -13,14 +13,17 @@ import { createServiceClient } from '../_shared/supabase.ts';
 import { handleCors } from '../_shared/cors.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse } from '../_shared/response.ts';
 import { alignToHour } from '../_shared/tiered-storage.ts';
-import { calculateRates, calculateRHat } from '../_shared/metrics.ts';
+import { calculateRates, calculateRHat, R_HAT_LOOKBACK } from '../_shared/metrics.ts';
 import {
   DiffRecord,
   compareDiffs,
   getLatestByKey,
   POST_METRICS_FIELDS,
   ACCOUNT_INSIGHTS_FIELDS,
+  sumProfileViewsDeltas,
+  DIFF_THRESHOLD_PERCENT,
 } from '../_shared/rollup-utils.ts';
+import { notifyError } from '../_shared/notification.ts';
 
 const CRON_SECRET = Deno.env.get('CRON_SECRET');
 
@@ -225,8 +228,18 @@ Deno.serve(async (req) => {
             .eq('bucket_ts', hourBucket)
             .single();
 
+          // 從 delta 表累加 profile_views（換日邏輯已在 Sync 處理）
+          const profileViewsFromDeltas = await sumProfileViewsDeltas(
+            serviceClient,
+            accountId,
+            hourBucket,
+            nextHourBucket
+          );
+
           if (existingHourly) {
-            const diffs = compareDiffs(accountId, existingHourly, calculated, ACCOUNT_INSIGHTS_FIELDS);
+            // 用累加值進行 diff 比對
+            const calculatedWithDeltas = { ...calculated, profile_views: profileViewsFromDeltas };
+            const diffs = compareDiffs(accountId, existingHourly, calculatedWithDeltas, ACCOUNT_INSIGHTS_FIELDS);
             result.account_insights.diffs.push(...diffs);
           }
 
@@ -236,9 +249,9 @@ Deno.serve(async (req) => {
             .upsert({
               workspace_threads_account_id: accountId,
               followers_count: calculated.followers_count,
-              profile_views: calculated.profile_views,
-              likes_count_7d: calculated.likes_count_7d,
-              views_count_7d: calculated.views_count_7d,
+              profile_views: profileViewsFromDeltas,  // 從 delta 累加
+              likes_count_7d: 0,                      // deprecated，固定為 0
+              views_count_7d: 0,                      // deprecated，固定為 0
               demographics: calculated.demographics,
               bucket_ts: hourBucket,
               captured_at: new Date().toISOString(),
@@ -321,6 +334,12 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error('Hourly rollup failed:', error);
+
+    // 發送 Telegram 通知
+    await notifyError({
+      jobType: 'hourly-rollup',
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     // 更新任務日誌為失敗
     if (jobLogId) {

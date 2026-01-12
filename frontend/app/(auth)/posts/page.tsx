@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2 } from "lucide-react";
-import { PostsFilters, PostsTable, type PostsFiltersValue, type Post, type PostTag, type PostTrend, type SortField, type SortOrder } from "@/components/posts";
+import { PostsFilters, PostsTable, PostDetailPanel, type PostsFiltersValue, type Post, type PostTag, type PostTrend, type SortField, type SortOrder } from "@/components/posts";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { useAccountTags } from "@/hooks/use-account-tags";
@@ -105,6 +105,8 @@ export default function PostsPage() {
 
   const [sortField, setSortField] = useState<SortField>("published_at");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
 
   // 取得貼文
   const fetchPosts = useCallback(async (reset: boolean = false) => {
@@ -370,6 +372,20 @@ export default function PostsPage() {
     return newTag;
   };
 
+  // 處理選擇貼文（開啟側邊 Panel）
+  const handleSelectPost = useCallback((postId: string) => {
+    setSelectedPostId(postId);
+    setIsPanelOpen(true);
+  }, []);
+
+  // 處理關閉 Panel
+  const handlePanelOpenChange = useCallback((open: boolean) => {
+    setIsPanelOpen(open);
+    if (!open) {
+      setSelectedPostId(null);
+    }
+  }, []);
+
   // 處理 AI 標籤選擇
   const handleAiTagSelect = async (postId: string, dimension: string, tag: string, selected: boolean) => {
     const supabase = createClient();
@@ -450,8 +466,19 @@ export default function PostsPage() {
           onCreateTag={handleCreateTag}
           onPostTagsChange={handlePostTagsChange}
           onAiTagSelect={handleAiTagSelect}
+          onSelectPost={handleSelectPost}
         />
       )}
+
+      {/* 貼文詳情側邊 Panel */}
+      <PostDetailPanel
+        open={isPanelOpen}
+        onOpenChange={handlePanelOpenChange}
+        postId={selectedPostId}
+        accountTags={accountTags}
+        onTagsChange={handlePostTagsChange}
+        onCreateTag={handleCreateTag}
+      />
 
       {/* 無限滾動哨兵 */}
       {!hasNoAccount && (

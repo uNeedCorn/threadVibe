@@ -19,6 +19,7 @@ import {
 } from '../_shared/sync.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse } from '../_shared/response.ts';
 import { acquireJobLock, releaseJobLock } from '../_shared/job-lock.ts';
+import { notifyError } from '../_shared/notification.ts';
 
 const CRON_SECRET = Deno.env.get('CRON_SECRET');
 const BATCH_SIZE = 5;
@@ -262,6 +263,13 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Scheduled sync error:', error);
+
+    // 發送 Telegram 通知
+    await notifyError({
+      jobType: 'scheduled-sync',
+      error: error instanceof Error ? error.message : String(error),
+    });
+
     try {
       const serviceClient = createServiceClient();
       await releaseJobLock(serviceClient, 'scheduled_sync');

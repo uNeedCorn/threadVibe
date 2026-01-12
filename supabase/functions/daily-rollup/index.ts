@@ -19,7 +19,10 @@ import {
   getLatestByKey,
   POST_METRICS_FIELDS,
   ACCOUNT_INSIGHTS_FIELDS,
+  sumProfileViewsDeltas,
+  DIFF_THRESHOLD_PERCENT,
 } from '../_shared/rollup-utils.ts';
+import { notifyError } from '../_shared/notification.ts';
 
 const CRON_SECRET = Deno.env.get('CRON_SECRET');
 
@@ -71,6 +74,10 @@ Deno.serve(async (req) => {
 
     const dayStart = `${targetDate}T00:00:00.000Z`;
     const dayEnd = `${targetDate}T23:59:59.999Z`;
+    // 用於 delta 累加的結束時間（下一天 00:00:00，配合 lt 條件）
+    const nextDayStart = new Date(dayStart);
+    nextDayStart.setUTCDate(nextDayStart.getUTCDate() + 1);
+    const nextDayStartStr = nextDayStart.toISOString();
 
     console.log(`Starting daily rollup for date: ${targetDate}`);
 
@@ -185,8 +192,18 @@ Deno.serve(async (req) => {
             .eq('bucket_date', targetDate)
             .single();
 
+          // 從 delta 表累加 profile_views（換日邏輯已在 Sync 處理）
+          const profileViewsFromDeltas = await sumProfileViewsDeltas(
+            serviceClient,
+            accountId,
+            dayStart,
+            nextDayStartStr
+          );
+
           if (existingDaily) {
-            const diffs = compareDiffs(accountId, existingDaily, calculated, ACCOUNT_INSIGHTS_FIELDS);
+            // 用累加值進行 diff 比對
+            const calculatedWithDeltas = { ...calculated, profile_views: profileViewsFromDeltas };
+            const diffs = compareDiffs(accountId, existingDaily, calculatedWithDeltas, ACCOUNT_INSIGHTS_FIELDS);
             result.account_insights.diffs.push(...diffs);
           }
 
@@ -196,9 +213,9 @@ Deno.serve(async (req) => {
             .upsert({
               workspace_threads_account_id: accountId,
               followers_count: calculated.followers_count,
-              profile_views: calculated.profile_views,
-              likes_count_7d: calculated.likes_count_7d,
-              views_count_7d: calculated.views_count_7d,
+              profile_views: profileViewsFromDeltas,  // 從 delta 累加
+              likes_count_7d: 0,                      // deprecated，固定為 0
+              views_count_7d: 0,                      // deprecated，固定為 0
               demographics: calculated.demographics,
               bucket_date: targetDate,
               captured_at: new Date().toISOString(),
@@ -281,6 +298,12 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error('Daily rollup failed:', error);
+
+    // 發送 Telegram 通知
+    await notifyError({
+      jobType: 'daily-rollup',
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     // 更新任務日誌為失敗
     if (jobLogId) {

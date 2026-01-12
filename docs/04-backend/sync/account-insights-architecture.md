@@ -51,9 +51,9 @@ Account Insights 採用**雙寫 + Rollup**架構，確保即時性與資料一�
 │                                                                             │
 │   hourly-rollup（每小時 :05）          daily-rollup（每日 01:00 UTC）        │
 │   ─────────────────────────           ────────────────────────────          │
-│   15m → hourly                        hourly → daily                        │
-│   取該小時最後一筆                     取該日最後一筆                         │
-│   比對同步值 vs 計算值                 比對同步值 vs 計算值                   │
+│   followers_count: 取最後一筆          followers_count: 取最後一筆           │
+│   profile_views: SUM(delta)           profile_views: SUM(delta)            │
+│   ↑ 從 deltas 表累加                  ↑ 從 deltas 表累加                    │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -82,13 +82,17 @@ Account Insights 採用**雙寫 + Rollup**架構，確保即時性與資料一�
 
 ```sql
 -- 所有分層表共用欄位
-followers_count    INTEGER   -- 粉絲數（當前總數）
-profile_views      INTEGER   -- Profile 觀看數
-likes_count_7d     INTEGER   -- 7 天按讚數（API 不支援）
-views_count_7d     INTEGER   -- 觀看數（當日值，非 7 天累計）
+followers_count    INTEGER   -- 粉絲數（累計總數，取最後一筆）
+profile_views      INTEGER   -- Profile 觀看數（從 delta 表累加）
+likes_count_7d     INTEGER   -- ⚠️ DEPRECATED：固定為 0，API 不提供
+views_count_7d     INTEGER   -- ⚠️ DEPRECATED：固定為 0，保留供未來使用
 demographics       JSONB     -- 受眾輪廓（需額外權限）
 captured_at        TIMESTAMPTZ
 ```
+
+> **Rollup 欄位語義**：
+> - `followers_count`：累計總數 → 取最後一筆 snapshot
+> - `profile_views`：當日累積（UTC 8 換日）→ 從 delta 表累加
 
 ---
 
@@ -138,41 +142,124 @@ if (prevSnapshot) {
 // 4. L3 Current
 await supabase.from('workspace_threads_accounts').update({
   current_followers_count: insights.followers_count,
-  current_views_count_7d: insights.views,
+  current_profile_views: insights.profile_views,  // 當日累積
   ...
 });
 ```
 
 ---
 
+## Delta 計算（換日處理）
+
+### profile_views 的 Delta 計算
+
+API 回傳的 `views` 是**當日累積值**，在 UTC 8（台灣 16:00）會重置歸零。因此 Delta 計算需要特別處理換日情境。
+
+```typescript
+// sync.ts - Delta 計算邏輯
+if (prevSnapshot) {
+  let profileViewsDelta = insights.profile_views - prevSnapshot.profile_views;
+
+  // 檢測換日：如果 delta 是負值，表示跨日重置
+  // 例如：前一筆 8000 → 當前 300 = delta -7700（錯誤）
+  // 應該使用當前值 300 作為新一天的 delta
+  if (profileViewsDelta < 0) {
+    profileViewsDelta = insights.profile_views;
+  }
+
+  await supabase.from('workspace_threads_account_insights_deltas').insert({
+    workspace_threads_account_id: accountId,
+    profile_views_delta: profileViewsDelta,  // 已處理換日
+    followers_delta: insights.followers_count - prevSnapshot.followers_count,
+    period_start: prevSnapshot.captured_at,
+    period_end: new Date().toISOString(),
+  });
+}
+```
+
+### 為什麼在 Sync 處理換日？
+
+| 方案 | 優點 | 缺點 |
+|------|------|------|
+| ✅ **Sync 時處理** | Rollup 只需 SUM，邏輯單純 | Sync 稍複雜 |
+| ❌ Rollup 時處理 | Sync 較單純 | Rollup 需知道換日時間，複雜 |
+
+**選擇在 Sync 處理**：確保 Delta 表的數值永遠是「正確的增量」，後續 Rollup 只需簡單累加。
+
+---
+
 ## Rollup 流程
+
+### 欄位處理策略
+
+| 欄位 | 策略 | 資料來源 | 說明 |
+|------|------|----------|------|
+| `followers_count` | 取最後一筆 | 15m/hourly 表 | 累計總數，取期間內最新 snapshot |
+| `profile_views` | SUM(delta) | deltas 表 | 從 delta 累加，換日邏輯已在 Sync 處理 |
+| `likes_count_7d` | 固定為 0 | - | ⚠️ DEPRECATED |
+| `views_count_7d` | 固定為 0 | - | ⚠️ DEPRECATED |
 
 ### Hourly Rollup（每小時 :05）
 
 ```
-輸入：workspace_threads_account_insights_15m（前一小時內）
+輸入：
+  - workspace_threads_account_insights_15m（前一小時內）
+  - workspace_threads_account_insights_deltas（前一小時內）
 輸出：workspace_threads_account_insights_hourly
 
 邏輯：
 1. 查詢前一小時的所有 15m 記錄
-2. 按 account_id 分組，取最後一筆
-3. 比對現有 hourly 值（同步時寫入）vs 計算值
-4. 若差異 > 閾值，記錄警告
-5. Upsert 到 hourly 表（以計算值為準）
+2. 按 account_id 分組，取最後一筆（用於 followers_count）
+3. 從 deltas 表 SUM(profile_views_delta)（用於 profile_views）
+4. 比對現有 hourly 值 vs 計算值
+5. 若差異 > 5% 閾值，記錄警告
+6. Upsert 到 hourly 表：
+   - followers_count = 最後一筆 snapshot
+   - profile_views = SUM(delta)
+   - likes_count_7d = 0
+   - views_count_7d = 0
 ```
 
 ### Daily Rollup（每日 01:00 UTC）
 
 ```
-輸入：workspace_threads_account_insights_hourly（前一天內）
+輸入：
+  - workspace_threads_account_insights_hourly（前一天內）
+  - workspace_threads_account_insights_deltas（前一天內）
 輸出：workspace_threads_account_insights_daily
 
 邏輯：
 1. 查詢前一天的所有 hourly 記錄
-2. 按 account_id 分組，取最後一筆
-3. 比對現有 daily 值 vs 計算值
-4. 若差異 > 閾值，記錄警告
-5. Upsert 到 daily 表（以計算值為準）
+2. 按 account_id 分組，取最後一筆（用於 followers_count）
+3. 從 deltas 表 SUM(profile_views_delta)（用於 profile_views）
+4. 比對現有 daily 值 vs 計算值
+5. 若差異 > 5% 閾值，記錄警告
+6. Upsert 到 daily 表：
+   - followers_count = 最後一筆 snapshot
+   - profile_views = SUM(delta)
+   - likes_count_7d = 0
+   - views_count_7d = 0
+```
+
+### Delta 累加函式
+
+```typescript
+// rollup-utils.ts
+export async function sumProfileViewsDeltas(
+  serviceClient,
+  accountId: string,
+  startTime: string,  // 含
+  endTime: string     // 不含
+): Promise<number> {
+  const { data: deltas } = await serviceClient
+    .from('workspace_threads_account_insights_deltas')
+    .select('profile_views_delta')
+    .eq('workspace_threads_account_id', accountId)
+    .gte('period_end', startTime)
+    .lt('period_end', endTime);
+
+  return deltas?.reduce((sum, d) => sum + (d.profile_views_delta ?? 0), 0) ?? 0;
+}
 ```
 
 ---
@@ -187,13 +274,15 @@ await supabase.from('workspace_threads_accounts').update({
 | **語義** | **累計總數**（從帳號建立至今） |
 | **更新頻率** | 即時 |
 
-### views
+### views（Profile Views）
 
 | 項目 | 說明 |
 |------|------|
 | **結構** | `values: [{ value, end_time }]` |
-| **語義** | 整點時間的觀看數（待確認是當日累計或該小時 delta） |
+| **語義** | **當日累積 Profile Views**（從 UTC 8 開始累計） |
 | **end_time** | 整點時間戳，如 `2026-01-12T08:00:00+0000` |
+| **換日時間** | **UTC 8**（台灣時間 16:00）重置歸零 |
+| **儲存欄位** | `profile_views`（不是 `views_count_7d`） |
 
 ```json
 // 範例：API 回傳的 views
@@ -201,23 +290,25 @@ await supabase.from('workspace_threads_accounts').update({
   "name": "views",
   "period": "day",
   "values": [
-    { "value": 2789, "end_time": "2026-01-11T08:00:00+0000" },  // 1/11 08:00 的值
-    { "value": 562, "end_time": "2026-01-12T08:00:00+0000" }    // 1/12 08:00 的值
+    { "value": 2789, "end_time": "2026-01-11T08:00:00+0000" },  // 1/11 當日累積
+    { "value": 562, "end_time": "2026-01-12T08:00:00+0000" }    // 1/12 當日累積（換日後重置）
   ]
 }
 ```
 
-> **待確認**：`views` 的 value 是當日 00:00~end_time 的累計值，還是該小時的 delta 值？
-> 目前策略：**原樣記錄**，待後續驗證確認語義。
+> **換日處理**：當 `profile_views` 比前一筆小（delta < 0）時，表示跨日重置。
+> 此時 delta 應使用當前值（新一天的累積），而非負值。
 
 ---
 
-## 欄位名稱說明
+## 欄位名稱對照
 
-| 欄位 | 儲存內容 | 備註 |
-|------|----------|------|
-| `current_followers_count` | 粉絲累計總數 | 確認為累計值 |
-| `views_count_7d` | API 回傳的 views 最新值 | 名稱待修正，實際非 7 天累計 |
+| 欄位 | 儲存內容 | 狀態 | 備註 |
+|------|----------|------|------|
+| `followers_count` | 粉絲累計總數 | ✅ 使用中 | 累計值，取最後一筆 |
+| `profile_views` | API 回傳的 views | ✅ 使用中 | 當日累積，從 delta 累加 |
+| `likes_count_7d` | - | ⚠️ DEPRECATED | 固定為 0，API 不提供 |
+| `views_count_7d` | - | ⚠️ DEPRECATED | 固定為 0，保留欄位 |
 
 ---
 

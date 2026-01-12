@@ -100,6 +100,7 @@ interface PostsTableProps {
   onCreateTag?: (name: string, color: string) => Promise<AccountTag | null>;
   onPostTagsChange?: (postId: string, tags: PostTag[]) => void;
   onAiTagSelect?: (postId: string, dimension: string, tag: string, selected: boolean) => void;
+  onSelectPost?: (postId: string) => void;
 }
 
 export function PostsTable({
@@ -112,6 +113,7 @@ export function PostsTable({
   onCreateTag,
   onPostTagsChange,
   onAiTagSelect,
+  onSelectPost,
 }: PostsTableProps) {
   const router = useRouter();
 
@@ -282,7 +284,11 @@ export function PostsTable({
         </TableHeader>
         <TableBody>
           {posts.map((post) => (
-            <TableRow key={post.id} className="hover:bg-muted/50">
+            <TableRow
+              key={post.id}
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => onSelectPost?.(post.id)}
+            >
               <TableCell>
                 <div className="flex items-start gap-3">
                   {/* 媒體縮圖 */}
@@ -306,7 +312,10 @@ export function PostsTable({
                   <div className="min-w-0 flex-1">
                     <p
                       className="line-clamp-2 cursor-pointer text-sm hover:text-primary hover:underline"
-                      onClick={() => router.push(`/posts/${post.id}`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/posts/${post.id}`);
+                      }}
                     >
                       {truncateText(post.text)}
                     </p>
@@ -326,7 +335,7 @@ export function PostsTable({
               <TableCell className="text-sm text-muted-foreground">
                 {formatRelativeTime(post.published_at)}
               </TableCell>
-              <TableCell>
+              <TableCell onClick={(e) => e.stopPropagation()}>
                 <PostTagPopover
                   postId={post.id}
                   postTags={post.tags || []}
@@ -335,7 +344,7 @@ export function PostsTable({
                   onCreateTag={onCreateTag}
                 />
               </TableCell>
-              <TableCell>
+              <TableCell onClick={(e) => e.stopPropagation()}>
                 <AiTagPopover
                   postId={post.id}
                   aiSuggestedTags={post.ai_suggested_tags ?? null}

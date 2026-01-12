@@ -9,7 +9,7 @@
 
 import { handleCors } from '../_shared/cors.ts';
 import { createAnonClient, createServiceClient } from '../_shared/supabase.ts';
-import { getAuthenticatedUser, validateWorkspaceMembership } from '../_shared/auth.ts';
+import { getAuthenticatedUser, validateWorkspaceMembership, isSystemAdmin } from '../_shared/auth.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse, forbiddenResponse } from '../_shared/response.ts';
 import { isUuid } from '../_shared/validation.ts';
 import { decrypt } from '../_shared/crypto.ts';
@@ -39,17 +39,20 @@ const ALLOWED_ENDPOINTS: EndpointConfig[] = [
   // === 讀取類 (threads_basic, threads_manage_insights) ===
   { id: 'me', name: '個人資料', path: '/me', fields: 'id,username,name,threads_profile_picture_url,threads_biography', category: 'read', description: '取得帳號基本資訊' },
   { id: 'me_insights', name: '帳號 Insights', path: '/me/threads_insights', params: { metric: 'views,followers_count' }, category: 'read', description: '取得帳號 views、followers_count' },
-  { id: 'me_threads', name: '貼文列表', path: '/me/threads', fields: 'id,text,media_type,media_url,permalink,timestamp,is_reply,replied_to,is_quote_post,root_post', params: { limit: '10' }, category: 'read', description: '取得最近 10 則貼文' },
+  { id: 'me_threads', name: '貼文列表', path: '/me/threads', fields: 'id,text,media_product_type,media_type,media_url,permalink,owner,username,timestamp,shortcode,thumbnail_url,children,is_quote_post,is_reply,replied_to,root_post', params: { limit: '10' }, category: 'read', description: '取得最近 10 則貼文' },
   { id: 'post_insights', name: '貼文 Insights', path: '/{post_id}/insights', params: { metric: 'views,likes,replies,reposts,quotes,shares' }, requirePostId: true, category: 'read', description: '取得指定貼文的成效數據' },
 
   // === threads_read_replies ===
-  { id: 'post_replies', name: '貼文回覆', path: '/{post_id}/replies', fields: 'id,text,username,timestamp,media_type,media_url,permalink', requirePostId: true, category: 'read', description: '取得指定貼文的回覆列表' },
+  { id: 'post_replies', name: '貼文回覆', path: '/{post_id}/replies', fields: 'id,text,username,permalink,timestamp,media_product_type,media_type,media_url,shortcode,thumbnail_url,children,is_quote_post,has_replies,root_post,replied_to,is_reply,is_reply_owned_by_me,hide_status', requirePostId: true, category: 'read', description: '取得指定貼文的直接回覆列表' },
+  { id: 'post_conversation', name: '完整對話串', path: '/{post_id}/conversation', fields: 'id,text,username,permalink,timestamp,media_product_type,media_type,media_url,shortcode,thumbnail_url,children,is_quote_post,has_replies,root_post,replied_to,is_reply,is_reply_owned_by_me,hide_status', requirePostId: true, category: 'read', description: '取得指定貼文的完整對話串（含巢狀回覆）' },
 
   // === threads_manage_mentions ===
   { id: 'me_mentions', name: '被提及內容', path: '/me/mentions', fields: 'id,text,username,timestamp,media_type,permalink', category: 'read', description: '取得被提及的內容列表' },
 
   // === threads_keyword_search ===
-  { id: 'keyword_search', name: '關鍵字搜尋', path: '/threads_search', fields: 'id,text,username,timestamp,media_type,permalink', requireKeyword: true, category: 'read', description: '搜尋包含指定關鍵字的貼文' },
+  // 注意：此端點需要 threads_keyword_search 進階權限，且端點格式可能因 API 版本而異
+  // 參考：https://developers.facebook.com/docs/threads/keyword-search
+  { id: 'keyword_search', name: '關鍵字搜尋（需進階權限）', path: '/search', params: { type: 'thread' }, fields: 'id,text,username,timestamp,media_type,permalink', requireKeyword: true, category: 'read', description: '搜尋貼文（需 threads_keyword_search 進階權限核准）' },
 
   // === threads_profile_discovery ===
   { id: 'profile_lookup', name: '公開帳號資料', path: '/{username}', fields: 'id,username,name,threads_profile_picture_url,threads_biography', requireUsername: true, category: 'read', description: '取得指定公開帳號的資料' },
@@ -161,6 +164,12 @@ Deno.serve(async (req) => {
     }
 
     const serviceClient = createServiceClient();
+
+    // 驗證是否為系統管理員
+    const adminCheck = await isSystemAdmin(serviceClient, user.id);
+    if (!adminCheck) {
+      return forbiddenResponse(req, 'Admin access required');
+    }
 
     // 取得帳號資訊
     const { data: account, error: accountError } = await serviceClient

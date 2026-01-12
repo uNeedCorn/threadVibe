@@ -12,7 +12,7 @@ export interface DiffRecord {
   diff_percent: number;
 }
 
-const DIFF_THRESHOLD_PERCENT = 5;
+export const DIFF_THRESHOLD_PERCENT = 5;
 
 /**
  * 比對兩筆記錄的數值差異
@@ -71,3 +71,50 @@ export function getLatestByKey<T extends { bucket_ts?: string }>(
 
 export const POST_METRICS_FIELDS = ['views', 'likes', 'replies', 'reposts', 'quotes', 'shares'] as const;
 export const ACCOUNT_INSIGHTS_FIELDS = ['followers_count', 'profile_views', 'likes_count_7d', 'views_count_7d'] as const;
+
+// Delta 表介面
+interface AccountInsightsDelta {
+  profile_views_delta: number | null;
+}
+
+/**
+ * 從 delta 表累加 profile_views
+ * 用於 Hourly/Daily Rollup，換日邏輯已在 Sync 時處理
+ *
+ * @param serviceClient Supabase service client
+ * @param accountId 帳號 ID
+ * @param startTime 開始時間（含）
+ * @param endTime 結束時間（不含）
+ * @returns 累加的 profile_views
+ */
+export async function sumProfileViewsDeltas(
+  serviceClient: { from: (table: string) => unknown },
+  accountId: string,
+  startTime: string,
+  endTime: string
+): Promise<number> {
+  // @ts-ignore - Supabase client typing
+  const { data: deltas, error } = await serviceClient
+    .from('workspace_threads_account_insights_deltas')
+    .select('profile_views_delta')
+    .eq('workspace_threads_account_id', accountId)
+    .gte('period_end', startTime)
+    .lt('period_end', endTime);
+
+  if (error) {
+    console.error(`Failed to fetch deltas for ${accountId}:`, error);
+    return 0;
+  }
+
+  if (!deltas || deltas.length === 0) {
+    console.warn(`No deltas found for ${accountId} in [${startTime}, ${endTime})`);
+    return 0;
+  }
+
+  const total = (deltas as AccountInsightsDelta[]).reduce(
+    (sum, d) => sum + (d.profile_views_delta ?? 0),
+    0
+  );
+
+  return total;
+}

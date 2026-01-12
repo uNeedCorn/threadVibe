@@ -35,7 +35,7 @@ export interface RHatResult {
 // R̂_t Constants
 // ============================================
 
-const R_HAT_LOOKBACK = 6;
+export const R_HAT_LOOKBACK = 6;
 const R_HAT_DECAY = 0.2;
 
 // ============================================

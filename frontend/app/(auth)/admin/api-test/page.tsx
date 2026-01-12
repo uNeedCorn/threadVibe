@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { FlaskConical, Play, Loader2, Copy, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
+import { AdminOnly } from "@/components/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -40,9 +41,10 @@ const API_ENDPOINTS: ApiEndpoint[] = [
   { id: "me_insights", name: "帳號 Insights", description: "取得 views、followers_count", category: "read" },
   { id: "me_threads", name: "貼文列表", description: "取得最近 10 則貼文", category: "read" },
   { id: "post_insights", name: "貼文 Insights", description: "取得指定貼文的成效數據", category: "read", requirePostId: true },
-  { id: "post_replies", name: "貼文回覆", description: "取得指定貼文的回覆列表", category: "read", requirePostId: true },
+  { id: "post_replies", name: "貼文回覆", description: "取得指定貼文的直接回覆列表", category: "read", requirePostId: true },
+  { id: "post_conversation", name: "完整對話串", description: "取得指定貼文的完整對話串（含巢狀回覆）", category: "read", requirePostId: true },
   { id: "me_mentions", name: "被提及內容", description: "取得被提及的內容列表", category: "read" },
-  { id: "keyword_search", name: "關鍵字搜尋", description: "搜尋包含指定關鍵字的貼文", category: "read", requireKeyword: true },
+  { id: "keyword_search", name: "關鍵字搜尋（需進階權限）", description: "搜尋貼文（需 threads_keyword_search 進階權限核准）", category: "read", requireKeyword: true },
   { id: "profile_lookup", name: "公開帳號資料", description: "取得指定公開帳號的資料", category: "read", requireUsername: true },
   { id: "location_search", name: "地點搜尋", description: "搜尋地點（用於標籤）", category: "read", requireLocation: true },
   // === 寫入類 ===
@@ -188,14 +190,15 @@ export default function ApiTestPage() {
   }, [result]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">API 測試</h1>
-        <p className="text-muted-foreground">
-          使用當前帳號的 Token 測試 Meta/Threads API
-        </p>
-      </div>
+    <AdminOnly>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold">API 測試</h1>
+          <p className="text-muted-foreground">
+            使用當前帳號的 Token 測試 Meta/Threads API
+          </p>
+        </div>
 
       {/* 測試設定 */}
       <Card>
@@ -419,6 +422,7 @@ export default function ApiTestPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </AdminOnly>
   );
 }

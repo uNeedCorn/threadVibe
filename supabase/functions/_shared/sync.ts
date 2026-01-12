@@ -377,11 +377,14 @@ export async function syncAccountInsightsForAccount(
   // - likes 只在貼文層級可用，使用者層級無此指標
   const apiInsights = await threadsClient.getUserInsights();
 
+  // API 回傳的 views 是「當日累積 profile views」
+  // - 在 UTC 8（台灣 16:00）換日重置
+  // - 應存入 profile_views 欄位
   const insights = {
     followers_count: apiInsights.followers_count ?? 0,
-    profile_views: 0, // API 不提供此欄位
+    profile_views: apiInsights.views ?? 0, // 當日累積 profile views
     likes_count_7d: 0, // Threads API 使用者層級不提供 likes 指標
-    views_count_7d: apiInsights.views ?? 0,
+    views_count_7d: 0, // API 不提供此指標，保留欄位供未來使用
   };
 
   // 取得前一個 Snapshot（用於計算 Delta）
@@ -460,6 +463,17 @@ export async function syncAccountInsightsForAccount(
 
   // Layer 2: 計算並寫入 Delta
   if (prevSnapshot) {
+    // profile_views 在 UTC 8（台灣 16:00）換日重置
+    // 當換日時，當前值會比前一筆小很多（例如 8000 → 300）
+    // 此時 delta 應該是當前值（新一天的累積），而不是負值
+    let profileViewsDelta = insights.profile_views - prevSnapshot.profile_views;
+
+    // 檢測換日：如果 delta 是負值，表示跨日重置
+    // 此時使用當前值作為新一天的 delta
+    if (profileViewsDelta < 0) {
+      profileViewsDelta = insights.profile_views;
+    }
+
     await serviceClient
       .from('workspace_threads_account_insights_deltas')
       .insert({
@@ -467,7 +481,7 @@ export async function syncAccountInsightsForAccount(
         period_start: prevSnapshot.captured_at,
         period_end: now,
         followers_delta: insights.followers_count - prevSnapshot.followers_count,
-        profile_views_delta: insights.profile_views - prevSnapshot.profile_views,
+        profile_views_delta: profileViewsDelta,
         likes_count_7d_delta: insights.likes_count_7d - prevSnapshot.likes_count_7d,
         views_count_7d_delta: insights.views_count_7d - prevSnapshot.views_count_7d,
         is_recalculated: false,

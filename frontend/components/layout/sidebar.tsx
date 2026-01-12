@@ -17,6 +17,8 @@ import {
   Radar,
   FileSpreadsheet,
   FlaskConical,
+  Shield,
+  Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { featureFlags } from "@/lib/feature-flags";
@@ -33,6 +35,7 @@ interface NavItem {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
 }
 
 interface NavGroup {
@@ -40,6 +43,7 @@ interface NavGroup {
   icon: React.ComponentType<{ className?: string }>;
   basePath: string;
   children: NavItem[];
+  adminOnly?: boolean;
 }
 
 type NavEntry = NavItem | NavGroup;
@@ -97,9 +101,22 @@ const navItems: NavEntry[] = [
     icon: FileSpreadsheet,
   },
   {
-    title: "API 測試",
-    href: "/api-test",
-    icon: FlaskConical,
+    title: "管理員",
+    icon: Shield,
+    basePath: "/admin",
+    adminOnly: true,
+    children: [
+      {
+        title: "API 測試",
+        href: "/admin/api-test",
+        icon: FlaskConical,
+      },
+      {
+        title: "LLM 費用",
+        href: "/admin/llm-usage",
+        icon: Coins,
+      },
+    ],
   },
 ];
 
@@ -160,7 +177,9 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-        {navItems.map((item) => {
+        {navItems
+          .filter((item) => !item.adminOnly || isAdmin)
+          .map((item) => {
           if (isNavGroup(item)) {
             // 樹狀選單群組
             const isGroupActive = pathname.startsWith(item.basePath);
