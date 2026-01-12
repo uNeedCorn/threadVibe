@@ -120,6 +120,10 @@ interface ApiRadarPost {
   publishedAt: string;
   ageMinutes: number;
   timeStatus: TimeStatus;
+  // 追蹤延遲資訊
+  trackingDelayMinutes: number;
+  hasEarlyData: boolean;
+  // 指標
   views: number;
   likes: number;
   replies: number;
@@ -143,6 +147,10 @@ interface TrackingPost {
   mediaType: string;
   thumbnailUrl: string | null;
   publishedAt: Date;
+  // 追蹤延遲資訊
+  trackingDelayMinutes: number;
+  hasEarlyData: boolean;
+  // 指標
   views: number;
   likes: number;
   replies: number;
@@ -639,12 +647,14 @@ function IgnitionCurveChart({
     );
   }
 
-  // 所有貼文都顯示（有資料的顯示圖表，沒資料的顯示等待提示）
+  // 所有貼文都顯示（有資料的顯示圖表，沒資料的顯示等待/延遲提示）
   const allPostsWithMeta = posts.map((post, index) => ({
     ...post,
     color: POST_COLORS[index % POST_COLORS.length],
     postText: post.text.length > 15 ? post.text.slice(0, 15) + "..." : post.text || "(無文字)",
     hasEnoughData: post.ignition && post.ignition.dataPoints.length >= 2,
+    // 區分「延遲追蹤」和「資料累積中」
+    noDataReason: !post.hasEarlyData ? "delayed" : "pending" as "delayed" | "pending",
   }));
 
   // 按互動領先指數排序（有資料的優先，沒資料的排後面）
@@ -684,8 +694,9 @@ function IgnitionCurveChart({
         {/* 小多圖 Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {sortedData.map((post) => {
-            // 資料不足時顯示等待提示
+            // 資料不足時顯示等待/延遲提示
             if (!post.hasEnoughData) {
+              const isDelayed = post.noDataReason === "delayed";
               return (
                 <div key={post.id} className="rounded-lg border p-3">
                   {/* 標題列 */}
@@ -701,18 +712,33 @@ function IgnitionCurveChart({
                     </div>
                     <Badge
                       variant="outline"
-                      className="text-xs border-gray-300 bg-gray-50 text-gray-500"
+                      className={cn(
+                        "text-xs",
+                        isDelayed
+                          ? "border-slate-300 bg-slate-50 text-slate-500"
+                          : "border-gray-300 bg-gray-50 text-gray-500"
+                      )}
                     >
                       <Clock className="mr-1 size-3" />
-                      等待中
+                      {isDelayed ? "延遲追蹤" : "等待中"}
                     </Badge>
                   </div>
-                  {/* 等待提示 */}
+                  {/* 提示訊息 */}
                   <div className="flex h-24 items-center justify-center text-center">
                     <div className="text-muted-foreground">
                       <Clock className="mx-auto mb-1 size-6 opacity-30" />
-                      <p className="text-xs">資料累積中</p>
-                      <p className="text-[10px]">下次同步後更新</p>
+                      {isDelayed ? (
+                        <>
+                          <p className="text-xs">此貼文在加入追蹤前</p>
+                          <p className="text-xs">已超過 3 小時</p>
+                          <p className="mt-1 text-[10px] text-slate-400">無法回溯早期點火數據</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-xs">資料累積中</p>
+                          <p className="text-[10px]">下次同步後更新</p>
+                        </>
+                      )}
                     </div>
                   </div>
                   {/* 底部佔位 */}
@@ -906,12 +932,14 @@ function EarlySignalHeatmap({
     );
   }
 
-  // 所有貼文都顯示（有資料的顯示熱力格，沒資料的顯示等待提示）
+  // 所有貼文都顯示（有資料的顯示熱力格，沒資料的顯示等待/延遲提示）
   const allPostsWithMeta = posts
     .map((post) => ({
       ...post,
       postText: post.text.length > 12 ? post.text.slice(0, 12) + "..." : post.text || "(無文字)",
       hasEnoughData: post.heatmap && post.heatmap.cells.length === 12,
+      // 區分「延遲追蹤」和「資料累積中」
+      noDataReason: !post.hasEarlyData ? "delayed" : "pending" as "delayed" | "pending",
     }))
     .sort((a, b) => {
       // 有資料的排前面
@@ -966,8 +994,9 @@ function EarlySignalHeatmap({
         {/* 熱力圖主體 */}
         <div className="space-y-1">
           {allPostsWithMeta.map((post) => {
-            // 資料不足時顯示等待提示列
+            // 資料不足時顯示等待/延遲提示列
             if (!post.hasEnoughData) {
+              const isDelayed = post.noDataReason === "delayed";
               return (
                 <div key={post.id} className="flex items-center">
                   {/* 貼文名稱 */}
@@ -975,19 +1004,28 @@ function EarlySignalHeatmap({
                     {post.postText}
                   </div>
 
-                  {/* 等待中的灰色格子 */}
+                  {/* 等待/延遲中的灰色格子 */}
                   <div className="flex flex-1 gap-0.5">
                     {TIME_BUCKET_LABELS.map((_, i) => (
                       <div key={i} className="flex-1">
-                        <div className="h-6 w-full rounded-sm bg-gray-100" />
+                        <div className={cn(
+                          "h-6 w-full rounded-sm",
+                          isDelayed ? "bg-slate-100" : "bg-gray-100"
+                        )} />
                       </div>
                     ))}
                   </div>
 
-                  {/* 等待中標籤 */}
-                  <div className="w-20 shrink-0 text-center text-xs text-muted-foreground">
+                  {/* 狀態標籤 */}
+                  <div
+                    className={cn(
+                      "w-20 shrink-0 text-center text-xs",
+                      isDelayed ? "text-slate-400" : "text-muted-foreground"
+                    )}
+                    title={isDelayed ? "此貼文在加入追蹤前已超過 3 小時，無法追蹤早期訊號" : "資料累積中，下次同步後更新"}
+                  >
                     <Clock className="inline size-3 mr-0.5" />
-                    等待中
+                    {isDelayed ? "延遲追蹤" : "等待中"}
                   </div>
                 </div>
               );
@@ -1778,7 +1816,19 @@ function PostsTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <TimeStatusBadge status={post.timeStatus} />
+                  <div className="flex flex-col gap-1">
+                    <TimeStatusBadge status={post.timeStatus} />
+                    {!post.hasEarlyData && (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 text-[10px] bg-slate-50 text-slate-500 border-slate-200"
+                        title={`此貼文在加入追蹤前已超過 3 小時（延遲 ${Math.round(post.trackingDelayMinutes / 60)} 小時），無法追蹤早期點火數據`}
+                      >
+                        <Clock className="size-2.5" />
+                        延遲追蹤
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {formatRelativeTime(post.ageMinutes)}
@@ -1886,6 +1936,10 @@ export default function RadarPage() {
         mediaType: post.mediaType,
         thumbnailUrl: post.mediaUrl,
         publishedAt: new Date(post.publishedAt),
+        // 追蹤延遲資訊
+        trackingDelayMinutes: post.trackingDelayMinutes,
+        hasEarlyData: post.hasEarlyData,
+        // 指標
         views: post.views,
         likes: post.likes,
         replies: post.replies,

@@ -74,6 +74,9 @@ interface RadarPost {
   publishedAt: string;
   ageMinutes: number;
   timeStatus: TimeStatus;
+  // Tracking delay info
+  trackingDelayMinutes: number; // 首次同步時間 - 發布時間（分鐘）
+  hasEarlyData: boolean;        // 是否有早期追蹤資料（trackingDelay < 180 分鐘）
   // Metrics from 15m snapshot
   views: number;
   likes: number;
@@ -461,10 +464,10 @@ Deno.serve(async (req) => {
     const now = new Date();
     const hours72Ago = new Date(now.getTime() - 72 * 60 * 60 * 1000);
 
-    // 查詢 72 小時內的貼文（排除回覆），包含預計算的 R̂_t
+    // 查詢 72 小時內的貼文（排除回覆），包含預計算的 R̂_t 和首次同步時間
     const { data: postsData, error: postsError } = await serviceClient
       .from('workspace_threads_posts')
-      .select('id, text, media_type, media_url, published_at, current_r_hat, current_r_hat_status')
+      .select('id, text, media_type, media_url, published_at, first_synced_at, current_r_hat, current_r_hat_status')
       .eq('workspace_threads_account_id', accountId)
       .eq('is_reply', false)
       .gte('published_at', hours72Ago.toISOString())
@@ -567,6 +570,14 @@ Deno.serve(async (req) => {
       const publishedAt = new Date(post.published_at);
       const ageMinutes = (now.getTime() - publishedAt.getTime()) / 1000 / 60;
 
+      // 計算追蹤延遲（首次同步時間 - 發布時間）
+      const firstSyncedAt = post.first_synced_at ? new Date(post.first_synced_at) : now;
+      const trackingDelayMinutes = Math.max(0, Math.round(
+        (firstSyncedAt.getTime() - publishedAt.getTime()) / 1000 / 60
+      ));
+      // 早期追蹤：首次同步距離發布時間小於 3 小時（180 分鐘）
+      const hasEarlyData = trackingDelayMinutes < 180;
+
       // 使用共用模組計算指標
       const rates = calculateRates({ views, likes, replies, reposts, quotes, shares });
       const viralityLevel = getViralityLevel(rates.viralityScore);
@@ -587,6 +598,8 @@ Deno.serve(async (req) => {
         publishedAt: post.published_at,
         ageMinutes: Math.round(ageMinutes),
         timeStatus,
+        trackingDelayMinutes,
+        hasEarlyData,
         views,
         likes,
         replies,
