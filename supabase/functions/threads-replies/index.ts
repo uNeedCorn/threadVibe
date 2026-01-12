@@ -130,9 +130,11 @@ Deno.serve(async (req) => {
 
     // 呼叫 Threads API 取得回覆
     const fields = 'id,text,username,timestamp,media_type,media_url,permalink';
-    const url = `${THREADS_API_BASE}/${postId}/replies?fields=${fields}&access_token=${accessToken}`;
+    const url = `${THREADS_API_BASE}/${postId}/replies?fields=${fields}`;
 
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
     const data: ThreadsRepliesResponse = await response.json();
 
     if (!response.ok || data.error) {

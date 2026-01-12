@@ -135,13 +135,13 @@ Deno.serve(async (req) => {
 
     // Step 1: 建立回覆容器
     const createUrl = new URL(`${THREADS_API_BASE}/me/threads`);
-    createUrl.searchParams.set('access_token', accessToken);
     createUrl.searchParams.set('media_type', 'TEXT');
     createUrl.searchParams.set('text', text);
     createUrl.searchParams.set('reply_to_id', replyToId);
 
     const createResponse = await fetch(createUrl.toString(), {
       method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const createData: ThreadsCreateResponse = await createResponse.json();
@@ -159,10 +159,10 @@ Deno.serve(async (req) => {
 
     // Step 2: 發布回覆
     const publishUrl = new URL(`${THREADS_API_BASE}/${creationId}/threads_publish`);
-    publishUrl.searchParams.set('access_token', accessToken);
 
     const publishResponse = await fetch(publishUrl.toString(), {
       method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const publishData: ThreadsPublishResponse = await publishResponse.json();
@@ -178,9 +178,11 @@ Deno.serve(async (req) => {
 
     // 取得已發布回覆的詳情
     const replyId = publishData.id;
-    const detailUrl = `${THREADS_API_BASE}/${replyId}?fields=id,text,username,timestamp,permalink&access_token=${accessToken}`;
+    const detailUrl = `${THREADS_API_BASE}/${replyId}?fields=id,text,username,timestamp,permalink`;
 
-    const detailResponse = await fetch(detailUrl);
+    const detailResponse = await fetch(detailUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
     const detailData = await detailResponse.json();
 
     return jsonResponse(req, {
