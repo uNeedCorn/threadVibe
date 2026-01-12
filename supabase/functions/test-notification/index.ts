@@ -1,32 +1,37 @@
 /**
  * 測試 Telegram 通知功能
  * 驗證 secrets 設定是否正確
+ *
+ * 需要 CRON_SECRET 認證
  */
 
 import { handleCors } from '../_shared/cors.ts';
-import { jsonResponse, errorResponse } from '../_shared/response.ts';
+import { jsonResponse, unauthorizedResponse } from '../_shared/response.ts';
 import { notifyTest, notifyError } from '../_shared/notification.ts';
+
+const CRON_SECRET = Deno.env.get('CRON_SECRET');
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
+  // 驗證 CRON_SECRET
+  const authHeader = req.headers.get('Authorization');
+  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+    return unauthorizedResponse(req, 'Invalid cron secret');
+  }
+
   const url = new URL(req.url);
   const type = url.searchParams.get('type') || 'test';
 
-  // 檢查 credentials 是否有設定
+  // 檢查 Telegram credentials 是否有設定
   const token = Deno.env.get('TELEGRAM_BOT_TOKEN');
   const chatId = Deno.env.get('TELEGRAM_CHAT_ID');
-
-  console.log('TELEGRAM_BOT_TOKEN exists:', !!token);
-  console.log('TELEGRAM_CHAT_ID exists:', !!chatId);
 
   if (!token || !chatId) {
     return jsonResponse(req, {
       success: false,
       error: 'Telegram credentials not configured',
-      hasToken: !!token,
-      hasChatId: !!chatId,
     });
   }
 

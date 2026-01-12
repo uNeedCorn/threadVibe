@@ -1,9 +1,44 @@
 -- ============================================================================
--- Migration: Update LLM Usage RPC Functions
--- Description: Add date filtering and workspace/account details
+-- Migration: Fix SECURITY DEFINER Functions Search Path
+-- Description: 為缺少 search_path 的 SECURITY DEFINER 函數添加設定
 -- ============================================================================
 
--- 1. 更新總計統計 RPC（加入日期範圍）
+-- 1. 修復 create_default_workspace
+CREATE OR REPLACE FUNCTION public.create_default_workspace()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  new_workspace_id UUID;
+  display_name TEXT;
+BEGIN
+  -- 取得用戶顯示名稱（優先順序：name > full_name > email 前綴）
+  display_name := COALESCE(
+    NEW.raw_user_meta_data->>'name',
+    NEW.raw_user_meta_data->>'full_name',
+    split_part(NEW.email, '@', 1)
+  );
+
+  -- 建立預設 Workspace
+  INSERT INTO public.workspaces (name, created_by_user_id)
+  VALUES (display_name || ' 的工作區', NEW.id)
+  RETURNING id INTO new_workspace_id;
+
+  -- 建立 Owner 成員關係
+  INSERT INTO public.workspace_members (workspace_id, user_id, role, joined_at)
+  VALUES (new_workspace_id, NEW.id, 'owner', NOW());
+
+  -- 建立預設訂閱方案（Free）
+  INSERT INTO public.user_subscriptions (user_id, plan_type)
+  VALUES (NEW.id, 'free');
+
+  RETURN NEW;
+END;
+$$;
+
+-- 2. 修復 get_llm_usage_stats
 CREATE OR REPLACE FUNCTION get_llm_usage_stats(
   start_date TIMESTAMPTZ DEFAULT NULL,
   end_date TIMESTAMPTZ DEFAULT NULL
@@ -44,7 +79,7 @@ BEGIN
 END;
 $$;
 
--- 2. 更新每日統計 RPC（加入日期範圍）
+-- 3. 修復 get_llm_daily_usage
 CREATE OR REPLACE FUNCTION get_llm_daily_usage(
   start_date TIMESTAMPTZ DEFAULT NULL,
   end_date TIMESTAMPTZ DEFAULT NULL
@@ -92,7 +127,7 @@ BEGIN
 END;
 $$;
 
--- 3. 新增工作區/帳號明細 RPC
+-- 4. 修復 get_llm_usage_by_workspace
 CREATE OR REPLACE FUNCTION get_llm_usage_by_workspace(
   start_date TIMESTAMPTZ DEFAULT NULL,
   end_date TIMESTAMPTZ DEFAULT NULL
@@ -142,8 +177,3 @@ BEGIN
   ORDER BY total_tokens DESC;
 END;
 $$;
-
--- 4. 授權
-GRANT EXECUTE ON FUNCTION get_llm_usage_stats(TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_llm_daily_usage(TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_llm_usage_by_workspace(TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated;
