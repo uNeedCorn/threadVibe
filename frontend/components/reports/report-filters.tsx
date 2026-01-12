@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Select,
   SelectContent,
@@ -124,6 +124,12 @@ export function ReportFilters({
     );
   }, [filters.timeRange, filters.customStartDate, filters.customEndDate]);
 
+  // 避免 hydration 不匹配：日期格式化只在客戶端執行
+  const [dateRangeText, setDateRangeText] = useState<string>("");
+  useEffect(() => {
+    setDateRangeText(formatDateRange(dateRange.start, dateRange.end));
+  }, [dateRange]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-4">
@@ -193,9 +199,11 @@ export function ReportFilters({
       </div>
 
       {/* 日期範圍提示 */}
-      <p className="text-sm text-muted-foreground">
-        資料範圍：{formatDateRange(dateRange.start, dateRange.end)}
-      </p>
+      {dateRangeText && (
+        <p className="text-sm text-muted-foreground">
+          資料範圍：{dateRangeText}
+        </p>
+      )}
     </div>
   );
 }
