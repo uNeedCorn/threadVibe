@@ -37,11 +37,12 @@ export function useCurrentUser(): UseCurrentUserResult {
         }
 
         // 查詢是否為系統管理員
+        // 使用 maybeSingle() 而非 single()，避免查詢結果為空時拋出 406 錯誤
         const { data: adminRecord } = await supabase
           .from("system_admins")
           .select("user_id")
           .eq("user_id", authUser.id)
-          .single();
+          .maybeSingle();
 
         setUser({
           id: authUser.id,
