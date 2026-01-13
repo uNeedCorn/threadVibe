@@ -135,16 +135,16 @@ export function PostsTable({
     </Button>
   );
 
-  const getMediaTypeLabel = (type: Post["media_type"]) => {
+  const getMediaTypeInfo = (type: Post["media_type"]) => {
     switch (type) {
       case "IMAGE":
-        return "圖片";
+        return { label: "圖片", color: "bg-blue-100 text-blue-700 border-blue-200" };
       case "VIDEO":
-        return "影片";
+        return { label: "影片", color: "bg-purple-100 text-purple-700 border-purple-200" };
       case "CAROUSEL_ALBUM":
-        return "輪播";
+        return { label: "輪播", color: "bg-green-100 text-green-700 border-green-200" };
       default:
-        return "文字";
+        return { label: "文字", color: "bg-gray-100 text-gray-700 border-gray-200" };
     }
   };
 
@@ -189,11 +189,11 @@ export function PostsTable({
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border">
-        <Table>
+      <div className="rounded-lg border overflow-x-auto">
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[240px]">內容</TableHead>
+              <TableHead className="w-[400px]">內容</TableHead>
               <TableHead className="w-[100px]">發布時間</TableHead>
               <TableHead className="w-[120px]">標籤</TableHead>
               <TableHead className="w-[220px]">AI 標籤</TableHead>
@@ -207,13 +207,12 @@ export function PostsTable({
               <TableHead className="w-[70px] text-right">轉發率</TableHead>
               <TableHead className="w-[70px] text-right">引用率</TableHead>
               <TableHead className="w-[70px] text-right">傳播力</TableHead>
-              <TableHead className="w-[100px]">更新時間</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {Array.from({ length: 5 }).map((_, i) => (
               <TableRow key={i}>
-                {Array.from({ length: 15 }).map((_, j) => (
+                {Array.from({ length: 14 }).map((_, j) => (
                   <TableCell key={j}>
                     <div className="h-5 animate-pulse rounded bg-muted" />
                   </TableCell>
@@ -237,11 +236,11 @@ export function PostsTable({
   }
 
   return (
-    <div className="rounded-lg border">
-      <Table>
+    <div className="rounded-lg border overflow-x-auto">
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[240px]">內容</TableHead>
+            <TableHead className="w-[400px]">內容</TableHead>
             <TableHead className="w-[100px]">
               <SortableHeader field="published_at">發布時間</SortableHeader>
             </TableHead>
@@ -277,7 +276,6 @@ export function PostsTable({
             <TableHead className="w-[70px] text-right">
               <SortableHeader field="virality_score">傳播力</SortableHeader>
             </TableHead>
-            <TableHead className="w-[100px]">更新時間</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -288,26 +286,25 @@ export function PostsTable({
               onClick={() => onSelectPost?.(post.id)}
             >
               <TableCell>
-                <div className="flex items-start gap-2">
-                  {/* 文字內容區塊 */}
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-1 text-sm">
-                      {truncateText(post.text, 30)}
-                    </p>
-                    {/* 類型標籤 */}
-                    <div className="mt-1">
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                        {getMediaTypeLabel(post.media_type)}
-                      </Badge>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2">
+                  {/* 類型標籤 */}
+                  <Badge
+                    variant="outline"
+                    className={`shrink-0 text-[10px] px-1.5 py-0 ${getMediaTypeInfo(post.media_type).color}`}
+                  >
+                    {getMediaTypeInfo(post.media_type).label}
+                  </Badge>
+                  {/* 文字內容 */}
+                  <p className="min-w-0 flex-1 line-clamp-1 text-sm">
+                    {truncateText(post.text, 40)}
+                  </p>
                   {/* 展開 Panel 按鈕 */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectPost?.(post.id);
                     }}
-                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                    className="shrink-0 mr-2 text-muted-foreground hover:text-foreground transition-colors"
                     title="查看貼文詳情"
                   >
                     <PanelRightOpen className="size-4" />
@@ -393,9 +390,6 @@ export function PostsTable({
                   {post.trend?.virality_score && <Sparkline data={post.trend.virality_score} />}
                   <span className="font-medium">{post.virality_score.toFixed(2)}</span>
                 </div>
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {formatRelativeTime(post.metrics_updated_at)}
               </TableCell>
             </TableRow>
           ))}

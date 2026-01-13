@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Loader2, Clock } from "lucide-react";
 import { PostsFilters, PostsTable, PostDetailPanel, type PostsFiltersValue, type Post, type PostTag, type PostTrend, type SortField, type SortOrder } from "@/components/posts";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
@@ -386,6 +386,31 @@ export default function PostsPage() {
     }
   }, []);
 
+  // 計算最近更新時間
+  const latestUpdateTime = useMemo(() => {
+    if (posts.length === 0) return null;
+    const times = posts
+      .map(p => p.metrics_updated_at)
+      .filter((t): t is string => t !== null)
+      .map(t => new Date(t).getTime());
+    if (times.length === 0) return null;
+    return new Date(Math.max(...times));
+  }, [posts]);
+
+  // 格式化相對時間
+  const formatRelativeTime = (date: Date) => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return "剛剛";
+    if (diffMins < 60) return `${diffMins} 分鐘前`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} 小時前`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} 天前`;
+  };
+
   // 處理 AI 標籤選擇
   const handleAiTagSelect = async (postId: string, dimension: string, tag: string, selected: boolean) => {
     const supabase = createClient();
@@ -447,11 +472,19 @@ export default function PostsPage() {
 
       {/* 篩選器 */}
       {!hasNoAccount && (
-        <PostsFilters
-          filters={filters}
-          onFiltersChange={setFilters}
-          tags={accountTags}
-        />
+        <div className="flex items-center justify-between gap-4">
+          <PostsFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+            tags={accountTags}
+          />
+          {latestUpdateTime && (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
+              <Clock className="size-4" />
+              <span>最近更新：{formatRelativeTime(latestUpdateTime)}</span>
+            </div>
+          )}
+        </div>
       )}
 
       {/* 貼文表格 */}
