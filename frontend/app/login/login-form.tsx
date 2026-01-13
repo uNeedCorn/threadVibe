@@ -29,16 +29,34 @@ export function LoginForm() {
     try {
       // 驗證 Turnstile token（如果有設定）
       if (TURNSTILE_SITE_KEY && turnstileToken) {
-        const verifyResponse = await fetch("/api/turnstile/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: turnstileToken }),
-        });
+        try {
+          const verifyResponse = await fetch("/api/turnstile/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: turnstileToken }),
+          });
 
-        const verifyResult = await verifyResponse.json();
+          if (!verifyResponse.ok) {
+            console.error("Turnstile verify failed:", verifyResponse.status, verifyResponse.statusText);
+            setError(`人機驗證失敗 (${verifyResponse.status})，請重試`);
+            setTurnstileToken(null);
+            turnstileRef.current?.reset();
+            setIsLoading(false);
+            return;
+          }
 
-        if (!verifyResult.success) {
-          setError("人機驗證失敗，請重試");
+          const verifyResult = await verifyResponse.json();
+
+          if (!verifyResult.success) {
+            setError("人機驗證失敗，請重試");
+            setTurnstileToken(null);
+            turnstileRef.current?.reset();
+            setIsLoading(false);
+            return;
+          }
+        } catch (verifyError) {
+          console.error("Turnstile verify error:", verifyError);
+          setError("人機驗證請求失敗，請重試");
           setTurnstileToken(null);
           turnstileRef.current?.reset();
           setIsLoading(false);
