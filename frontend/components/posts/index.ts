@@ -6,3 +6,4 @@ export { PostDetailPanel } from "./post-detail-panel";
 export { PostMetricsChart } from "./post-metrics-chart";
 export { RepliesSection, type ThreadsReply } from "./replies-section";
 export { ReplyForm } from "./reply-form";
+export { ColumnSettings } from "./column-settings";

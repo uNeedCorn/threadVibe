@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Loader2, Clock } from "lucide-react";
-import { PostsFilters, PostsTable, PostDetailPanel, type PostsFiltersValue, type Post, type PostTag, type PostTrend, type SortField, type SortOrder } from "@/components/posts";
+import { PostsFilters, PostsTable, PostDetailPanel, ColumnSettings, type PostsFiltersValue, type Post, type PostTag, type PostTrend, type SortField, type SortOrder } from "@/components/posts";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { useAccountTags } from "@/hooks/use-account-tags";
+import { useColumnConfig } from "@/hooks/use-column-config";
 import { createClient } from "@/lib/supabase/client";
 
 // 計算增量值（delta）：將絕對值陣列轉換為相鄰差值
@@ -90,6 +91,14 @@ const PAGE_SIZE = 20;
 export default function PostsPage() {
   const { selectedAccountId, isLoading: isAccountLoading } = useSelectedAccount();
   const { tags: accountTags, createTag, refetch: refetchTags } = useAccountTags();
+  const {
+    columns: columnConfig,
+    visibleColumns,
+    toggleColumn,
+    updateWidth,
+    reorderColumns,
+    resetToDefault,
+  } = useColumnConfig();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -101,6 +110,11 @@ export default function PostsPage() {
     timeRange: "30d",
     mediaType: "all",
     tagIds: [],
+    aiTags: {
+      content_type: [],
+      tone: [],
+      intent: [],
+    },
   });
 
   const [sortField, setSortField] = useState<SortField>("published_at");
@@ -279,18 +293,45 @@ export default function PostsPage() {
       };
     });
 
+    // AI 標籤篩選（客戶端篩選）
+    const hasAiTagFilter =
+      (filters.aiTags?.content_type?.length || 0) > 0 ||
+      (filters.aiTags?.tone?.length || 0) > 0 ||
+      (filters.aiTags?.intent?.length || 0) > 0;
+
+    const filteredPosts = hasAiTagFilter
+      ? formattedPosts.filter((post) => {
+          const selectedTags = post.ai_selected_tags || {};
+
+          // 檢查每個維度：如果有選擇篩選條件，貼文必須包含至少一個符合的標籤
+          const checkDimension = (dimension: keyof typeof filters.aiTags) => {
+            const filterTags = filters.aiTags?.[dimension] || [];
+            if (filterTags.length === 0) return true; // 沒有篩選條件則通過
+            const postTags = (selectedTags as Record<string, string[]>)[dimension] || [];
+            return filterTags.some(tag => postTags.includes(tag));
+          };
+
+          return (
+            checkDimension("content_type") &&
+            checkDimension("tone") &&
+            checkDimension("intent")
+          );
+        })
+      : formattedPosts;
+
     if (reset) {
-      setPosts(formattedPosts);
+      setPosts(filteredPosts);
       setPage(1);
     } else {
       setPosts((prev) => {
         const existingIds = new Set(prev.map(p => p.id));
-        const newPosts = formattedPosts.filter(p => !existingIds.has(p.id));
+        const newPosts = filteredPosts.filter(p => !existingIds.has(p.id));
         return [...prev, ...newPosts];
       });
       setPage((prev) => prev + 1);
     }
 
+    // 注意：hasMore 判斷仍使用原始資料量，避免因篩選導致提早結束載入
     setHasMore(formattedPosts.length === PAGE_SIZE);
     setIsLoading(false);
     setIsLoadingMore(false);
@@ -478,12 +519,20 @@ export default function PostsPage() {
             onFiltersChange={setFilters}
             tags={accountTags}
           />
-          {latestUpdateTime && (
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
-              <Clock className="size-4" />
-              <span>最近更新：{formatRelativeTime(latestUpdateTime)}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-4 shrink-0">
+            {latestUpdateTime && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Clock className="size-4" />
+                <span>最近更新：{formatRelativeTime(latestUpdateTime)}</span>
+              </div>
+            )}
+            <ColumnSettings
+              columns={columnConfig}
+              onToggle={toggleColumn}
+              onReorder={reorderColumns}
+              onReset={resetToDefault}
+            />
+          </div>
         </div>
       )}
 
@@ -500,6 +549,8 @@ export default function PostsPage() {
           onPostTagsChange={handlePostTagsChange}
           onAiTagSelect={handleAiTagSelect}
           onSelectPost={handleSelectPost}
+          columnConfig={visibleColumns}
+          onColumnResize={updateWidth}
         />
       )}
 

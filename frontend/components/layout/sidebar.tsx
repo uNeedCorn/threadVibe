@@ -73,7 +73,8 @@ const isNavGroup = (item: NavEntry): item is NavGroup => {
   return "children" in item;
 };
 
-const navItems: NavEntry[] = [
+// 主要導航項目
+const mainNavItems: NavEntry[] = [
   {
     title: "成效洞察",
     icon: BarChart3,
@@ -124,35 +125,37 @@ const navItems: NavEntry[] = [
     href: "/reports",
     icon: FileSpreadsheet,
   },
-  {
-    title: "管理員",
-    icon: Shield,
-    basePath: "/admin",
-    adminOnly: true,
-    children: [
-      {
-        title: "API 測試",
-        href: "/admin/api-test",
-        icon: FlaskConical,
-      },
-      {
-        title: "LLM 費用",
-        href: "/admin/llm-usage",
-        icon: Coins,
-      },
-      {
-        title: "邀請碼管理",
-        href: "/admin/invitations",
-        icon: KeyRound,
-      },
-      {
-        title: "等待名單",
-        href: "/admin/waitlist",
-        icon: ClipboardList,
-      },
-    ],
-  },
 ];
+
+// 管理員導航項目（固定在底部）
+const adminNavGroup: NavGroup = {
+  title: "管理員",
+  icon: Shield,
+  basePath: "/admin",
+  adminOnly: true,
+  children: [
+    {
+      title: "API 測試",
+      href: "/admin/api-test",
+      icon: FlaskConical,
+    },
+    {
+      title: "LLM 費用",
+      href: "/admin/llm-usage",
+      icon: Coins,
+    },
+    {
+      title: "邀請碼管理",
+      href: "/admin/invitations",
+      icon: KeyRound,
+    },
+    {
+      title: "等待名單",
+      href: "/admin/waitlist",
+      icon: ClipboardList,
+    },
+  ],
+};
 
 const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
 
@@ -222,11 +225,16 @@ export function Sidebar() {
 
   // 根據當前路徑自動展開對應的群組（成效洞察除外，保持固定展開）
   useEffect(() => {
-    navItems.forEach((item) => {
+    // 檢查主要導航項目
+    mainNavItems.forEach((item) => {
       if (isNavGroup(item) && pathname.startsWith(item.basePath) && item.basePath !== "/insights") {
         setOpenGroups((prev) => ({ ...prev, [item.basePath]: true }));
       }
     });
+    // 檢查管理員群組
+    if (pathname.startsWith(adminNavGroup.basePath)) {
+      setOpenGroups((prev) => ({ ...prev, [adminNavGroup.basePath]: true }));
+    }
   }, [pathname]);
 
   const toggleGroup = (basePath: string) => {
@@ -274,7 +282,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className={cn("flex-1 space-y-1 overflow-y-auto", isCollapsed ? "p-2" : "p-4")}>
-        {navItems
+        {mainNavItems
           .filter((item) => !item.adminOnly || isAdmin)
           .map((item) => {
           if (isNavGroup(item)) {
@@ -398,6 +406,85 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Admin Navigation - 固定在底部 */}
+      {isAdmin && (
+        <div className={cn("border-t", isCollapsed ? "p-2" : "p-4")}>
+          {(() => {
+            const isGroupActive = pathname.startsWith(adminNavGroup.basePath);
+            const isOpen = openGroups[adminNavGroup.basePath] ?? isGroupActive;
+
+            // 收折模式
+            if (isCollapsed) {
+              const firstChild = adminNavGroup.children[0];
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={firstChild.href}
+                      className={cn(
+                        "flex items-center justify-center rounded-lg p-2 transition-colors",
+                        isGroupActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      )}
+                    >
+                      <adminNavGroup.icon className="size-5" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{adminNavGroup.title}</TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            // 展開模式
+            return (
+              <Collapsible
+                open={isOpen}
+                onOpenChange={() => toggleGroup(adminNavGroup.basePath)}
+              >
+                <CollapsibleTrigger
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    isGroupActive
+                      ? "text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  <adminNavGroup.icon className="size-5" />
+                  <span className="flex-1 text-left">{adminNavGroup.title}</span>
+                  <ChevronRight
+                    className={cn(
+                      "size-4 transition-transform duration-200",
+                      isOpen && "rotate-90"
+                    )}
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-1 space-y-1 pl-4">
+                  {adminNavGroup.children.map((child) => {
+                    const isChildActive = pathname === child.href;
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          isChildActive
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        )}
+                      >
+                        <child.icon className="size-4" />
+                        {child.title}
+                      </Link>
+                    );
+                  })}
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Bottom: User + Settings */}
       <div className={cn("border-t flex items-center justify-between", isCollapsed ? "p-2" : "p-4")}>

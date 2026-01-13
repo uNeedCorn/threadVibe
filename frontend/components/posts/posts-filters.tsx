@@ -15,7 +15,39 @@ export interface PostsFiltersValue {
   timeRange: string;
   mediaType: string;
   tagIds: string[];
+  aiTags: {
+    content_type: string[];
+    tone: string[];
+    intent: string[];
+  };
 }
+
+// AI 標籤選項
+const AI_TAG_OPTIONS = {
+  content_type: [
+    { value: "教學", label: "教學" },
+    { value: "分享", label: "分享" },
+    { value: "問題", label: "問題" },
+    { value: "公告", label: "公告" },
+    { value: "心得", label: "心得" },
+    { value: "推薦", label: "推薦" },
+    { value: "日常", label: "日常" },
+  ],
+  tone: [
+    { value: "正式", label: "正式" },
+    { value: "輕鬆", label: "輕鬆" },
+    { value: "幽默", label: "幽默" },
+    { value: "專業", label: "專業" },
+    { value: "親切", label: "親切" },
+  ],
+  intent: [
+    { value: "引導互動", label: "引導互動" },
+    { value: "資訊傳遞", label: "資訊傳遞" },
+    { value: "品牌推廣", label: "品牌推廣" },
+    { value: "社群經營", label: "社群經營" },
+    { value: "銷售導向", label: "銷售導向" },
+  ],
+};
 
 interface PostsFiltersProps {
   filters: PostsFiltersValue;
@@ -24,7 +56,7 @@ interface PostsFiltersProps {
 }
 
 export function PostsFilters({ filters, onFiltersChange, tags = [] }: PostsFiltersProps) {
-  const handleChange = (key: keyof PostsFiltersValue, value: string | string[]) => {
+  const handleChange = (key: keyof PostsFiltersValue, value: string | string[] | PostsFiltersValue["aiTags"]) => {
     onFiltersChange({ ...filters, [key]: value });
   };
 
@@ -39,7 +71,28 @@ export function PostsFilters({ filters, onFiltersChange, tags = [] }: PostsFilte
     handleChange("tagIds", []);
   };
 
+  const handleAiTagToggle = (dimension: keyof PostsFiltersValue["aiTags"], value: string) => {
+    const currentTags = filters.aiTags?.[dimension] || [];
+    const newTags = currentTags.includes(value)
+      ? currentTags.filter(t => t !== value)
+      : [...currentTags, value];
+    handleChange("aiTags", {
+      ...filters.aiTags,
+      [dimension]: newTags,
+    });
+  };
+
+  const clearAiTags = () => {
+    handleChange("aiTags", { content_type: [], tone: [], intent: [] });
+  };
+
   const selectedTags = tags.filter((t) => filters.tagIds.includes(t.id));
+
+  // 計算已選的 AI 標籤數量
+  const selectedAiTagsCount =
+    (filters.aiTags?.content_type?.length || 0) +
+    (filters.aiTags?.tone?.length || 0) +
+    (filters.aiTags?.intent?.length || 0);
 
   return (
     <div className="flex flex-wrap items-center gap-4">
@@ -135,6 +188,105 @@ export function PostsFilters({ filters, onFiltersChange, tags = [] }: PostsFilte
           </PopoverContent>
         </Popover>
       )}
+
+      {/* AI 標籤篩選 */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              "min-w-[100px] justify-start",
+              selectedAiTagsCount > 0 && "border-primary"
+            )}
+          >
+            {selectedAiTagsCount === 0 ? (
+              <span className="text-muted-foreground">AI 標籤</span>
+            ) : (
+              <span>{selectedAiTagsCount} 個 AI 標籤</span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-72 p-3" align="start">
+          <div className="space-y-4">
+            {/* 內容類型 */}
+            <div>
+              <div className="text-sm font-medium mb-2">內容類型</div>
+              <div className="flex flex-wrap gap-1">
+                {AI_TAG_OPTIONS.content_type.map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-xs border transition-colors",
+                      filters.aiTags?.content_type?.includes(opt.value)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background hover:bg-accent border-border"
+                    )}
+                    onClick={() => handleAiTagToggle("content_type", opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 語氣 */}
+            <div>
+              <div className="text-sm font-medium mb-2">語氣</div>
+              <div className="flex flex-wrap gap-1">
+                {AI_TAG_OPTIONS.tone.map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-xs border transition-colors",
+                      filters.aiTags?.tone?.includes(opt.value)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background hover:bg-accent border-border"
+                    )}
+                    onClick={() => handleAiTagToggle("tone", opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 意圖 */}
+            <div>
+              <div className="text-sm font-medium mb-2">意圖</div>
+              <div className="flex flex-wrap gap-1">
+                {AI_TAG_OPTIONS.intent.map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-xs border transition-colors",
+                      filters.aiTags?.intent?.includes(opt.value)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background hover:bg-accent border-border"
+                    )}
+                    onClick={() => handleAiTagToggle("intent", opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {selectedAiTagsCount > 0 && (
+              <div className="border-t pt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-muted-foreground"
+                  onClick={clearAiTags}
+                >
+                  <X className="mr-1 size-4" />
+                  清除 AI 標籤篩選
+                </Button>
+              </div>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
 
       {/* 已選擇標籤的 Badge（可點擊移除） */}
       {selectedTags.length > 0 && (
