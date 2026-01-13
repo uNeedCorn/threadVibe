@@ -59,7 +59,8 @@ export async function updateSession(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
   const isInvitationPage = request.nextUrl.pathname.startsWith("/register/invitation");
-  const isPublicPath = isLoginPage || isAuthCallback || isInvitationPage;
+  const isPublicApiRoute = request.nextUrl.pathname.startsWith("/api/turnstile");
+  const isPublicPath = isLoginPage || isAuthCallback || isInvitationPage || isPublicApiRoute;
 
   // 未登入且不在公開頁面 → 導向登入頁
   if (!user && !isPublicPath) {
