@@ -45,7 +45,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { createClient } from "@/lib/supabase/client";
-import { useUIStore } from "@/stores/ui-store";
 
 interface UserProfile {
   email: string;
@@ -164,7 +163,6 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isAdmin } = useCurrentUser();
-  const { openSettings } = useUIStore();
 
   // Sidebar 收折狀態
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -524,12 +522,17 @@ export function Sidebar() {
         {/* Settings - 右側 */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              onClick={openSettings}
-              className="flex items-center justify-center rounded-lg p-2 transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            <Link
+              href="/settings"
+              className={cn(
+                "flex items-center justify-center rounded-lg p-2 transition-colors",
+                pathname.startsWith("/settings")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
             >
               <Settings className="size-5" />
-            </button>
+            </Link>
           </TooltipTrigger>
           <TooltipContent side="right">設定</TooltipContent>
         </Tooltip>
