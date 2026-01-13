@@ -1,35 +1,106 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, AlertCircle } from "lucide-react";
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   const handleGoogleLogin = async () => {
+    setError(null);
+
+    // 如果有設定 Turnstile，必須先驗證
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError("請先完成人機驗證");
+      return;
+    }
+
     setIsLoading(true);
-    const supabase = createClient();
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+    try {
+      // 驗證 Turnstile token（如果有設定）
+      if (TURNSTILE_SITE_KEY && turnstileToken) {
+        const verifyResponse = await fetch("/api/turnstile/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: turnstileToken }),
+        });
 
-    if (error) {
-      console.error("Login error:", error);
+        const verifyResult = await verifyResponse.json();
+
+        if (!verifyResult.success) {
+          setError("人機驗證失敗，請重試");
+          setTurnstileToken(null);
+          turnstileRef.current?.reset();
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // 進行 Google OAuth 登入
+      const supabase = createClient();
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (authError) {
+        console.error("Login error:", authError);
+        setError("登入失敗，請稍後再試");
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("登入失敗，請稍後再試");
       setIsLoading(false);
     }
   };
 
   return (
     <div className="space-y-4">
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Turnstile Widget */}
+      {TURNSTILE_SITE_KEY && (
+        <div className="flex justify-center">
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={TURNSTILE_SITE_KEY}
+            onSuccess={(token) => setTurnstileToken(token)}
+            onError={() => {
+              setError("人機驗證載入失敗，請重新整理頁面");
+              setTurnstileToken(null);
+            }}
+            onExpire={() => {
+              setTurnstileToken(null);
+            }}
+            options={{
+              theme: "auto",
+              size: "normal",
+            }}
+          />
+        </div>
+      )}
+
       <Button
         onClick={handleGoogleLogin}
-        disabled={isLoading}
+        disabled={isLoading || (TURNSTILE_SITE_KEY ? !turnstileToken : false)}
         className="w-full h-12 text-base"
         variant="outline"
       >

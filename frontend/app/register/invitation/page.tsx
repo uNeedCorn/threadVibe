@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { createClient } from "@/lib/supabase/client";
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,6 +59,10 @@ function InvitationPageContent() {
   const [reason, setReason] = useState("");
   const [isSubmittingWaitlist, setIsSubmittingWaitlist] = useState(false);
   const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
+
+  // Turnstile 狀態
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   // 檢查 waitlist 狀態
   useEffect(() => {
@@ -135,10 +142,36 @@ function InvitationPageContent() {
 
   const handleSubmitWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmittingWaitlist(true);
     setError(null);
 
+    // 如果有設定 Turnstile，必須先驗證
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError("請先完成人機驗證");
+      return;
+    }
+
+    setIsSubmittingWaitlist(true);
+
     try {
+      // 驗證 Turnstile token（如果有設定）
+      if (TURNSTILE_SITE_KEY && turnstileToken) {
+        const verifyResponse = await fetch("/api/turnstile/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: turnstileToken }),
+        });
+
+        const verifyResult = await verifyResponse.json();
+
+        if (!verifyResult.success) {
+          setError("人機驗證失敗，請重試");
+          setTurnstileToken(null);
+          turnstileRef.current?.reset();
+          setIsSubmittingWaitlist(false);
+          return;
+        }
+      }
+
       const response = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -366,10 +399,32 @@ function InvitationPageContent() {
                   />
                 </div>
 
+                {/* Turnstile Widget */}
+                {TURNSTILE_SITE_KEY && (
+                  <div className="flex justify-center">
+                    <Turnstile
+                      ref={turnstileRef}
+                      siteKey={TURNSTILE_SITE_KEY}
+                      onSuccess={(token) => setTurnstileToken(token)}
+                      onError={() => {
+                        setError("人機驗證載入失敗，請重新整理頁面");
+                        setTurnstileToken(null);
+                      }}
+                      onExpire={() => {
+                        setTurnstileToken(null);
+                      }}
+                      options={{
+                        theme: "auto",
+                        size: "normal",
+                      }}
+                    />
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={isSubmittingWaitlist || !threadsUsername.trim()}
+                  disabled={isSubmittingWaitlist || !threadsUsername.trim() || (TURNSTILE_SITE_KEY ? !turnstileToken : false)}
                 >
                   {isSubmittingWaitlist ? (
                     <>
