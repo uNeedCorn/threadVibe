@@ -76,21 +76,33 @@ export async function updateSession(request: NextRequest) {
   // 已登入用戶：檢查是否為現有會員或已通過 waitlist 審核
   if (user && !isPublicPath && !isWaitlistPendingPage) {
     // 檢查是否已是現有會員（有 workspace_members 記錄）
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from("workspace_members")
       .select("id")
       .eq("user_id", user.id)
       .limit(1);
 
+    // 如果查詢出錯，允許通過（fail open）避免阻擋合法用戶
+    if (membershipError) {
+      console.error("Middleware: workspace_members query error", membershipError);
+      return supabaseResponse;
+    }
+
     const isExistingMember = membership && membership.length > 0;
 
     if (!isExistingMember) {
       // 非現有會員，檢查 waitlist 狀態（用 email 比對）
-      const { data: waitlistEntry } = await supabase
+      const { data: waitlistEntry, error: waitlistError } = await supabase
         .from("beta_waitlist")
         .select("status")
         .eq("email", user.email)
         .maybeSingle();
+
+      // 如果查詢出錯，允許通過（fail open）
+      if (waitlistError) {
+        console.error("Middleware: beta_waitlist query error", waitlistError);
+        return supabaseResponse;
+      }
 
       // 如果不在 waitlist 或狀態不是 approved，導向等待頁
       if (!waitlistEntry || waitlistEntry.status !== "approved") {
@@ -104,20 +116,36 @@ export async function updateSession(request: NextRequest) {
   // 已登入且在登入頁 → 導向 Dashboard 或設定頁
   if (user && isLoginPage) {
     // 先檢查 waitlist 狀態
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from("workspace_members")
       .select("id")
       .eq("user_id", user.id)
       .limit(1);
 
+    // 查詢出錯時導向 settings（保守做法）
+    if (membershipError) {
+      console.error("Middleware: workspace_members query error on login", membershipError);
+      const url = request.nextUrl.clone();
+      url.pathname = "/settings";
+      return NextResponse.redirect(url);
+    }
+
     const isExistingMember = membership && membership.length > 0;
 
     if (!isExistingMember) {
-      const { data: waitlistEntry } = await supabase
+      const { data: waitlistEntry, error: waitlistError } = await supabase
         .from("beta_waitlist")
         .select("status")
         .eq("email", user.email)
         .maybeSingle();
+
+      // 查詢出錯時導向 settings
+      if (waitlistError) {
+        console.error("Middleware: beta_waitlist query error on login", waitlistError);
+        const url = request.nextUrl.clone();
+        url.pathname = "/settings";
+        return NextResponse.redirect(url);
+      }
 
       if (!waitlistEntry || waitlistEntry.status !== "approved") {
         const url = request.nextUrl.clone();
@@ -139,27 +167,30 @@ export async function updateSession(request: NextRequest) {
 
   // 已登入且在 waitlist pending 頁面，但已通過審核 → 導向設定頁
   if (user && isWaitlistPendingPage) {
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from("workspace_members")
       .select("id")
       .eq("user_id", user.id)
       .limit(1);
 
-    const isExistingMember = membership && membership.length > 0;
+    // 查詢出錯時留在當前頁面
+    if (!membershipError) {
+      const isExistingMember = membership && membership.length > 0;
 
-    if (isExistingMember) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
+      if (isExistingMember) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
     }
 
-    const { data: waitlistEntry } = await supabase
+    const { data: waitlistEntry, error: waitlistError } = await supabase
       .from("beta_waitlist")
       .select("status")
       .eq("email", user.email)
       .maybeSingle();
 
-    if (waitlistEntry?.status === "approved") {
+    if (!waitlistError && waitlistEntry?.status === "approved") {
       const url = request.nextUrl.clone();
       url.pathname = "/settings";
       return NextResponse.redirect(url);
