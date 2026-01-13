@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { WaitlistModal } from "./waitlist-modal";
 
 export function CtaSection() {
   return (
@@ -14,12 +14,14 @@ export function CtaSection() {
             用數據驅動你的內容策略，幾分鐘內即可開始追蹤。
           </p>
           <div className="flex justify-center">
-            <Button asChild size="lg" className="text-base px-8">
-              <Link href="/login">
-                立即開始
-                <ArrowRight className="ml-2 size-4" />
-              </Link>
-            </Button>
+            <WaitlistModal
+              trigger={
+                <Button size="lg" className="text-base px-8">
+                  申請試用
+                  <ArrowRight className="ml-2 size-4" />
+                </Button>
+              }
+            />
           </div>
         </div>
       </div>

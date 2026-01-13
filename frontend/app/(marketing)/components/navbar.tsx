@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Menu, X } from "lucide-react";
+import { WaitlistModal } from "./waitlist-modal";
 
 const navLinks = [
   { label: "功能", href: "#features" },
@@ -46,9 +47,10 @@ export function Navbar() {
             <Button variant="ghost" asChild>
               <Link href="/login">登入</Link>
             </Button>
-            <Button asChild>
-              <Link href="/login">立即開始</Link>
-            </Button>
+            <WaitlistModal
+              trigger={<Button>申請試用</Button>}
+              buttonSize="default"
+            />
           </div>
 
           {/* Mobile Menu Button */}
@@ -82,9 +84,10 @@ export function Navbar() {
                 <Button variant="outline" asChild>
                   <Link href="/login">登入</Link>
                 </Button>
-                <Button asChild>
-                  <Link href="/login">立即開始</Link>
-                </Button>
+                <WaitlistModal
+                  trigger={<Button className="w-full">申請試用</Button>}
+                  buttonSize="default"
+                />
               </div>
             </nav>
           </div>

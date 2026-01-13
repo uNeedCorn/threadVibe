@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { WaitlistModal } from "./waitlist-modal";
 
 export function HeroSection() {
   return (
@@ -45,12 +45,14 @@ export function HeroSection() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button asChild size="lg" className="text-base px-8">
-              <Link href="/login">
-                立即開始
-                <ArrowRight className="ml-2 size-4" />
-              </Link>
-            </Button>
+            <WaitlistModal
+              trigger={
+                <Button size="lg" className="text-base px-8">
+                  申請試用
+                  <ArrowRight className="ml-2 size-4" />
+                </Button>
+              }
+            />
             <Button asChild variant="outline" size="lg" className="text-base px-8">
               <a href="#features">
                 查看功能

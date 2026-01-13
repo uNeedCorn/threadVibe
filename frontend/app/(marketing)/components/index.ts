@@ -8,3 +8,4 @@ export { ScreenshotSection } from "./screenshot-section";
 export { PricingSection } from "./pricing-section";
 export { CtaSection } from "./cta-section";
 export { Footer } from "./footer";
+export { WaitlistModal } from "./waitlist-modal";

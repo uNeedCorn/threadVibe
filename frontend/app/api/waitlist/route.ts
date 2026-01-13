@@ -1,30 +1,43 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 /**
  * POST /api/waitlist
- * 加入 Beta 等待名單
+ * 加入 Beta 等待名單（支援登入/未登入用戶）
  */
 export async function POST(request: Request) {
   try {
-    const { reason, threadsUsername } = await request.json();
+    const { email, name, reason, threadsUsername, userType, managedAccounts } = await request.json();
 
-    // 確認用戶已登入
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) {
+    // 如果未登入，必須提供 email
+    if (!user && !email) {
       return NextResponse.json(
-        { success: false, error: "UNAUTHORIZED" },
-        { status: 401 }
+        { success: false, error: "EMAIL_REQUIRED" },
+        { status: 400 }
       );
     }
 
-    // 檢查是否已在 waitlist
-    const { data: existing } = await supabase
+    // 驗證 email 格式
+    const targetEmail = user?.email || email;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(targetEmail)) {
+      return NextResponse.json(
+        { success: false, error: "INVALID_EMAIL" },
+        { status: 400 }
+      );
+    }
+
+    // 使用 service client 來繞過 RLS（未登入用戶無法直接寫入）
+    const serviceClient = createServiceClient();
+
+    // 檢查是否已在 waitlist（用 email 檢查）
+    const { data: existing } = await serviceClient
       .from("beta_waitlist")
       .select("id, status")
-      .eq("user_id", user.id)
+      .eq("email", targetEmail)
       .maybeSingle();
 
     if (existing) {
@@ -36,13 +49,15 @@ export async function POST(request: Request) {
     }
 
     // 新增到 waitlist
-    const { error: insertError } = await supabase
+    const { error: insertError } = await serviceClient
       .from("beta_waitlist")
       .insert({
-        user_id: user.id,
-        email: user.email,
-        name: user.user_metadata?.name || user.user_metadata?.full_name || null,
+        user_id: user?.id || null,
+        email: targetEmail,
+        name: name?.trim() || user?.user_metadata?.name || user?.user_metadata?.full_name || null,
         threads_username: threadsUsername?.trim() || null,
+        user_type: userType || null,
+        managed_accounts: managedAccounts?.trim() || null,
         reason: reason?.trim() || null,
       });
 

@@ -49,12 +49,20 @@ interface WaitlistEntry {
   email: string;
   name: string | null;
   threads_username: string | null;
+  user_type: "personal" | "agency" | "brand" | null;
+  managed_accounts: string | null;
   reason: string | null;
   status: "pending" | "approved" | "rejected";
   created_at: string;
   reviewed_at: string | null;
   notes: string | null;
 }
+
+const USER_TYPE_LABELS: Record<string, string> = {
+  personal: "個人創作者",
+  agency: "代理商/小編",
+  brand: "品牌/企業",
+};
 
 export default function WaitlistPage() {
   const { isAdmin, isLoading: isUserLoading } = useCurrentUser();
@@ -274,7 +282,8 @@ export default function WaitlistPage() {
                   <TableRow>
                     <TableHead>申請者</TableHead>
                     <TableHead>Threads 帳號</TableHead>
-                    <TableHead>申請原因</TableHead>
+                    <TableHead>身份類型</TableHead>
+                    <TableHead>管理帳號</TableHead>
                     <TableHead>狀態</TableHead>
                     <TableHead>申請時間</TableHead>
                     <TableHead className="w-[120px]">操作</TableHead>
@@ -306,10 +315,23 @@ export default function WaitlistPage() {
                           <span className="text-muted-foreground">未提供</span>
                         )}
                       </TableCell>
-                      <TableCell className="max-w-[200px]">
-                        <p className="truncate text-sm text-muted-foreground">
-                          {entry.reason || "-"}
-                        </p>
+                      <TableCell>
+                        {entry.user_type ? (
+                          <Badge variant="outline">
+                            {USER_TYPE_LABELS[entry.user_type] || entry.user_type}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-[150px]">
+                        {entry.managed_accounts ? (
+                          <p className="truncate text-sm" title={entry.managed_accounts}>
+                            {entry.managed_accounts}
+                          </p>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={entry.status} />
@@ -370,6 +392,10 @@ export default function WaitlistPage() {
                     <span className="text-muted-foreground">申請者</span>
                     <span className="font-medium">{selectedEntry.name || selectedEntry.email}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Email</span>
+                    <span>{selectedEntry.email}</span>
+                  </div>
                   {selectedEntry.threads_username && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Threads</span>
@@ -381,6 +407,18 @@ export default function WaitlistPage() {
                       >
                         @{selectedEntry.threads_username}
                       </a>
+                    </div>
+                  )}
+                  {selectedEntry.user_type && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">身份類型</span>
+                      <span>{USER_TYPE_LABELS[selectedEntry.user_type] || selectedEntry.user_type}</span>
+                    </div>
+                  )}
+                  {selectedEntry.managed_accounts && (
+                    <div className="pt-2 border-t">
+                      <p className="text-muted-foreground mb-1">管理的帳號</p>
+                      <p className="break-all">{selectedEntry.managed_accounts}</p>
                     </div>
                   )}
                   {selectedEntry.reason && (

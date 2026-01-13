@@ -1261,7 +1261,7 @@ export default function ReachPage() {
               ) : heatmapData.length > 0 ? (
                 <div className="space-y-3">
                   {/* 熱力圖 */}
-                  <div className="overflow-x-auto">
+                  <div className="overflow-visible">
                     <div className="min-w-[320px]">
                       {/* 時段標題（只顯示部分小時以避免太擁擠） */}
                       <div className="mb-1.5 flex">
@@ -1296,12 +1296,12 @@ export default function ReachPage() {
                               >
                                 <div
                                   className={cn(
-                                    "aspect-square rounded-sm transition-transform hover:scale-125",
+                                    "aspect-square rounded-sm transition-transform hover:scale-125 hover:z-10",
                                     getHeatmapColor(avgViews, maxHeatmapViews)
                                   )}
                                 />
                                 {/* Tooltip */}
-                                <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 rounded border bg-background px-3 py-2 shadow-lg group-hover:block">
+                                <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 rounded border bg-background px-3 py-2 shadow-lg group-hover:block">
                                   <div className="whitespace-nowrap text-sm font-medium">
                                     {WEEKDAY_NAMES[dayOfWeek]} {hour}:00
                                   </div>
