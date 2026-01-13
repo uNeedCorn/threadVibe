@@ -76,28 +76,6 @@ export function LoginForm() {
         </Alert>
       )}
 
-      {/* Turnstile Widget */}
-      {TURNSTILE_SITE_KEY && (
-        <div className="flex justify-center">
-          <Turnstile
-            ref={turnstileRef}
-            siteKey={TURNSTILE_SITE_KEY}
-            onSuccess={(token) => setTurnstileToken(token)}
-            onError={() => {
-              setError("人機驗證載入失敗，請重新整理頁面");
-              setTurnstileToken(null);
-            }}
-            onExpire={() => {
-              setTurnstileToken(null);
-            }}
-            options={{
-              theme: "auto",
-              size: "normal",
-            }}
-          />
-        </div>
-      )}
-
       <Button
         onClick={handleGoogleLogin}
         disabled={isLoading || (TURNSTILE_SITE_KEY ? !turnstileToken : false)}
@@ -130,6 +108,28 @@ export function LoginForm() {
           </>
         )}
       </Button>
+
+      {/* Turnstile Widget */}
+      {TURNSTILE_SITE_KEY && (
+        <div className="flex justify-center">
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={TURNSTILE_SITE_KEY}
+            onSuccess={(token) => setTurnstileToken(token)}
+            onError={() => {
+              setError("人機驗證載入失敗，請重新整理頁面");
+              setTurnstileToken(null);
+            }}
+            onExpire={() => {
+              setTurnstileToken(null);
+            }}
+            options={{
+              theme: "auto",
+              size: "normal",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
