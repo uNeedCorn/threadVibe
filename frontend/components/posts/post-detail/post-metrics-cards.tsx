@@ -1,7 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Line, LineChart, ResponsiveContainer } from "recharts";
+
+interface SparklineMetric {
+  bucket_ts: string;
+  views: number;
+  likes: number;
+  replies: number;
+  reposts: number;
+  quotes: number;
+  engagement_rate: number;
+  reply_rate: number;
+  repost_rate: number;
+  quote_rate: number;
+  virality_score: number;
+}
 
 interface PostMetricsCardsProps {
   post: {
@@ -29,42 +45,68 @@ interface PostMetricsCardsProps {
     avgViralityScore: number;
     postCount: number;
   } | null;
+  sparklineMetrics?: SparklineMetric[];
 }
 
 interface MetricCardProps {
   label: string;
   value: number;
   average: number | null;
+  sparklineData?: number[];
   formatValue?: (v: number) => string;
   isPercentage?: boolean;
 }
 
-function MetricCard({ label, value, average, formatValue, isPercentage }: MetricCardProps) {
+function MetricCard({ label, value, average, sparklineData, formatValue, isPercentage }: MetricCardProps) {
   const displayValue = formatValue ? formatValue(value) : formatNumber(value);
   const comparison = getComparison(value, average);
 
+  // 計算趨勢（最後一個 vs 第一個）
+  const trend = sparklineData && sparklineData.length >= 2
+    ? sparklineData[sparklineData.length - 1] > sparklineData[0] ? "up" : "down"
+    : null;
+
   return (
     <Card>
-      <CardContent className="p-4">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <p className="mt-1 text-2xl font-bold">
-          {displayValue}
-          {isPercentage && "%"}
-        </p>
-        {comparison && (
-          <Badge
-            variant="outline"
-            className={`mt-2 ${
-              comparison.type === "above"
-                ? "border-green-500 text-green-600"
-                : comparison.type === "below"
-                ? "border-orange-500 text-orange-600"
-                : "border-gray-300 text-gray-500"
-            }`}
-          >
-            {comparison.label}
-          </Badge>
-        )}
+      <CardContent className="px-3 py-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          {comparison && (
+            <span
+              className={`text-[10px] ${
+                comparison.type === "above"
+                  ? "text-green-600"
+                  : comparison.type === "below"
+                  ? "text-orange-600"
+                  : "text-gray-500"
+              }`}
+            >
+              {comparison.type === "above" ? "↑" : comparison.type === "below" ? "↓" : "~"}
+              {comparison.diff}
+            </span>
+          )}
+        </div>
+        <div className="flex items-end justify-between gap-2">
+          <p className="text-lg font-bold">
+            {displayValue}
+            {isPercentage && "%"}
+          </p>
+          {sparklineData && sparklineData.length > 1 && (
+            <div className="h-6 w-16">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={sparklineData.map((v) => ({ v }))}>
+                  <Line
+                    type="monotone"
+                    dataKey="v"
+                    stroke={trend === "up" ? "#22c55e" : "#f97316"}
+                    strokeWidth={1.5}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -83,62 +125,104 @@ function formatPercentage(num: number): string {
 function getComparison(
   current: number,
   average: number | null
-): { label: string; type: "above" | "below" | "neutral" } | null {
+): { label: string; type: "above" | "below" | "neutral"; diff: string } | null {
   if (average === null || average === 0) return null;
 
   const diff = ((current - average) / average) * 100;
 
   if (diff > 10) {
-    return { label: `高於平均 +${diff.toFixed(0)}%`, type: "above" };
+    return { label: `高於平均 +${diff.toFixed(0)}%`, type: "above", diff: `${diff.toFixed(0)}%` };
   } else if (diff < -10) {
-    return { label: `低於平均 ${diff.toFixed(0)}%`, type: "below" };
+    return { label: `低於平均 ${diff.toFixed(0)}%`, type: "below", diff: `${Math.abs(diff).toFixed(0)}%` };
   }
-  return { label: "接近平均", type: "neutral" };
+  return { label: "接近平均", type: "neutral", diff: "0%" };
 }
 
-export function PostMetricsCards({ post, accountAverage }: PostMetricsCardsProps) {
+// 計算增量（delta）：從累積值計算每日新增
+function calculateDeltas(values: number[]): number[] {
+  if (values.length < 2) return values;
+  const deltas: number[] = [];
+  for (let i = 1; i < values.length; i++) {
+    deltas.push(Math.max(0, values[i] - values[i - 1]));
+  }
+  return deltas;
+}
+
+export function PostMetricsCards({ post, accountAverage, sparklineMetrics = [] }: PostMetricsCardsProps) {
+  const [activeTab, setActiveTab] = useState<"count" | "rate">("count");
+
+  // 提取累積值
+  const viewsCumulative = sparklineMetrics.map((d) => d.views);
+  const likesCumulative = sparklineMetrics.map((d) => d.likes);
+  const repliesCumulative = sparklineMetrics.map((d) => d.replies);
+  const repostsCumulative = sparklineMetrics.map((d) => d.reposts);
+  const quotesCumulative = sparklineMetrics.map((d) => d.quotes);
+
+  // 轉換為增量（數量指標）
+  const viewsData = calculateDeltas(viewsCumulative);
+  const likesData = calculateDeltas(likesCumulative);
+  const repliesData = calculateDeltas(repliesCumulative);
+  const repostsData = calculateDeltas(repostsCumulative);
+  const quotesData = calculateDeltas(quotesCumulative);
+
+  // 比率指標直接使用當時值（非累積）
+  const engagementRateData = sparklineMetrics.map((d) => Number(d.engagement_rate));
+  const replyRateData = sparklineMetrics.map((d) => Number(d.reply_rate));
+  const repostRateData = sparklineMetrics.map((d) => Number(d.repost_rate));
+  const quoteRateData = sparklineMetrics.map((d) => Number(d.quote_rate));
+  const viralityScoreData = sparklineMetrics.map((d) => Number(d.virality_score));
+
   return (
-    <div className="space-y-4">
-      {/* 數量指標 */}
-      <div>
-        <h3 className="mb-3 text-sm font-medium text-muted-foreground">數量指標</h3>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="space-y-3">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "count" | "rate")}>
+        <TabsList className="h-8">
+          <TabsTrigger value="count" className="text-xs px-3 h-6">數量指標</TabsTrigger>
+          <TabsTrigger value="rate" className="text-xs px-3 h-6">比率指標</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {activeTab === "count" && (
+        <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
           <MetricCard
             label="觀看"
             value={post.current_views}
             average={accountAverage?.avgViews ?? null}
+            sparklineData={viewsData}
           />
           <MetricCard
             label="讚"
             value={post.current_likes}
             average={accountAverage?.avgLikes ?? null}
+            sparklineData={likesData}
           />
           <MetricCard
             label="回覆"
             value={post.current_replies}
             average={accountAverage?.avgReplies ?? null}
+            sparklineData={repliesData}
           />
           <MetricCard
             label="轉發"
             value={post.current_reposts}
             average={accountAverage?.avgReposts ?? null}
+            sparklineData={repostsData}
           />
           <MetricCard
             label="引用"
             value={post.current_quotes}
             average={accountAverage?.avgQuotes ?? null}
+            sparklineData={quotesData}
           />
         </div>
-      </div>
+      )}
 
-      {/* 比率指標 */}
-      <div>
-        <h3 className="mb-3 text-sm font-medium text-muted-foreground">比率指標</h3>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      {activeTab === "rate" && (
+        <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
           <MetricCard
             label="互動率"
             value={post.engagement_rate}
             average={accountAverage?.avgEngagementRate ?? null}
+            sparklineData={engagementRateData}
             formatValue={formatPercentage}
             isPercentage
           />
@@ -146,6 +230,7 @@ export function PostMetricsCards({ post, accountAverage }: PostMetricsCardsProps
             label="回覆率"
             value={post.reply_rate}
             average={accountAverage?.avgReplyRate ?? null}
+            sparklineData={replyRateData}
             formatValue={formatPercentage}
             isPercentage
           />
@@ -153,6 +238,7 @@ export function PostMetricsCards({ post, accountAverage }: PostMetricsCardsProps
             label="轉發率"
             value={post.repost_rate}
             average={accountAverage?.avgRepostRate ?? null}
+            sparklineData={repostRateData}
             formatValue={formatPercentage}
             isPercentage
           />
@@ -160,6 +246,7 @@ export function PostMetricsCards({ post, accountAverage }: PostMetricsCardsProps
             label="引用率"
             value={post.quote_rate}
             average={accountAverage?.avgQuoteRate ?? null}
+            sparklineData={quoteRateData}
             formatValue={formatPercentage}
             isPercentage
           />
@@ -167,10 +254,11 @@ export function PostMetricsCards({ post, accountAverage }: PostMetricsCardsProps
             label="傳播力"
             value={post.virality_score}
             average={accountAverage?.avgViralityScore ?? null}
+            sparklineData={viralityScoreData}
             formatValue={(v) => v.toFixed(2)}
           />
         </div>
-      </div>
+      )}
     </div>
   );
 }

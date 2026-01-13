@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   FileText,
@@ -10,7 +10,6 @@ import {
   Settings,
   Tags,
   ChevronRight,
-  TrendingUp,
   Users,
   Eye,
   MessageSquare,
@@ -21,17 +20,37 @@ import {
   Coins,
   KeyRound,
   ClipboardList,
+  LogOut,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { featureFlags } from "@/lib/feature-flags";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { WorkspaceSwitcher } from "./workspace-switcher";
 import { ThreadsAccountSwitcher } from "./threads-account-switcher";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { createClient } from "@/lib/supabase/client";
+
+interface UserProfile {
+  email: string;
+  name: string;
+  avatarUrl: string;
+}
 
 interface NavItem {
   title: string;
@@ -91,7 +110,7 @@ const navItems: NavEntry[] = [
     ],
   },
   {
-    title: "貼文",
+    title: "貼文列表",
     href: "/posts",
     icon: FileText,
   },
@@ -135,17 +154,76 @@ const navItems: NavEntry[] = [
   },
 ];
 
+const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
+
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { isAdmin } = useCurrentUser();
 
-  // 展開狀態：當路徑匹配時自動展開
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  // Sidebar 收折狀態
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // 根據當前路徑自動展開對應的群組
+  // 登入者資訊
+  const [user, setUser] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    async function fetchUser() {
+      const supabase = createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+
+      if (authUser) {
+        setUser({
+          email: authUser.email || "",
+          name: authUser.user_metadata?.full_name || authUser.email || "",
+          avatarUrl: authUser.user_metadata?.avatar_url || "",
+        });
+      }
+    }
+
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // 從 localStorage 讀取收折狀態，並監聽 Header 的變更
+  useEffect(() => {
+    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (saved === "true") {
+      setIsCollapsed(true);
+    }
+
+    // 監聽 storage 事件（與 Header 同步）
+    const handleStorage = () => {
+      const current = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      setIsCollapsed(current === "true");
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  // 展開狀態：成效洞察固定展開，其他群組根據路徑匹配展開
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    "/insights": true, // 成效洞察固定展開
+  });
+
+  // 根據當前路徑自動展開對應的群組（成效洞察除外，保持固定展開）
   useEffect(() => {
     navItems.forEach((item) => {
-      if (isNavGroup(item) && pathname.startsWith(item.basePath)) {
+      if (isNavGroup(item) && pathname.startsWith(item.basePath) && item.basePath !== "/insights") {
         setOpenGroups((prev) => ({ ...prev, [item.basePath]: true }));
       }
     });
@@ -155,13 +233,20 @@ export function Sidebar() {
     setOpenGroups((prev) => ({ ...prev, [basePath]: !prev[basePath] }));
   };
 
-  // 顯示 Workspace 切換器的條件：團隊模式 或 管理員
-  const showWorkspaceSwitcher = featureFlags.workspaceTeamMode || isAdmin;
-
   return (
-    <aside className="flex h-screen w-64 flex-col border-r bg-card">
+    <aside
+      className={cn(
+        "flex h-screen flex-col border-r bg-card transition-all duration-300",
+        isCollapsed ? "w-16" : "w-64"
+      )}
+    >
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2 border-b px-6">
+      <div
+        className={cn(
+          "flex h-16 items-center gap-2 border-b",
+          isCollapsed ? "justify-center px-2" : "px-6"
+        )}
+      >
         <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -181,17 +266,14 @@ export function Sidebar() {
             <path d="M7 14v.01" />
           </svg>
         </div>
-        <span className="text-lg font-semibold">Postlyzer</span>
+        {!isCollapsed && <span className="text-lg font-semibold">Postlyzer</span>}
       </div>
 
-      {/* Workspace Switcher - 團隊模式或管理員可見 */}
-      {showWorkspaceSwitcher && <WorkspaceSwitcher isAdmin={isAdmin} />}
-
-      {/* Threads Account Switcher */}
-      <ThreadsAccountSwitcher />
+      {/* Threads Account Switcher - 固定顯示，收折時隱藏 */}
+      {!isCollapsed && <ThreadsAccountSwitcher />}
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+      <nav className={cn("flex-1 space-y-1 overflow-y-auto", isCollapsed ? "p-2" : "p-4")}>
         {navItems
           .filter((item) => !item.adminOnly || isAdmin)
           .map((item) => {
@@ -199,6 +281,31 @@ export function Sidebar() {
             // 樹狀選單群組
             const isGroupActive = pathname.startsWith(item.basePath);
             const isOpen = openGroups[item.basePath] ?? isGroupActive;
+
+            // 收折模式：顯示群組圖示，點擊直接導向第一個子項
+            if (isCollapsed) {
+              const firstChild = item.children.find((child) => !child.adminOnly || isAdmin);
+              if (!firstChild) return null;
+
+              return (
+                <Tooltip key={item.basePath}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={firstChild.href}
+                      className={cn(
+                        "flex items-center justify-center rounded-lg p-2 transition-colors",
+                        isGroupActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      )}
+                    >
+                      <item.icon className="size-5" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{item.title}</TooltipContent>
+                </Tooltip>
+              );
+            }
 
             return (
               <Collapsible
@@ -251,6 +358,29 @@ export function Sidebar() {
 
           // 一般導航項目
           const isActive = pathname.startsWith(item.href);
+
+          // 收折模式：只顯示圖示
+          if (isCollapsed) {
+            return (
+              <Tooltip key={item.href}>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex items-center justify-center rounded-lg p-2 transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    <item.icon className="size-5" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right">{item.title}</TooltipContent>
+              </Tooltip>
+            );
+          }
+
           return (
             <Link
               key={item.href}
@@ -269,21 +399,58 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Settings at bottom */}
-      <div className="border-t p-4">
-        <Link
-          href="/settings"
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-            pathname.startsWith("/settings")
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          )}
-        >
-          <Settings className="size-5" />
-          設定
-        </Link>
+      {/* Bottom: User + Settings */}
+      <div className={cn("border-t flex items-center justify-between", isCollapsed ? "p-2" : "p-4")}>
+        {/* User Menu - 左側 */}
+        <DropdownMenu>
+          <DropdownMenuTrigger className="outline-none">
+            <Avatar className={cn("cursor-pointer", isCollapsed ? "size-8" : "size-9")}>
+              <AvatarImage src={user?.avatarUrl} alt={user?.name} />
+              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                {user ? getInitials(user.name) : "U"}
+              </AvatarFallback>
+            </Avatar>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top" className="w-56">
+            <div className="px-2 py-1.5">
+              <p className="text-sm font-medium">{user?.name}</p>
+              <p className="text-xs text-muted-foreground">{user?.email}</p>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer" disabled>
+              <User className="mr-2 size-4" />
+              個人資料
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <LogOut className="mr-2 size-4" />
+              登出
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Settings - 右側 */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href="/settings"
+              className={cn(
+                "flex items-center justify-center rounded-lg p-2 transition-colors",
+                pathname.startsWith("/settings")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <Settings className="size-5" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">設定</TooltipContent>
+        </Tooltip>
       </div>
+
     </aside>
   );
 }

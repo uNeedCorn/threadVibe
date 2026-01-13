@@ -3,5 +3,6 @@ export { PostsTable, type Post, type PostTag, type PostTrend, type SortField, ty
 export { PostTagPopover } from "./post-tag-popover";
 export { AiTagPopover } from "./ai-tag-popover";
 export { PostDetailPanel } from "./post-detail-panel";
+export { PostMetricsChart } from "./post-metrics-chart";
 export { RepliesSection, type ThreadsReply } from "./replies-section";
 export { ReplyForm } from "./reply-form";

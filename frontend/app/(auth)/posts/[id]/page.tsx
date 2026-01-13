@@ -6,13 +6,13 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useAccountTags } from "@/hooks/use-account-tags";
-import { type PostTag } from "@/components/posts";
+import { type PostTag, PostDetailPanel } from "@/components/posts";
 import {
   PostHeader,
   PostMetricsCards,
   PostMetricsChart,
   TimeRangeTabs,
-  AiTagsSection,
+  TagComparison,
   type TimeRange,
 } from "@/components/posts/post-detail";
 
@@ -66,7 +66,7 @@ interface PostDetail {
 }
 
 interface MetricSnapshot {
-  captured_at: string;
+  bucket_ts: string;
   views: number;
   likes: number;
   replies: number;
@@ -93,6 +93,20 @@ interface AccountAverage {
   postCount: number;
 }
 
+interface SparklineMetric {
+  bucket_ts: string;
+  views: number;
+  likes: number;
+  replies: number;
+  reposts: number;
+  quotes: number;
+  engagement_rate: number;
+  reply_rate: number;
+  repost_rate: number;
+  quote_rate: number;
+  virality_score: number;
+}
+
 export default function PostDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -100,9 +114,14 @@ export default function PostDetailPage() {
 
   const [post, setPost] = useState<PostDetail | null>(null);
   const [metrics, setMetrics] = useState<MetricSnapshot[]>([]);
+  const [sparklineMetrics, setSparklineMetrics] = useState<SparklineMetric[]>([]);
   const [accountAverage, setAccountAverage] = useState<AccountAverage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
+
+  // Panel 狀態
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelPostId, setPanelPostId] = useState<string | null>(null);
 
   // 標籤相關
   const { tags: accountTags, createTag } = useAccountTags();
@@ -199,7 +218,7 @@ export default function PostDetailPage() {
     fetchPost();
   }, [postId]);
 
-  // 取得歷史成效資料
+  // 取得歷史成效資料（從 hourly 表）
   useEffect(() => {
     async function fetchMetrics() {
       if (!post) return;
@@ -208,22 +227,48 @@ export default function PostDetailPage() {
       const sinceDate = getSinceDate(timeRange);
 
       const { data, error } = await supabase
-        .from("workspace_threads_post_metrics")
-        .select("captured_at, views, likes, replies, reposts, quotes, engagement_rate, reply_rate, repost_rate, quote_rate, virality_score")
+        .from("workspace_threads_post_metrics_hourly")
+        .select("bucket_ts, views, likes, replies, reposts, quotes, engagement_rate, reply_rate, repost_rate, quote_rate, virality_score")
         .eq("workspace_threads_post_id", postId)
-        .gte("captured_at", sinceDate)
-        .order("captured_at", { ascending: true });
+        .gte("bucket_ts", sinceDate)
+        .order("bucket_ts", { ascending: true });
 
       if (error) {
-        console.error("Error fetching metrics:", error);
+        console.error("Error fetching hourly metrics:", error);
         return;
       }
 
-      setMetrics(data || []);
+      setMetrics((data || []) as MetricSnapshot[]);
     }
 
     fetchMetrics();
   }, [post, postId, timeRange]);
+
+  // 取得近 6 小時的成效（for sparkline）
+  useEffect(() => {
+    async function fetchSparklineMetrics() {
+      if (!post) return;
+
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from("workspace_threads_post_metrics_hourly")
+        .select("bucket_ts, views, likes, replies, reposts, quotes, engagement_rate, reply_rate, repost_rate, quote_rate, virality_score")
+        .eq("workspace_threads_post_id", postId)
+        .order("bucket_ts", { ascending: false })
+        .limit(6);
+
+      if (error) {
+        console.error("Error fetching sparkline metrics:", error);
+        return;
+      }
+
+      // 反轉順序，讓時間由舊到新
+      setSparklineMetrics(((data || []) as SparklineMetric[]).reverse());
+    }
+
+    fetchSparklineMetrics();
+  }, [post, postId]);
 
   // 取得帳號平均值
   useEffect(() => {
@@ -293,31 +338,64 @@ export default function PostDetailPage() {
         返回貼文列表
       </Button>
 
-      {/* 貼文內容 */}
-      <PostHeader
-        post={post}
-        accountTags={accountTags}
-        onTagsChange={(tags) => setPost(prev => prev ? { ...prev, tags } : null)}
-        onCreateTag={createTag}
-      />
+      {/* 上方：貼文 + 成效指標（左右分欄） */}
+      <div className="flex gap-6">
+        {/* 左側：貼文內容 */}
+        <div className="w-80 shrink-0">
+          <PostHeader
+            post={post}
+            aiSuggestedTags={post.ai_suggested_tags}
+            aiSelectedTags={post.ai_selected_tags}
+            accountTags={accountTags}
+            onTagsChange={(tags) => setPost(prev => prev ? { ...prev, tags } : null)}
+            onCreateTag={createTag}
+          />
+        </div>
 
-      {/* AI 標籤分析 */}
-      <AiTagsSection
-        aiSuggestedTags={post.ai_suggested_tags ?? null}
-        aiSelectedTags={post.ai_selected_tags}
-      />
+        {/* 右側：成效指標 */}
+        <div className="flex-1">
+          <PostMetricsCards post={post} accountAverage={accountAverage} sparklineMetrics={sparklineMetrics} />
+        </div>
+      </div>
+
+      {/* 同標籤貼文比較 */}
+      {post.tags && post.tags.length > 0 && (
+        <TagComparison
+          postId={post.id}
+          accountId={post.account.id}
+          postTags={post.tags}
+          currentMetrics={{
+            views: post.current_views,
+            likes: post.current_likes,
+            replies: post.current_replies,
+            reposts: post.current_reposts,
+            quotes: post.current_quotes,
+            engagement_rate: post.engagement_rate,
+          }}
+          onOpenPost={(id) => {
+            setPanelPostId(id);
+            setPanelOpen(true);
+          }}
+        />
+      )}
 
       {/* 時間範圍切換 */}
       <TimeRangeTabs value={timeRange} onValueChange={setTimeRange} />
-
-      {/* 指標卡片 */}
-      <PostMetricsCards post={post} accountAverage={accountAverage} />
 
       {/* 趨勢圖表 */}
       <PostMetricsChart
         metrics={metrics}
         accountAverage={accountAverage}
         timeRange={timeRange}
+      />
+
+      {/* 貼文詳情 Panel */}
+      <PostDetailPanel
+        open={panelOpen}
+        onOpenChange={setPanelOpen}
+        postId={panelPostId}
+        accountTags={accountTags}
+        onCreateTag={createTag}
       />
     </div>
   );

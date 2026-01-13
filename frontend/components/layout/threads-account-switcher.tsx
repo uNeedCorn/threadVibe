@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/client";
 
 interface ThreadsAccount {
   id: string;
+  threadsUserId: string;
   username: string;
   profilePicUrl: string | null;
 }
@@ -37,7 +38,7 @@ export function ThreadsAccountSwitcher() {
 
       const { data } = await supabase
         .from("workspace_threads_accounts")
-        .select("id, username, profile_pic_url")
+        .select("id, threads_user_id, username, profile_pic_url")
         .eq("workspace_id", workspaceId)
         .eq("is_active", true)
         .order("created_at", { ascending: true });
@@ -45,6 +46,7 @@ export function ThreadsAccountSwitcher() {
       if (data && data.length > 0) {
         const accountsList = data.map((a) => ({
           id: a.id,
+          threadsUserId: a.threads_user_id,
           username: a.username,
           profilePicUrl: a.profile_pic_url,
         }));
@@ -75,35 +77,58 @@ export function ThreadsAccountSwitcher() {
   if (isLoading) {
     return (
       <div className="border-b p-4">
-        <div className="h-10 animate-pulse rounded-lg bg-muted" />
+        <div className="h-14 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
 
-  // 沒有帳號或只有一個帳號時不顯示切換器
-  if (accounts.length <= 1) {
+  // 沒有帳號時不顯示
+  if (accounts.length === 0) {
     return null;
   }
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+  const hasMultipleAccounts = accounts.length > 1;
 
+  // 帳號資訊顯示區塊
+  const AccountInfo = () => (
+    <div className="flex items-center gap-3">
+      <Avatar className="size-10">
+        <AvatarImage src={selectedAccount?.profilePicUrl || undefined} />
+        <AvatarFallback className="text-sm">
+          {selectedAccount?.username.charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">
+          {selectedAccount?.username}
+        </p>
+        <p className="text-xs text-muted-foreground truncate">
+          @{selectedAccount?.username}
+        </p>
+      </div>
+    </div>
+  );
+
+  // 單一帳號：只顯示帳號資訊，不需要下拉選單
+  if (!hasMultipleAccounts) {
+    return (
+      <div className="border-b p-4">
+        <AccountInfo />
+      </div>
+    );
+  }
+
+  // 多帳號：顯示可切換的下拉選單
   return (
     <div className="border-b p-4">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            variant="outline"
-            className="w-full justify-between"
+            variant="ghost"
+            className="w-full h-auto p-2 justify-between hover:bg-accent"
           >
-            <span className="flex items-center gap-2 truncate">
-              <Avatar className="size-5">
-                <AvatarImage src={selectedAccount?.profilePicUrl || undefined} />
-                <AvatarFallback className="text-[10px]">
-                  {selectedAccount?.username.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span>@{selectedAccount?.username}</span>
-            </span>
+            <AccountInfo />
             <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
           </Button>
         </DropdownMenuTrigger>
@@ -117,13 +142,18 @@ export function ThreadsAccountSwitcher() {
               className="cursor-pointer"
             >
               <div className="flex flex-1 items-center gap-2">
-                <Avatar className="size-5">
+                <Avatar className="size-6">
                   <AvatarImage src={account.profilePicUrl || undefined} />
                   <AvatarFallback className="text-[10px]">
                     {account.username.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <span>@{account.username}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm truncate">{account.username}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    @{account.username}
+                  </p>
+                </div>
               </div>
               {account.id === selectedAccountId && <Check className="ml-2 size-4" />}
             </DropdownMenuItem>

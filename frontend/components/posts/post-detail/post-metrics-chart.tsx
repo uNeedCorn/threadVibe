@@ -20,7 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TimeRange } from "./time-range-tabs";
 
 interface MetricSnapshot {
-  captured_at: string;
+  bucket_ts: string;
   views: number;
   likes: number;
   replies: number;
@@ -81,20 +81,33 @@ export function PostMetricsChart({
   const currentMetrics = metricType === "count" ? countMetrics : rateMetrics;
   const currentMetricConfig = currentMetrics.find((m) => m.key === selectedMetric) || currentMetrics[0];
 
-  // 格式化時間軸
-  const formatXAxis = (dateStr: string) => {
-    const date = new Date(dateStr);
-    switch (timeRange) {
-      case "24h":
-        return date.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
-      case "7d":
-        return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:00`;
-      case "30d":
-      case "all":
-        return `${date.getMonth() + 1}/${date.getDate()}`;
-      default:
-        return `${date.getMonth() + 1}/${date.getDate()}`;
+  // 自定義 X 軸 tick（日期在上，時間在下）
+  const CustomXAxisTick = ({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
+    const date = new Date(payload.value);
+    const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+    const timeStr = `${date.getHours()}:00`;
+
+    // 24h 模式只顯示時間
+    if (timeRange === "24h") {
+      return (
+        <g transform={`translate(${x},${y})`}>
+          <text x={0} y={0} dy={16} textAnchor="middle" className="fill-muted-foreground text-xs">
+            {timeStr}
+          </text>
+        </g>
+      );
     }
+
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={0} dy={12} textAnchor="middle" className="fill-muted-foreground text-xs">
+          {dateStr}
+        </text>
+        <text x={0} y={0} dy={26} textAnchor="middle" className="fill-muted-foreground text-xs">
+          {timeStr}
+        </text>
+      </g>
+    );
   };
 
   // 取得帳號平均值
@@ -183,15 +196,16 @@ export function PostMetricsChart({
         <ChartContainer config={chartConfig} className="h-[320px] w-full">
           <LineChart
             data={metrics}
-            margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+            margin={{ top: 5, right: 20, left: 10, bottom: 25 }}
           >
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
-              dataKey="captured_at"
-              tickFormatter={formatXAxis}
+              dataKey="bucket_ts"
+              tick={CustomXAxisTick}
               tickLine={false}
               axisLine={false}
-              tickMargin={8}
+              height={40}
+              interval={2}
             />
             <YAxis
               tickLine={false}

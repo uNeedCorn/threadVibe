@@ -1,91 +1,65 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { LogOut, User } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PanelLeftClose, PanelLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { createClient } from "@/lib/supabase/client";
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-interface UserProfile {
-  email: string;
-  name: string;
-  avatarUrl: string;
-}
+const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
 
 export function Header() {
-  const router = useRouter();
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // 從 localStorage 讀取收折狀態
   useEffect(() => {
-    async function fetchUser() {
-      const supabase = createClient();
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-
-      if (authUser) {
-        setUser({
-          email: authUser.email || "",
-          name: authUser.user_metadata?.full_name || authUser.email || "",
-          avatarUrl: authUser.user_metadata?.avatar_url || "",
-        });
-      }
+    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (saved === "true") {
+      setIsCollapsed(true);
     }
 
-    fetchUser();
+    // 監聽 storage 事件（跨組件同步）
+    const handleStorage = () => {
+      const current = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      setIsCollapsed(current === "true");
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+  const toggleCollapsed = () => {
+    const newValue = !isCollapsed;
+    setIsCollapsed(newValue);
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(newValue));
+    // 觸發 storage 事件讓 Sidebar 更新
+    window.dispatchEvent(new Event("storage"));
   };
 
   return (
-    <header className="flex h-16 items-center justify-end border-b bg-card px-6">
-      <DropdownMenu>
-        <DropdownMenuTrigger className="outline-none">
-          <Avatar className="size-9 cursor-pointer">
-            <AvatarImage src={user?.avatarUrl} alt={user?.name} />
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              {user ? getInitials(user.name) : "U"}
-            </AvatarFallback>
-          </Avatar>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <div className="px-2 py-1.5">
-            <p className="text-sm font-medium">{user?.name}</p>
-            <p className="text-xs text-muted-foreground">{user?.email}</p>
-          </div>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="cursor-pointer" disabled>
-            <User className="mr-2 size-4" />
-            個人資料
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={handleLogout}
-            className="cursor-pointer text-destructive focus:text-destructive"
+    <header className="flex h-16 items-center border-b bg-card px-6">
+      {/* Sidebar Toggle Button */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleCollapsed}
+            className="size-9"
           >
-            <LogOut className="mr-2 size-4" />
-            登出
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            {isCollapsed ? (
+              <PanelLeft className="size-5" />
+            ) : (
+              <PanelLeftClose className="size-5" />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          {isCollapsed ? "展開側邊欄" : "收合側邊欄"}
+        </TooltipContent>
+      </Tooltip>
     </header>
   );
 }

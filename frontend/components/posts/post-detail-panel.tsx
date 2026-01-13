@@ -17,6 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { createClient } from "@/lib/supabase/client";
 import { RepliesSection } from "./replies-section";
 import { ReplyForm } from "./reply-form";
+import { PostMetricsChart } from "./post-metrics-chart";
 import type { Post, PostTag } from "./posts-table";
 import type { AccountTag } from "@/hooks/use-account-tags";
 import { PostTagPopover } from "./post-tag-popover";
@@ -324,6 +325,11 @@ export function PostDetailPanel({
                   </div>
                 </div>
               </div>
+
+              <Separator />
+
+              {/* 成效趨勢圖表 */}
+              <PostMetricsChart postId={post.id} publishedAt={post.published_at} />
 
               <Separator />
 

@@ -994,12 +994,12 @@ export default function InsightsOverviewPage() {
             .lt("published_at", previousEnd.toISOString()),
           // 帳號歷史 insights（取最舊的一筆作為上期對比）
           supabase
-            .from("workspace_threads_account_insights")
-            .select("followers_count, profile_views, captured_at")
+            .from("workspace_threads_account_insights_hourly")
+            .select("followers_count, profile_views, bucket_ts")
             .eq("workspace_threads_account_id", selectedAccountId)
-            .gte("captured_at", previousStart.toISOString())
-            .lt("captured_at", previousEnd.toISOString())
-            .order("captured_at", { ascending: true })
+            .gte("bucket_ts", previousStart.toISOString())
+            .lt("bucket_ts", previousEnd.toISOString())
+            .order("bucket_ts", { ascending: true })
             .limit(1),
           // 全時間貼文（用於計算 benchmark）
           supabase

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { FlaskConical, Play, Loader2, Copy, Check } from "lucide-react";
+import { FlaskConical, Play, Loader2, Copy, Check, Gauge, RotateCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { AdminOnly } from "@/components/auth";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -17,6 +18,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+// Supabase 測試結果
+interface LatencyResult {
+  table: string;
+  times: number[];
+  min: number;
+  max: number;
+  avg: number;
+  p50: number;
+  p95: number;
+}
+
+interface LatencyTestState {
+  isRunning: boolean;
+  progress: number;
+  results: LatencyResult[];
+  region: string;
+}
 
 // 端點類型
 type EndpointCategory = "read" | "write" | "delete";
@@ -95,6 +114,76 @@ export default function ApiTestPage() {
   const [copied, setCopied] = useState(false);
 
   const currentEndpoint = API_ENDPOINTS.find((e) => e.id === selectedEndpoint);
+
+  // Supabase 連線測試狀態
+  const [latencyTest, setLatencyTest] = useState<LatencyTestState>({
+    isRunning: false,
+    progress: 0,
+    results: [],
+    region: "ap-northeast-1",
+  });
+
+  // 計算百分位數
+  const percentile = (arr: number[], p: number): number => {
+    const sorted = [...arr].sort((a, b) => a - b);
+    const index = Math.ceil((p / 100) * sorted.length) - 1;
+    return sorted[Math.max(0, index)];
+  };
+
+  // 執行 Supabase 連線測試
+  const runLatencyTest = useCallback(async () => {
+    setLatencyTest((prev) => ({ ...prev, isRunning: true, progress: 0, results: [] }));
+
+    const supabase = createClient();
+    const tables = [
+      { name: "profiles", query: () => supabase.from("profiles").select("id").limit(1) },
+      { name: "workspaces", query: () => supabase.from("workspaces").select("id").limit(1) },
+      { name: "workspace_threads_posts", query: () => supabase.from("workspace_threads_posts").select("id").limit(1) },
+      { name: "workspace_threads_post_metrics_hourly", query: () => supabase.from("workspace_threads_post_metrics_hourly").select("bucket_ts").limit(1) },
+    ];
+
+    const iterations = 10;
+    const totalSteps = tables.length * iterations;
+    let currentStep = 0;
+    const results: LatencyResult[] = [];
+
+    for (const table of tables) {
+      const times: number[] = [];
+
+      for (let i = 0; i < iterations; i++) {
+        const start = performance.now();
+        await table.query();
+        const elapsed = performance.now() - start;
+        times.push(elapsed);
+
+        currentStep++;
+        setLatencyTest((prev) => ({
+          ...prev,
+          progress: Math.round((currentStep / totalSteps) * 100),
+        }));
+
+        // 小延遲避免過於密集
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      results.push({
+        table: table.name,
+        times,
+        min: Math.min(...times),
+        max: Math.max(...times),
+        avg: times.reduce((a, b) => a + b, 0) / times.length,
+        p50: percentile(times, 50),
+        p95: percentile(times, 95),
+      });
+    }
+
+    setLatencyTest((prev) => ({
+      ...prev,
+      isRunning: false,
+      progress: 100,
+      results,
+    }));
+  }, []);
 
   // 執行 API 測試
   const handleTest = useCallback(async () => {
@@ -200,7 +289,119 @@ export default function ApiTestPage() {
           </p>
         </div>
 
-      {/* 測試設定 */}
+        {/* Supabase 連線測試 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Gauge className="size-5" />
+              Supabase 連線速度測試
+            </CardTitle>
+            <CardDescription>
+              測試從瀏覽器到 Supabase 的查詢延遲（Region: {latencyTest.region}）
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={runLatencyTest}
+                disabled={latencyTest.isRunning}
+              >
+                {latencyTest.isRunning ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    測試中...
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-2 size-4" />
+                    開始測試
+                  </>
+                )}
+              </Button>
+              {latencyTest.results.length > 0 && !latencyTest.isRunning && (
+                <Button variant="outline" onClick={runLatencyTest}>
+                  <RotateCcw className="mr-2 size-4" />
+                  重新測試
+                </Button>
+              )}
+            </div>
+
+            {/* 進度條 */}
+            {latencyTest.isRunning && (
+              <div className="space-y-2">
+                <Progress value={latencyTest.progress} />
+                <p className="text-sm text-muted-foreground">
+                  測試進度: {latencyTest.progress}%
+                </p>
+              </div>
+            )}
+
+            {/* 測試結果 */}
+            {latencyTest.results.length > 0 && (
+              <div className="space-y-4">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="py-2 text-left font-medium">資料表</th>
+                        <th className="py-2 text-right font-medium">Min</th>
+                        <th className="py-2 text-right font-medium">Avg</th>
+                        <th className="py-2 text-right font-medium">P50</th>
+                        <th className="py-2 text-right font-medium">P95</th>
+                        <th className="py-2 text-right font-medium">Max</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {latencyTest.results.map((result) => (
+                        <tr key={result.table} className="border-b">
+                          <td className="py-2 font-mono text-xs">{result.table}</td>
+                          <td className="py-2 text-right text-green-600">{result.min.toFixed(0)}ms</td>
+                          <td className="py-2 text-right font-medium">{result.avg.toFixed(0)}ms</td>
+                          <td className="py-2 text-right">{result.p50.toFixed(0)}ms</td>
+                          <td className="py-2 text-right text-yellow-600">{result.p95.toFixed(0)}ms</td>
+                          <td className="py-2 text-right text-red-600">{result.max.toFixed(0)}ms</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* 整體統計 */}
+                <div className="rounded-lg bg-muted p-4">
+                  <h4 className="mb-2 text-sm font-medium">整體統計</h4>
+                  {(() => {
+                    const allTimes = latencyTest.results.flatMap((r) => r.times);
+                    const overallAvg = allTimes.reduce((a, b) => a + b, 0) / allTimes.length;
+                    const overallMin = Math.min(...allTimes);
+                    const overallMax = Math.max(...allTimes);
+                    return (
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <p className="text-2xl font-bold text-green-600">{overallMin.toFixed(0)}ms</p>
+                          <p className="text-xs text-muted-foreground">最快</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{overallAvg.toFixed(0)}ms</p>
+                          <p className="text-xs text-muted-foreground">平均</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-red-600">{overallMax.toFixed(0)}ms</p>
+                          <p className="text-xs text-muted-foreground">最慢</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  * 每個資料表測試 10 次，數據包含網路延遲 + Supabase 查詢時間
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 測試設定 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
