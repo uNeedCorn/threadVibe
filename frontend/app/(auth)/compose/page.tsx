@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Hash, Link2, Loader2, Send, Clock, X } from "lucide-react";
+import { ArrowLeft, Hash, Link2, Loader2, Send, Clock, X, Shield } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { MediaTypeSelector, type MediaType } from "@/components/compose/media-type-selector";
 import { ComposeMediaSection } from "@/components/compose/compose-media-section";
 import { ComposeScheduler } from "@/components/compose/compose-scheduler";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 const TEXT_LIMIT = 500;
 const TOPIC_TAG_LIMIT = 50;
@@ -36,10 +37,30 @@ interface ThreadsAccount {
 function ComposePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isAdmin, isLoading: isLoadingUser } = useCurrentUser();
 
   // 當前帳號
   const [currentAccount, setCurrentAccount] = useState<ThreadsAccount | null>(null);
   const [isLoadingAccount, setIsLoadingAccount] = useState(true);
+
+  // 非管理員重導向
+  useEffect(() => {
+    if (!isLoadingUser && !isAdmin) {
+      router.push("/posts");
+    }
+  }, [isAdmin, isLoadingUser, router]);
+
+  // 載入中或非管理員時顯示載入畫面
+  if (isLoadingUser || !isAdmin) {
+    return (
+      <div className="container max-w-2xl py-8">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          載入中...
+        </div>
+      </div>
+    );
+  }
 
   // 貼文內容
   const [mediaType, setMediaType] = useState<MediaType>("TEXT");
@@ -220,6 +241,12 @@ function ComposePageContent() {
 
   return (
     <div className="container max-w-2xl py-8">
+      {/* 管理員標示 */}
+      <div className="mb-4 flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300">
+        <Shield className="size-4" />
+        <span>管理員功能：發文功能目前僅限管理員使用</span>
+      </div>
+
       {/* 標題 */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -229,13 +256,17 @@ function ComposePageContent() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">建立貼文</h1>
+            <h1 className="text-2xl font-bold text-orange-600">建立貼文</h1>
             <p className="text-sm text-muted-foreground">
               發布新貼文到 Threads
             </p>
           </div>
         </div>
-        <Button onClick={handlePublish} disabled={!canPublish}>
+        <Button
+          onClick={handlePublish}
+          disabled={!canPublish}
+          className="bg-orange-500 hover:bg-orange-600 text-white"
+        >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 size-4 animate-spin" />

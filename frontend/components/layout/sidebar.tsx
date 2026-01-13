@@ -95,7 +95,6 @@ const mainNavItems: NavEntry[] = [
         title: "曝光分析",
         href: "/insights/reach",
         icon: Eye,
-        adminOnly: true,
       },
       {
         title: "互動分析",
@@ -344,6 +343,7 @@ export function Sidebar() {
                     .filter((child) => !child.adminOnly || isAdmin)
                     .map((child) => {
                     const isChildActive = pathname === child.href;
+                    const isAdminOnly = child.adminOnly;
                     return (
                       <Link
                         key={child.href}
@@ -351,11 +351,15 @@ export function Sidebar() {
                         className={cn(
                           "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                           isChildActive
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                            ? isAdminOnly
+                              ? "bg-orange-500 text-white"
+                              : "bg-primary text-primary-foreground"
+                            : isAdminOnly
+                              ? "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
+                              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                         )}
                       >
-                        <child.icon className="size-4" />
+                        <child.icon className={cn("size-4", isAdminOnly && !isChildActive && "text-orange-500")} />
                         {child.title}
                       </Link>
                     );
@@ -426,8 +430,8 @@ export function Sidebar() {
                       className={cn(
                         "flex items-center justify-center rounded-lg p-2 transition-colors",
                         isGroupActive
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                          ? "bg-orange-500 text-white"
+                          : "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
                       )}
                     >
                       <adminNavGroup.icon className="size-5" />
@@ -448,8 +452,8 @@ export function Sidebar() {
                   className={cn(
                     "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     isGroupActive
-                      ? "text-primary"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      ? "text-orange-600"
+                      : "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
                   )}
                 >
                   <adminNavGroup.icon className="size-5" />
@@ -471,8 +475,8 @@ export function Sidebar() {
                         className={cn(
                           "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                           isChildActive
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                            ? "bg-orange-500 text-white"
+                            : "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
                         )}
                       >
                         <child.icon className="size-4" />

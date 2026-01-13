@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, X, AtSign } from "lucide-react";
+import { Loader2, X, AtSign, Shield } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -17,6 +17,18 @@ import { toast } from "sonner";
 
 const TEXT_LIMIT = 500;
 const TOPIC_TAG_LIMIT = 50;
+
+// TODO: 之後從用戶設定載入
+const QUICK_TAGS = [
+  "日常",
+  "工作",
+  "學習",
+  "閱讀",
+  "旅遊",
+  "美食",
+  "科技",
+  "設計",
+];
 
 interface ThreadsAccount {
   id: string;
@@ -150,7 +162,7 @@ export function QuickComposeSheet({ open, onOpenChange }: QuickComposeSheetProps
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-[480px] flex flex-col p-0">
         {/* Header */}
-        <SheetHeader className="px-4 py-3 border-b">
+        <SheetHeader className="px-4 py-3 border-b border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950">
           <div className="flex items-center justify-between">
             <Button
               variant="ghost"
@@ -160,7 +172,10 @@ export function QuickComposeSheet({ open, onOpenChange }: QuickComposeSheetProps
             >
               取消
             </Button>
-            <SheetTitle className="text-base font-semibold">新串文</SheetTitle>
+            <div className="flex items-center gap-1.5">
+              <Shield className="size-4 text-orange-500" />
+              <SheetTitle className="text-base font-semibold text-orange-600">新串文</SheetTitle>
+            </div>
             <div className="w-[52px]" /> {/* 佔位，保持標題居中 */}
           </div>
         </SheetHeader>
@@ -263,6 +278,26 @@ export function QuickComposeSheet({ open, onOpenChange }: QuickComposeSheetProps
               </div>
             </div>
           )}
+
+          {/* 快速標籤 */}
+          {currentAccount && !isLoadingAccount && (
+            <div className="px-4 pb-4">
+              <div className="flex flex-wrap gap-2">
+                {QUICK_TAGS.map((tag) => (
+                  <Button
+                    key={tag}
+                    variant={topicTag === tag ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs rounded-full"
+                    onClick={() => setTopicTag(topicTag === tag ? "" : tag)}
+                    disabled={isLoading}
+                  >
+                    #{tag}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -285,6 +320,7 @@ export function QuickComposeSheet({ open, onOpenChange }: QuickComposeSheetProps
                 onClick={handlePublish}
                 disabled={!canPublish || isLoadingAccount}
                 size="sm"
+                className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 {isLoading ? (
                   <>
