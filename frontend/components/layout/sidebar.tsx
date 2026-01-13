@@ -19,6 +19,8 @@ import {
   FlaskConical,
   Shield,
   Coins,
+  KeyRound,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { featureFlags } from "@/lib/feature-flags";
@@ -118,6 +120,16 @@ const navItems: NavEntry[] = [
         title: "LLM 費用",
         href: "/admin/llm-usage",
         icon: Coins,
+      },
+      {
+        title: "邀請碼管理",
+        href: "/admin/invitations",
+        icon: KeyRound,
+      },
+      {
+        title: "等待名單",
+        href: "/admin/waitlist",
+        icon: ClipboardList,
       },
     ],
   },

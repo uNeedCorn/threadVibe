@@ -58,7 +58,8 @@ export async function updateSession(request: NextRequest) {
 
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
-  const isPublicPath = isLoginPage || isAuthCallback;
+  const isInvitationPage = request.nextUrl.pathname.startsWith("/register/invitation");
+  const isPublicPath = isLoginPage || isAuthCallback || isInvitationPage;
 
   // 未登入且不在公開頁面 → 導向登入頁
   if (!user && !isPublicPath) {

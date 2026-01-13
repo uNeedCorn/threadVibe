@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
+// 從環境變數讀取是否需要邀請碼（server-side）
+const REQUIRE_INVITATION_CODE = process.env.NEXT_PUBLIC_REQUIRE_INVITATION_CODE === "true";
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
@@ -21,7 +24,7 @@ export async function GET(request: Request) {
       // 使用 service role client 繞過 RLS 進行 workspace 操作
       const serviceClient = createServiceClient();
 
-      // 檢查是否有 Workspace
+      // 檢查是否有 Workspace（判斷是否為新用戶）
       const { data: memberships } = await serviceClient
         .from("workspace_members")
         .select("workspace_id, workspaces(id, name)")
@@ -29,9 +32,18 @@ export async function GET(request: Request) {
         .limit(1);
 
       let workspaceId: string | null = null;
+      const isNewUser = !memberships || memberships.length === 0;
 
-      if (!memberships || memberships.length === 0) {
-        // 沒有 Workspace，建立一個預設的
+      if (isNewUser) {
+        // 新用戶：檢查是否需要邀請碼
+        if (REQUIRE_INVITATION_CODE) {
+          // 導向邀請碼頁面
+          const invitationUrl = new URL("/register/invitation", origin);
+          invitationUrl.searchParams.set("next", next);
+          return NextResponse.redirect(invitationUrl.toString());
+        }
+
+        // 不需要邀請碼，直接建立 workspace
         const displayName =
           user.user_metadata?.name ||
           user.user_metadata?.full_name ||
@@ -69,7 +81,7 @@ export async function GET(request: Request) {
           workspaceId = newWorkspace.id;
         }
       } else {
-        // 已有 Workspace
+        // 已有 Workspace（舊用戶）
         const workspace = memberships[0].workspaces as unknown as { id: string; name: string } | null;
         workspaceId = workspace?.id || null;
       }
