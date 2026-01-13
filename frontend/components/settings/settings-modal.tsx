@@ -35,12 +35,12 @@ export function SettingsModal() {
 
   return (
     <Dialog open={isSettingsOpen} onOpenChange={(open) => !open && closeSettings()}>
-      <DialogContent className="max-w-4xl max-h-[85vh] p-0">
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[85vh] p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>設定</DialogTitle>
         </DialogHeader>
-        <ScrollArea className="max-h-[calc(85vh-80px)] px-6 pb-6">
-          <div className="space-y-6">
+        <ScrollArea className="max-h-[calc(85vh-80px)]">
+          <div className="space-y-6 px-6 pb-6">
             {/* Threads 帳號管理 */}
             <Suspense fallback={<ThreadsAccountsSkeleton />}>
               <ThreadsAccountsSection />

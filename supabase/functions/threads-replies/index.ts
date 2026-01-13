@@ -24,6 +24,7 @@ interface ThreadsReply {
   media_type?: string;
   media_url?: string;
   permalink?: string;
+  is_reply_owned_by_me?: boolean;
 }
 
 interface ThreadsRepliesResponse {
@@ -129,7 +130,7 @@ Deno.serve(async (req) => {
     const accessToken = await decrypt(tokenData.access_token_encrypted);
 
     // 呼叫 Threads API 取得回覆
-    const fields = 'id,text,username,timestamp,media_type,media_url,permalink';
+    const fields = 'id,text,username,timestamp,media_type,media_url,permalink,is_reply_owned_by_me';
     const url = `${THREADS_API_BASE}/${postId}/replies?fields=${fields}`;
 
     const response = await fetch(url, {
@@ -146,9 +147,42 @@ Deno.serve(async (req) => {
       );
     }
 
+    const replies = data.data || [];
+
+    // 對每則回覆檢查是否有擁有者的子回覆
+    const repliesWithOwnerReplyStatus = await Promise.all(
+      replies.map(async (reply) => {
+        // 先檢查這則回覆本身是否是擁有者的
+        if (reply.is_reply_owned_by_me === true) {
+          return { ...reply, has_owner_reply: true };
+        }
+
+        // 下鑽一層檢查子回覆
+        try {
+          const nestedUrl = `${THREADS_API_BASE}/${reply.id}/replies?fields=${fields}`;
+          const nestedResponse = await fetch(nestedUrl, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          const nestedData: ThreadsRepliesResponse = await nestedResponse.json();
+
+          if (nestedResponse.ok && nestedData.data) {
+            const hasOwnerReply = nestedData.data.some((r) => r.is_reply_owned_by_me === true);
+            return { ...reply, has_owner_reply: hasOwnerReply };
+          }
+          return { ...reply, has_owner_reply: false };
+        } catch {
+          return { ...reply, has_owner_reply: false };
+        }
+      })
+    );
+
+    // 計算整體是否有擁有者回覆
+    const hasOwnerReply = repliesWithOwnerReplyStatus.some((r) => r.has_owner_reply === true);
+
     return jsonResponse(req, {
-      replies: data.data || [],
+      replies: repliesWithOwnerReplyStatus,
       paging: data.paging,
+      hasOwnerReply,
     });
 
   } catch (error) {

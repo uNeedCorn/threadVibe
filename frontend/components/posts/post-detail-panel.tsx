@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ExternalLink, Loader2, ArrowUpRight } from "lucide-react";
+import { ExternalLink, Loader2, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import {
   Sheet,
@@ -73,6 +73,7 @@ export function PostDetailPanel({
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [replyToId, setReplyToId] = useState<string | undefined>(undefined);
   const [replyToUsername, setReplyToUsername] = useState<string | undefined>(undefined);
+  const [hasOwnerReply, setHasOwnerReply] = useState(false);
 
   // 載入貼文詳情
   const fetchPost = useCallback(async () => {
@@ -178,9 +179,10 @@ export function PostDetailPanel({
   useEffect(() => {
     if (open && postId) {
       fetchPost();
-      // 重置回覆對象
+      // 重置狀態
       setReplyToId(undefined);
       setReplyToUsername(undefined);
+      setHasOwnerReply(false);
     }
   }, [open, postId, fetchPost]);
 
@@ -214,6 +216,11 @@ export function PostDetailPanel({
     setPost(prev => prev ? { ...prev, tags } : null);
     onTagsChange?.(post.id, tags);
   }, [post, onTagsChange]);
+
+  // 回覆載入完成
+  const handleRepliesLoaded = useCallback((_count: number, ownerReplied: boolean) => {
+    setHasOwnerReply(ownerReplied);
+  }, []);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -268,58 +275,67 @@ export function PostDetailPanel({
           <ScrollArea className="flex-1">
             <div className="space-y-6 px-6 pt-4 pb-6">
               {/* 貼文內容 */}
-              <div className="space-y-4">
-                {/* 文字 */}
-                <div className="relative">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed pr-8">
+              <div className="space-y-3">
+                {/* 訊息框 */}
+                <div className="rounded-xl border bg-muted/30 p-4">
+                  {/* 頭像與用戶名 */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="size-8">
+                        <AvatarImage src={post.account.profile_pic_url || undefined} />
+                        <AvatarFallback className="text-xs">
+                          {post.account.username.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">@{post.account.username}</span>
+                        <span className="text-xs text-muted-foreground">{formatDate(post.published_at)}</span>
+                      </div>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground hover:text-foreground"
+                          asChild
+                        >
+                          <a
+                            href={post.permalink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLink className="size-4" />
+                          </a>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>在 Threads 開啟</TooltipContent>
+                    </Tooltip>
+                  </div>
+                  {/* 文字內容 */}
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
                     {post.text || "（無文字內容）"}
                   </p>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-0 right-0 size-7 text-muted-foreground hover:text-foreground"
-                        asChild
-                      >
-                        <a
-                          href={post.permalink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink className="size-4" />
-                        </a>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>在 Threads 開啟</TooltipContent>
-                  </Tooltip>
                 </div>
 
-                {/* 發布資訊 */}
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                {/* 標籤與狀態 */}
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Avatar className="size-5">
-                      <AvatarImage src={post.account.profile_pic_url || undefined} />
-                      <AvatarFallback className="text-xs">
-                        {post.account.username.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span>@{post.account.username}</span>
+                    <span className="text-sm text-muted-foreground">標籤：</span>
+                    <PostTagPopover
+                      postId={post.id}
+                      postTags={post.tags}
+                      accountTags={accountTags}
+                      onTagsChange={handleTagsChange}
+                      onCreateTag={onCreateTag}
+                    />
                   </div>
-                  <span>·</span>
-                  <span>{formatDate(post.published_at)}</span>
-                </div>
-
-                {/* 標籤 */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">標籤：</span>
-                  <PostTagPopover
-                    postId={post.id}
-                    postTags={post.tags}
-                    accountTags={accountTags}
-                    onTagsChange={handleTagsChange}
-                    onCreateTag={onCreateTag}
-                  />
+                  {hasOwnerReply && (
+                    <Badge variant="secondary" className="gap-1 text-xs">
+                      <CheckCircle2 className="size-3" />
+                      已回覆
+                    </Badge>
+                  )}
                 </div>
               </div>
 
@@ -370,6 +386,7 @@ export function PostDetailPanel({
                 threadsPostId={post.threads_post_id}
                 refreshTrigger={refreshTrigger}
                 activeReplyId={replyToId}
+                onRepliesLoaded={handleRepliesLoaded}
                 onReplyToReply={handleReplyToReply}
                 onCancelReplyTo={handleCancelReplyTo}
                 onReplySuccess={handleReplySuccess}

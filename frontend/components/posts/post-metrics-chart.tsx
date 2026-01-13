@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   ChartContainer,
   ChartTooltip,
@@ -139,19 +139,14 @@ export function PostMetricsChart({ postId, publishedAt }: PostMetricsChartProps)
     }
   }, [postId, publishedAt]);
 
-  const chartConfig = useMemo((): ChartConfig => {
-    if (metricType === "views") {
-      return {
-        views: { label: "觀看", color: CHART_COLORS.views },
-      } satisfies ChartConfig;
-    }
-    return {
-      likes: { label: "讚", color: CHART_COLORS.likes },
-      replies: { label: "回覆", color: CHART_COLORS.replies },
-      reposts: { label: "轉發", color: CHART_COLORS.reposts },
-      quotes: { label: "引用", color: CHART_COLORS.quotes },
-    } satisfies ChartConfig;
-  }, [metricType]);
+  // 始終包含所有指標的配置，確保 CSS 變數正確設定
+  const chartConfig: ChartConfig = {
+    views: { label: "觀看", color: CHART_COLORS.views },
+    likes: { label: "讚", color: CHART_COLORS.likes },
+    replies: { label: "回覆", color: CHART_COLORS.replies },
+    reposts: { label: "轉發", color: CHART_COLORS.reposts },
+    quotes: { label: "引用", color: CHART_COLORS.quotes },
+  };
 
   const formatTime = (bucketTs: string) => {
     const date = new Date(bucketTs);
@@ -249,46 +244,50 @@ export function PostMetricsChart({ postId, publishedAt }: PostMetricsChartProps)
             <Line
               type="monotone"
               dataKey="views"
-              stroke={CHART_COLORS.views}
+              stroke="var(--color-views)"
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 4 }}
             />
           ) : (
-            <>
+            [
               <Line
+                key="likes"
                 type="monotone"
                 dataKey="likes"
-                stroke={CHART_COLORS.likes}
+                stroke="var(--color-likes)"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 3 }}
-              />
+              />,
               <Line
+                key="replies"
                 type="monotone"
                 dataKey="replies"
-                stroke={CHART_COLORS.replies}
+                stroke="var(--color-replies)"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 3 }}
-              />
+              />,
               <Line
+                key="reposts"
                 type="monotone"
                 dataKey="reposts"
-                stroke={CHART_COLORS.reposts}
+                stroke="var(--color-reposts)"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 3 }}
-              />
+              />,
               <Line
+                key="quotes"
                 type="monotone"
                 dataKey="quotes"
-                stroke={CHART_COLORS.quotes}
+                stroke="var(--color-quotes)"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 3 }}
-              />
-            </>
+              />,
+            ]
           )}
         </LineChart>
       </ChartContainer>

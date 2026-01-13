@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, MessageCircle, ExternalLink, RefreshCw, Reply } from "lucide-react";
+import { Loader2, MessageCircle, ExternalLink, RefreshCw, Reply, CheckCircle2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
@@ -15,13 +15,15 @@ export interface ThreadsReply {
   media_type?: string;
   media_url?: string;
   permalink?: string;
+  is_reply_owned_by_me?: boolean;
+  has_owner_reply?: boolean;
 }
 
 interface RepliesSectionProps {
   accountId: string;
   postId: string;
   threadsPostId: string;
-  onRepliesLoaded?: (count: number) => void;
+  onRepliesLoaded?: (count: number, hasOwnerReply: boolean) => void;
   refreshTrigger?: number;
   activeReplyId?: string;
   onReplyToReply?: (replyId: string, username: string) => void;
@@ -52,6 +54,7 @@ export function RepliesSection({
       const supabase = createClient();
       const { data, error: fnError } = await supabase.functions.invoke<{
         replies: ThreadsReply[];
+        hasOwnerReply?: boolean;
       }>("threads-replies", {
         body: {
           account_id: accountId,
@@ -67,8 +70,11 @@ export function RepliesSection({
         throw new Error("No data returned");
       }
 
-      setReplies(data.replies || []);
-      onRepliesLoaded?.(data.replies?.length || 0);
+      const repliesList = data.replies || [];
+      setReplies(repliesList);
+
+      // 使用 API 回傳的 hasOwnerReply（已包含下鑽一層的檢查）
+      onRepliesLoaded?.(repliesList.length, data.hasOwnerReply ?? false);
     } catch (err) {
       console.error("Fetch replies error:", err);
       setError(err instanceof Error ? err.message : "載入回覆失敗");
@@ -172,6 +178,12 @@ export function RepliesSection({
                       <span className="text-xs text-muted-foreground">
                         · {formatTime(reply.timestamp)}
                       </span>
+                      {reply.has_owner_reply && (
+                        <span className="flex items-center gap-0.5 text-xs text-green-600">
+                          <CheckCircle2 className="size-3" />
+                          已回覆
+                        </span>
+                      )}
                       <div className="ml-auto flex items-center gap-1">
                         {onReplyToReply && reply.username && (
                           <Button
