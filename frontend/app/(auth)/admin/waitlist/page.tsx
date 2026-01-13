@@ -50,7 +50,10 @@ interface WaitlistEntry {
   name: string | null;
   threads_username: string | null;
   user_type: "personal" | "agency" | "brand" | null;
+  follower_tier: "under1k" | "1k-10k" | "10k-50k" | "50k+" | null;
   managed_accounts: string | null;
+  referral_source: "friend" | "social" | "search" | "other" | null;
+  content_type: "lifestyle" | "knowledge" | "brand" | "other" | null;
   reason: string | null;
   status: "pending" | "approved" | "rejected";
   created_at: string;
@@ -62,6 +65,27 @@ const USER_TYPE_LABELS: Record<string, string> = {
   personal: "個人創作者",
   agency: "代理商/小編",
   brand: "品牌/企業",
+};
+
+const FOLLOWER_TIER_LABELS: Record<string, string> = {
+  "under1k": "1K 以下",
+  "1k-10k": "1K-10K",
+  "10k-50k": "10K-50K",
+  "50k+": "50K+",
+};
+
+const REFERRAL_SOURCE_LABELS: Record<string, string> = {
+  friend: "朋友推薦",
+  social: "社群貼文",
+  search: "搜尋引擎",
+  other: "其他",
+};
+
+const CONTENT_TYPE_LABELS: Record<string, string> = {
+  lifestyle: "生活分享",
+  knowledge: "知識教學",
+  brand: "品牌行銷",
+  other: "其他",
 };
 
 export default function WaitlistPage() {
@@ -282,8 +306,8 @@ export default function WaitlistPage() {
                   <TableRow>
                     <TableHead>申請者</TableHead>
                     <TableHead>Threads 帳號</TableHead>
-                    <TableHead>身份類型</TableHead>
-                    <TableHead>管理帳號</TableHead>
+                    <TableHead>身份/粉絲</TableHead>
+                    <TableHead>來源</TableHead>
                     <TableHead>狀態</TableHead>
                     <TableHead>申請時間</TableHead>
                     <TableHead className="w-[120px]">操作</TableHead>
@@ -316,19 +340,24 @@ export default function WaitlistPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {entry.user_type ? (
-                          <Badge variant="outline">
-                            {USER_TYPE_LABELS[entry.user_type] || entry.user_type}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
+                        <div className="space-y-1">
+                          {entry.user_type && (
+                            <Badge variant="outline" className="text-xs">
+                              {USER_TYPE_LABELS[entry.user_type] || entry.user_type}
+                            </Badge>
+                          )}
+                          {entry.follower_tier && (
+                            <p className="text-xs text-muted-foreground">
+                              {FOLLOWER_TIER_LABELS[entry.follower_tier] || entry.follower_tier}
+                            </p>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell className="max-w-[150px]">
-                        {entry.managed_accounts ? (
-                          <p className="truncate text-sm" title={entry.managed_accounts}>
-                            {entry.managed_accounts}
-                          </p>
+                      <TableCell>
+                        {entry.referral_source ? (
+                          <span className="text-sm">
+                            {REFERRAL_SOURCE_LABELS[entry.referral_source] || entry.referral_source}
+                          </span>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
@@ -413,6 +442,24 @@ export default function WaitlistPage() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">身份類型</span>
                       <span>{USER_TYPE_LABELS[selectedEntry.user_type] || selectedEntry.user_type}</span>
+                    </div>
+                  )}
+                  {selectedEntry.follower_tier && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">粉絲數量</span>
+                      <span>{FOLLOWER_TIER_LABELS[selectedEntry.follower_tier] || selectedEntry.follower_tier}</span>
+                    </div>
+                  )}
+                  {selectedEntry.content_type && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">內容類型</span>
+                      <span>{CONTENT_TYPE_LABELS[selectedEntry.content_type] || selectedEntry.content_type}</span>
+                    </div>
+                  )}
+                  {selectedEntry.referral_source && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">得知來源</span>
+                      <span>{REFERRAL_SOURCE_LABELS[selectedEntry.referral_source] || selectedEntry.referral_source}</span>
                     </div>
                   )}
                   {selectedEntry.managed_accounts && (

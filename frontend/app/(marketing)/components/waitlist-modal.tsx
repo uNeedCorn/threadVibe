@@ -31,11 +31,35 @@ interface WaitlistModalProps {
 
 type SubmitStatus = "idle" | "submitting" | "success" | "already_exists" | "error";
 type UserType = "personal" | "agency" | "brand" | "";
+type FollowerTier = "under1k" | "1k-10k" | "10k-50k" | "50k+" | "";
+type ReferralSource = "friend" | "social" | "search" | "other" | "";
+type ContentType = "lifestyle" | "knowledge" | "brand" | "other" | "";
 
 const USER_TYPE_OPTIONS = [
   { value: "personal", label: "個人創作者" },
   { value: "agency", label: "代理商/小編" },
   { value: "brand", label: "品牌/企業" },
+];
+
+const FOLLOWER_TIER_OPTIONS = [
+  { value: "under1k", label: "1K 以下" },
+  { value: "1k-10k", label: "1K - 10K" },
+  { value: "10k-50k", label: "10K - 50K" },
+  { value: "50k+", label: "50K+" },
+];
+
+const REFERRAL_SOURCE_OPTIONS = [
+  { value: "friend", label: "朋友推薦" },
+  { value: "social", label: "社群貼文" },
+  { value: "search", label: "搜尋引擎" },
+  { value: "other", label: "其他" },
+];
+
+const CONTENT_TYPE_OPTIONS = [
+  { value: "lifestyle", label: "生活分享" },
+  { value: "knowledge", label: "知識教學" },
+  { value: "brand", label: "品牌行銷" },
+  { value: "other", label: "其他" },
 ];
 
 export function WaitlistModal({
@@ -53,7 +77,10 @@ export function WaitlistModal({
   const [name, setName] = useState("");
   const [threadsUsername, setThreadsUsername] = useState("");
   const [userType, setUserType] = useState<UserType>("");
+  const [followerTier, setFollowerTier] = useState<FollowerTier>("");
   const [managedAccounts, setManagedAccounts] = useState("");
+  const [referralSource, setReferralSource] = useState<ReferralSource>("");
+  const [contentType, setContentType] = useState<ContentType>("");
   const [reason, setReason] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,7 +118,10 @@ export function WaitlistModal({
           name: name.trim() || null,
           threadsUsername: threadsUsername.trim(),
           userType,
+          followerTier: followerTier || null,
           managedAccounts: managedAccounts.trim() || null,
+          referralSource: referralSource || null,
+          contentType: contentType || null,
           reason: reason.trim() || null,
         }),
       });
@@ -139,7 +169,10 @@ export function WaitlistModal({
     setName("");
     setThreadsUsername("");
     setUserType("");
+    setFollowerTier("");
     setManagedAccounts("");
+    setReferralSource("");
+    setContentType("");
     setReason("");
     setErrorMessage("");
   };
@@ -260,6 +293,26 @@ export function WaitlistModal({
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="followerTier">粉絲數量級別</Label>
+                <Select
+                  value={followerTier}
+                  onValueChange={(v) => setFollowerTier(v as FollowerTier)}
+                  disabled={status === "submitting"}
+                >
+                  <SelectTrigger id="followerTier">
+                    <SelectValue placeholder="請選擇粉絲數量" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FOLLOWER_TIER_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="managedAccounts">管理的 Threads 帳號</Label>
                 <Input
                   id="managedAccounts"
@@ -272,6 +325,46 @@ export function WaitlistModal({
                 <p className="text-xs text-muted-foreground">
                   請輸入 @ID，用「,」分開，中間不要有空格
                 </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="contentType">主要內容類型</Label>
+                <Select
+                  value={contentType}
+                  onValueChange={(v) => setContentType(v as ContentType)}
+                  disabled={status === "submitting"}
+                >
+                  <SelectTrigger id="contentType">
+                    <SelectValue placeholder="請選擇內容類型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CONTENT_TYPE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="referralSource">如何得知我們</Label>
+                <Select
+                  value={referralSource}
+                  onValueChange={(v) => setReferralSource(v as ReferralSource)}
+                  disabled={status === "submitting"}
+                >
+                  <SelectTrigger id="referralSource">
+                    <SelectValue placeholder="請選擇來源" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REFERRAL_SOURCE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

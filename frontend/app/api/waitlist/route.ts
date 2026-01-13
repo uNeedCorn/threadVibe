@@ -7,7 +7,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
  */
 export async function POST(request: Request) {
   try {
-    const { email, name, reason, threadsUsername, userType, managedAccounts } = await request.json();
+    const { email, name, reason, threadsUsername, userType, followerTier, managedAccounts, referralSource, contentType } = await request.json();
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -57,7 +57,10 @@ export async function POST(request: Request) {
         name: name?.trim() || user?.user_metadata?.name || user?.user_metadata?.full_name || null,
         threads_username: threadsUsername?.trim() || null,
         user_type: userType || null,
+        follower_tier: followerTier || null,
         managed_accounts: managedAccounts?.trim() || null,
+        referral_source: referralSource || null,
+        content_type: contentType || null,
         reason: reason?.trim() || null,
       });
 
