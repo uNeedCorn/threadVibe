@@ -951,6 +951,14 @@ export default function InsightsOverviewPage() {
           return d;
         };
 
+        // 取得當月 1 號 00:00
+        const getStartOfMonth = (date: Date): Date => {
+          const d = new Date(date);
+          d.setDate(1);
+          d.setHours(0, 0, 0, 0);
+          return d;
+        };
+
         if (period === "week") {
           // 日曆週：本週日 00:00 ~ 現在
           currentStart = getStartOfWeek(now);
@@ -958,9 +966,13 @@ export default function InsightsOverviewPage() {
           previousEnd = currentStart;
           previousStart = new Date(currentStart.getTime() - 7 * 24 * 60 * 60 * 1000);
         } else {
-          currentStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          // 日曆月：當月 1 號 00:00 ~ 現在
+          currentStart = getStartOfMonth(now);
+          // 上月：上月 1 號 00:00 ~ 當月 1 號 00:00
           previousEnd = currentStart;
-          previousStart = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+          const prevMonth = new Date(currentStart);
+          prevMonth.setMonth(prevMonth.getMonth() - 1);
+          previousStart = prevMonth;
         }
 
         // 先取得該帳號的所有貼文 ID 和文字
@@ -1288,7 +1300,9 @@ export default function InsightsOverviewPage() {
           }
         } else {
           // 月模式：以日為刻度，只產生到最新數據時間為止
-          for (let d = 0; d < 30; d++) {
+          // 計算當月天數
+          const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+          for (let d = 0; d < daysInMonth; d++) {
             const dayDate = new Date(currentStart.getTime() + d * 24 * 60 * 60 * 1000);
             const timestamp = dayDate.getTime();
             // 只產生到最新數據時間為止
