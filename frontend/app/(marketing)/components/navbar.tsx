@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Menu, X } from "lucide-react";
 import { WaitlistModal } from "./waitlist-modal";
@@ -44,9 +44,6 @@ export function Navbar() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" asChild>
-              <Link href="/login">登入</Link>
-            </Button>
             <WaitlistModal
               trigger={<Button>申請試用</Button>}
               buttonSize="default"
@@ -81,9 +78,6 @@ export function Navbar() {
                 </a>
               ))}
               <div className="flex flex-col gap-2 pt-4 border-t">
-                <Button variant="outline" asChild>
-                  <Link href="/login">登入</Link>
-                </Button>
                 <WaitlistModal
                   trigger={<Button className="w-full">申請試用</Button>}
                   buttonSize="default"
