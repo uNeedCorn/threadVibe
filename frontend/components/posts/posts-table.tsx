@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, Image as ImageIcon, Video, FileText, Images, Tag } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, FileText, PanelRightOpen } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -115,8 +115,6 @@ export function PostsTable({
   onAiTagSelect,
   onSelectPost,
 }: PostsTableProps) {
-  const router = useRouter();
-
   const renderSortIcon = (field: SortField) => {
     if (sortField !== field) {
       return <ArrowUpDown className="ml-1 size-4 opacity-50" />;
@@ -137,16 +135,16 @@ export function PostsTable({
     </Button>
   );
 
-  const getMediaIcon = (type: Post["media_type"]) => {
+  const getMediaTypeLabel = (type: Post["media_type"]) => {
     switch (type) {
       case "IMAGE":
-        return <ImageIcon className="size-4 text-muted-foreground" />;
+        return "圖片";
       case "VIDEO":
-        return <Video className="size-4 text-muted-foreground" />;
+        return "影片";
       case "CAROUSEL_ALBUM":
-        return <Images className="size-4 text-muted-foreground" />;
+        return "輪播";
       default:
-        return <FileText className="size-4 text-muted-foreground" />;
+        return "文字";
     }
   };
 
@@ -195,7 +193,7 @@ export function PostsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[200px]">內容</TableHead>
+              <TableHead className="w-[240px]">內容</TableHead>
               <TableHead className="w-[100px]">發布時間</TableHead>
               <TableHead className="w-[120px]">標籤</TableHead>
               <TableHead className="w-[220px]">AI 標籤</TableHead>
@@ -243,7 +241,7 @@ export function PostsTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[200px]">內容</TableHead>
+            <TableHead className="w-[240px]">內容</TableHead>
             <TableHead className="w-[100px]">
               <SortableHeader field="published_at">發布時間</SortableHeader>
             </TableHead>
@@ -290,46 +288,30 @@ export function PostsTable({
               onClick={() => onSelectPost?.(post.id)}
             >
               <TableCell>
-                <div className="flex items-start gap-3">
-                  {/* 媒體縮圖 */}
-                  {post.thumbnail_url || post.media_url ? (
-                    <div className="relative size-12 shrink-0 overflow-hidden rounded bg-muted">
-                      <img
-                        src={post.thumbnail_url || post.media_url || ""}
-                        alt=""
-                        className="size-full object-cover"
-                      />
-                      <div className="absolute bottom-0.5 right-0.5">
-                        {getMediaIcon(post.media_type)}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex size-12 shrink-0 items-center justify-center rounded bg-muted">
-                      {getMediaIcon(post.media_type)}
-                    </div>
-                  )}
-                  {/* 文字內容 */}
+                <div className="flex items-start gap-2">
+                  {/* 文字內容區塊 */}
                   <div className="min-w-0 flex-1">
-                    <p
-                      className="line-clamp-2 cursor-pointer text-sm hover:text-primary hover:underline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/posts/${post.id}`);
-                      }}
-                    >
-                      {truncateText(post.text)}
+                    <p className="line-clamp-1 text-sm">
+                      {truncateText(post.text, 30)}
                     </p>
-                    <a
-                      href={post.permalink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <ExternalLink className="size-3" />
-                      開啟貼文
-                    </a>
+                    {/* 類型標籤 */}
+                    <div className="mt-1">
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                        {getMediaTypeLabel(post.media_type)}
+                      </Badge>
+                    </div>
                   </div>
+                  {/* 展開 Panel 按鈕 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectPost?.(post.id);
+                    }}
+                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                    title="查看貼文詳情"
+                  >
+                    <PanelRightOpen className="size-4" />
+                  </button>
                 </div>
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">
