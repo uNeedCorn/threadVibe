@@ -195,11 +195,9 @@ function formatNumber(v: number) {
 }
 
 // 解析 Supabase 返回的 timestamp 格式 "2026-01-13 09:00:00+00"
-// 轉換為標準 ISO 格式供 Date 解析
+// JavaScript Date 可以直接解析此格式
 function parseTimestamp(ts: string): Date {
-  // 將 "2026-01-13 09:00:00+00" 轉換為 "2026-01-13T09:00:00+00:00"
-  const normalized = ts.replace(" ", "T").replace(/\+(\d{2})$/, "+$1:00");
-  return new Date(normalized);
+  return new Date(ts);
 }
 
 function AccountProfileCard({
@@ -1015,7 +1013,6 @@ export default function InsightsOverviewPage() {
             .select("engagement_rate, published_at, current_views, current_likes, current_replies, current_reposts, current_quotes")
             .eq("workspace_threads_account_id", selectedAccountId),
           // Hourly 資料（用於週趨勢圖，顯示累積值）
-          // 加 limit 避免 Supabase 預設 1000 筆限制截斷資料
           period === "week" && postIds.length > 0
             ? supabase
                 .from("workspace_threads_post_metrics_hourly")
