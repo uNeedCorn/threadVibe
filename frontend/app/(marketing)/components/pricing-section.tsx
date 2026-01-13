@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 
@@ -15,7 +14,7 @@ const plans = [
       { text: "自定義標籤管理" },
       { text: "30 天資料保留" },
     ],
-    cta: "立即開始",
+    cta: "即將開放",
     highlighted: false,
   },
   {
@@ -32,7 +31,7 @@ const plans = [
       { text: "AI 智慧標籤" },
       { text: "優先同步" },
     ],
-    cta: "立即開始",
+    cta: "即將開放",
     highlighted: true,
   },
 ];
@@ -96,11 +95,11 @@ export function PricingSection() {
               </ul>
 
               <Button
-                asChild
                 className="w-full"
                 variant={plan.highlighted ? "default" : "outline"}
+                disabled
               >
-                <Link href="/login">{plan.cta}</Link>
+                {plan.cta}
               </Button>
             </div>
           ))}
