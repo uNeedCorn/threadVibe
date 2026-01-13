@@ -194,6 +194,14 @@ function formatNumber(v: number) {
   return v.toLocaleString();
 }
 
+// 解析 Supabase 返回的 timestamp 格式 "2026-01-13 09:00:00+00"
+// 轉換為標準 ISO 格式供 Date 解析
+function parseTimestamp(ts: string): Date {
+  // 將 "2026-01-13 09:00:00+00" 轉換為 "2026-01-13T09:00:00+00:00"
+  const normalized = ts.replace(" ", "T").replace(/\+(\d{2})$/, "+$1:00");
+  return new Date(normalized);
+}
+
 function AccountProfileCard({
   account,
   isLoading,
@@ -1007,6 +1015,7 @@ export default function InsightsOverviewPage() {
             .select("engagement_rate, published_at, current_views, current_likes, current_replies, current_reposts, current_quotes")
             .eq("workspace_threads_account_id", selectedAccountId),
           // Hourly 資料（用於週趨勢圖，顯示累積值）
+          // 加 limit 避免 Supabase 預設 1000 筆限制截斷資料
           period === "week" && postIds.length > 0
             ? supabase
                 .from("workspace_threads_post_metrics_hourly")
@@ -1014,8 +1023,10 @@ export default function InsightsOverviewPage() {
                 .in("workspace_threads_post_id", postIds)
                 .gte("bucket_ts", currentStart.toISOString())
                 .order("bucket_ts", { ascending: true })
+                .limit(10000)
             : Promise.resolve({ data: [] }),
           // Daily 資料（用於月趨勢圖，顯示累積值）
+          // 加 limit 避免 Supabase 預設 1000 筆限制截斷資料
           period === "month" && postIds.length > 0
             ? supabase
                 .from("workspace_threads_post_metrics_daily")
@@ -1023,6 +1034,7 @@ export default function InsightsOverviewPage() {
                 .in("workspace_threads_post_id", postIds)
                 .gte("bucket_date", currentStart.toISOString().split("T")[0])
                 .order("bucket_date", { ascending: true })
+                .limit(10000)
             : Promise.resolve({ data: [] }),
         ]);
 
@@ -1232,16 +1244,36 @@ export default function InsightsOverviewPage() {
         setHeatmapData(Object.values(cellMap));
 
         // 計算趨勢折線圖資料
+        // 時間軸根據資料庫數據的最大時間來決定範圍
         const trendMap: Record<string, TrendDataPoint> = {};
 
+        // 找出資料庫數據的最大時間
+        let maxDataTimestamp = currentStart.getTime();
+        if (period === "week" && hourlyMetrics.length > 0) {
+          const maxBucketTs = hourlyMetrics.reduce((max, m) => {
+            const ts = parseTimestamp(m.bucket_ts).getTime();
+            return ts > max ? ts : max;
+          }, 0);
+          maxDataTimestamp = Math.max(maxDataTimestamp, maxBucketTs);
+        } else if (period === "month" && dailyMetrics.length > 0) {
+          const maxBucketDate = dailyMetrics.reduce((max, m) => {
+            const ts = new Date(m.bucket_date + "T00:00:00").getTime();
+            return ts > max ? ts : max;
+          }, 0);
+          maxDataTimestamp = Math.max(maxDataTimestamp, maxBucketDate);
+        }
+
         if (period === "week") {
-          // 週模式：以小時為刻度，產生 7 天 x 24 小時 = 168 個時間點
+          // 週模式：以小時為刻度，只產生到最新數據時間為止
           for (let d = 0; d < 7; d++) {
             const dayDate = new Date(currentStart.getTime() + d * 24 * 60 * 60 * 1000);
             const dateStr = `${dayDate.getMonth() + 1}/${dayDate.getDate()}`;
 
             for (let h = 0; h < 24; h++) {
               const timestamp = currentStart.getTime() + d * 24 * 60 * 60 * 1000 + h * 60 * 60 * 1000;
+              // 只產生到最新數據時間為止
+              if (timestamp > maxDataTimestamp) break;
+
               const key = `${d}-${h}`;
               trendMap[key] = {
                 timestamp,
@@ -1254,12 +1286,17 @@ export default function InsightsOverviewPage() {
                 postDetails: [],
               };
             }
+            // 如果當天開始已超過最新數據時間，跳出
+            if (dayDate.getTime() > maxDataTimestamp) break;
           }
         } else {
-          // 月模式：以日為刻度，產生 30 天
+          // 月模式：以日為刻度，只產生到最新數據時間為止
           for (let d = 0; d < 30; d++) {
             const dayDate = new Date(currentStart.getTime() + d * 24 * 60 * 60 * 1000);
             const timestamp = dayDate.getTime();
+            // 只產生到最新數據時間為止
+            if (timestamp > maxDataTimestamp) break;
+
             const key = String(d);
             trendMap[key] = {
               timestamp,
@@ -1273,85 +1310,125 @@ export default function InsightsOverviewPage() {
           }
         }
 
-        // 使用快照值填入趨勢圖（累積值模式）
-        // 策略：每個時間桶顯示該時刻所有貼文的累積總曝光與互動
+        // 使用快照值計算 delta（增量）填入趨勢圖
+        // 策略：計算每個時間桶相比上一個時間桶的增量
         const postContribMap: Record<string, Record<string, PostContribution>> = {};
 
         if (period === "week" && hourlyMetrics.length > 0) {
-          // 週模式：使用 hourly 快照
-          // 按時間桶分組，取每個貼文在該時間桶的值
-          const metricsByBucket: Record<string, Record<string, typeof hourlyMetrics[0]>> = {};
+          // 週模式：使用 hourly 快照計算 delta
+          // 先按貼文 ID 分組，再按時間排序
+          const metricsByPost: Record<string, Array<typeof hourlyMetrics[0]>> = {};
 
           hourlyMetrics.forEach((m) => {
-            const bucketDate = new Date(m.bucket_ts);
-            if (bucketDate.getTime() < currentStart.getTime()) return;
-
-            const dayDiff = Math.floor((bucketDate.getTime() - currentStart.getTime()) / (24 * 60 * 60 * 1000));
-            const hour = bucketDate.getHours();
-            const key = `${dayDiff}-${hour}`;
-
-            if (!metricsByBucket[key]) metricsByBucket[key] = {};
-            // 保留每個貼文在該時間桶的最新值
-            const existing = metricsByBucket[key][m.workspace_threads_post_id];
-            if (!existing || new Date(m.bucket_ts) > new Date(existing.bucket_ts)) {
-              metricsByBucket[key][m.workspace_threads_post_id] = m;
+            if (!metricsByPost[m.workspace_threads_post_id]) {
+              metricsByPost[m.workspace_threads_post_id] = [];
             }
+            metricsByPost[m.workspace_threads_post_id].push(m);
           });
 
-          // 累加每個時間桶中所有貼文的值
-          for (const [key, postMetrics] of Object.entries(metricsByBucket)) {
-            if (!trendMap[key]) continue;
+          // 對每個貼文計算 delta
+          for (const [postId, metrics] of Object.entries(metricsByPost)) {
+            // 按時間排序
+            metrics.sort((a, b) => new Date(a.bucket_ts).getTime() - new Date(b.bucket_ts).getTime());
 
-            for (const [postId, m] of Object.entries(postMetrics)) {
-              const views = m.views || 0;
-              const interactions = (m.likes || 0) + (m.replies || 0) + (m.reposts || 0) + (m.quotes || 0);
+            for (let i = 0; i < metrics.length; i++) {
+              const m = metrics[i];
+              const bucketDate = parseTimestamp(m.bucket_ts);
+              if (bucketDate.getTime() < currentStart.getTime()) continue;
 
-              trendMap[key].views += views;
-              trendMap[key].interactions += interactions;
+              const dayDiff = Math.floor((bucketDate.getTime() - currentStart.getTime()) / (24 * 60 * 60 * 1000));
+              const hour = bucketDate.getHours();
+              const key = `${dayDiff}-${hour}`;
+
+              if (!trendMap[key]) continue;
+
+              // 計算 delta（當前值 - 上一個時間桶的值）
+              const prevMetric = i > 0 ? metrics[i - 1] : null;
+              const deltaViews = prevMetric
+                ? Math.max(0, (m.views || 0) - (prevMetric.views || 0))
+                : (m.views || 0);
+              const deltaLikes = prevMetric
+                ? Math.max(0, (m.likes || 0) - (prevMetric.likes || 0))
+                : (m.likes || 0);
+              const deltaReplies = prevMetric
+                ? Math.max(0, (m.replies || 0) - (prevMetric.replies || 0))
+                : (m.replies || 0);
+              const deltaReposts = prevMetric
+                ? Math.max(0, (m.reposts || 0) - (prevMetric.reposts || 0))
+                : (m.reposts || 0);
+              const deltaQuotes = prevMetric
+                ? Math.max(0, (m.quotes || 0) - (prevMetric.quotes || 0))
+                : (m.quotes || 0);
+              const deltaInteractions = deltaLikes + deltaReplies + deltaReposts + deltaQuotes;
+
+              trendMap[key].views += deltaViews;
+              trendMap[key].interactions += deltaInteractions;
 
               if (!postContribMap[key]) postContribMap[key] = {};
               postContribMap[key][postId] = {
                 postId,
                 text: postTextMap[postId] || "未知貼文",
-                views,
-                interactions,
-                engagementRate: views > 0 ? (interactions / views) * 100 : 0,
+                views: deltaViews,
+                interactions: deltaInteractions,
+                engagementRate: deltaViews > 0 ? (deltaInteractions / deltaViews) * 100 : 0,
               };
             }
           }
         } else if (period === "month" && dailyMetrics.length > 0) {
-          // 月模式：使用 daily 快照
-          const metricsByBucket: Record<string, Record<string, typeof dailyMetrics[0]>> = {};
+          // 月模式：使用 daily 快照計算 delta
+          const metricsByPost: Record<string, Array<typeof dailyMetrics[0]>> = {};
 
           dailyMetrics.forEach((m) => {
-            const bucketDate = new Date(m.bucket_date + "T00:00:00");
-            if (bucketDate.getTime() < currentStart.getTime()) return;
-
-            const dayDiff = Math.floor((bucketDate.getTime() - currentStart.getTime()) / (24 * 60 * 60 * 1000));
-            const key = String(dayDiff);
-
-            if (!metricsByBucket[key]) metricsByBucket[key] = {};
-            metricsByBucket[key][m.workspace_threads_post_id] = m;
+            if (!metricsByPost[m.workspace_threads_post_id]) {
+              metricsByPost[m.workspace_threads_post_id] = [];
+            }
+            metricsByPost[m.workspace_threads_post_id].push(m);
           });
 
-          // 累加每個時間桶中所有貼文的值
-          for (const [key, postMetrics] of Object.entries(metricsByBucket)) {
-            if (!trendMap[key]) continue;
+          // 對每個貼文計算 delta
+          for (const [postId, metrics] of Object.entries(metricsByPost)) {
+            // 按時間排序
+            metrics.sort((a, b) => new Date(a.bucket_date).getTime() - new Date(b.bucket_date).getTime());
 
-            for (const [postId, m] of Object.entries(postMetrics)) {
-              const views = m.views || 0;
-              const interactions = (m.likes || 0) + (m.replies || 0) + (m.reposts || 0) + (m.quotes || 0);
+            for (let i = 0; i < metrics.length; i++) {
+              const m = metrics[i];
+              const bucketDate = new Date(m.bucket_date + "T00:00:00");
+              if (bucketDate.getTime() < currentStart.getTime()) continue;
 
-              trendMap[key].views += views;
-              trendMap[key].interactions += interactions;
+              const dayDiff = Math.floor((bucketDate.getTime() - currentStart.getTime()) / (24 * 60 * 60 * 1000));
+              const key = String(dayDiff);
+
+              if (!trendMap[key]) continue;
+
+              // 計算 delta（當前值 - 上一個時間桶的值）
+              const prevMetric = i > 0 ? metrics[i - 1] : null;
+              const deltaViews = prevMetric
+                ? Math.max(0, (m.views || 0) - (prevMetric.views || 0))
+                : (m.views || 0);
+              const deltaLikes = prevMetric
+                ? Math.max(0, (m.likes || 0) - (prevMetric.likes || 0))
+                : (m.likes || 0);
+              const deltaReplies = prevMetric
+                ? Math.max(0, (m.replies || 0) - (prevMetric.replies || 0))
+                : (m.replies || 0);
+              const deltaReposts = prevMetric
+                ? Math.max(0, (m.reposts || 0) - (prevMetric.reposts || 0))
+                : (m.reposts || 0);
+              const deltaQuotes = prevMetric
+                ? Math.max(0, (m.quotes || 0) - (prevMetric.quotes || 0))
+                : (m.quotes || 0);
+              const deltaInteractions = deltaLikes + deltaReplies + deltaReposts + deltaQuotes;
+
+              trendMap[key].views += deltaViews;
+              trendMap[key].interactions += deltaInteractions;
 
               if (!postContribMap[key]) postContribMap[key] = {};
               postContribMap[key][postId] = {
                 postId,
                 text: postTextMap[postId] || "未知貼文",
-                views,
-                interactions,
-                engagementRate: views > 0 ? (interactions / views) * 100 : 0,
+                views: deltaViews,
+                interactions: deltaInteractions,
+                engagementRate: deltaViews > 0 ? (deltaInteractions / deltaViews) * 100 : 0,
               };
             }
           }
