@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, RefreshCw, Unlink, ExternalLink, Loader2, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { Plus, RefreshCw, Unlink, ExternalLink, Loader2, CheckCircle2, AlertCircle, Info, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,6 +11,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -31,6 +39,11 @@ export function ThreadsAccountsSection() {
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Unlink dialog state
+  const [unlinkDialogOpen, setUnlinkDialogOpen] = useState(false);
+  const [accountToUnlink, setAccountToUnlink] = useState<ThreadsAccount | null>(null);
+  const [isUnlinking, setIsUnlinking] = useState(false);
 
   // 處理 OAuth 回調的 URL 參數
   useEffect(() => {
@@ -94,11 +107,15 @@ export function ThreadsAccountsSection() {
     await handleConnectAccount();
   };
 
-  const handleUnlink = async (accountId: string) => {
-    if (!confirm("確定要解除連結此帳號嗎？相關的貼文資料將會被刪除。")) {
-      return;
-    }
+  const openUnlinkDialog = (account: ThreadsAccount) => {
+    setAccountToUnlink(account);
+    setUnlinkDialogOpen(true);
+  };
 
+  const handleUnlink = async () => {
+    if (!accountToUnlink) return;
+
+    setIsUnlinking(true);
     try {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
@@ -117,7 +134,7 @@ export function ThreadsAccountsSection() {
             Authorization: `Bearer ${session.access_token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ workspace_threads_account_id: accountId }),
+          body: JSON.stringify({ account_id: accountToUnlink.id }),
         }
       );
 
@@ -126,7 +143,13 @@ export function ThreadsAccountsSection() {
         throw new Error(error.message || "解除連結失敗");
       }
 
-      setMessage({ type: "success", text: "已成功解除連結" });
+      const result = await response.json();
+      setMessage({
+        type: "success",
+        text: `已成功解除連結 @${accountToUnlink.username}，刪除了 ${result.deleted?.posts || 0} 篇貼文`,
+      });
+      setUnlinkDialogOpen(false);
+      setAccountToUnlink(null);
       fetchAccounts();
     } catch (error) {
       console.error("Unlink account error:", error);
@@ -134,6 +157,8 @@ export function ThreadsAccountsSection() {
         type: "error",
         text: error instanceof Error ? error.message : "解除連結失敗",
       });
+    } finally {
+      setIsUnlinking(false);
     }
   };
 
@@ -251,7 +276,7 @@ export function ThreadsAccountsSection() {
                     variant="ghost"
                     size="icon"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => handleUnlink(account.id)}
+                    onClick={() => openUnlinkDialog(account)}
                   >
                     <Unlink className="size-4" />
                   </Button>
@@ -260,6 +285,49 @@ export function ThreadsAccountsSection() {
             ))}
           </div>
         )}
+        {/* Unlink Confirmation Dialog */}
+        <Dialog open={unlinkDialogOpen} onOpenChange={setUnlinkDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="size-5 text-destructive" />
+                解除連結 @{accountToUnlink?.username}
+              </DialogTitle>
+              <DialogDescription>
+                此操作將永久刪除以下資料，無法復原：
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 rounded-lg bg-destructive/10 p-4 text-sm">
+              <p>• 所有已同步的貼文</p>
+              <p>• 所有成效數據（觀看數、互動數等）</p>
+              <p>• 所有自訂標籤</p>
+              <p>• OAuth 授權連結</p>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setUnlinkDialogOpen(false)}
+                disabled={isUnlinking}
+              >
+                取消
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleUnlink}
+                disabled={isUnlinking}
+              >
+                {isUnlinking ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    刪除中...
+                  </>
+                ) : (
+                  "確認解除連結"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

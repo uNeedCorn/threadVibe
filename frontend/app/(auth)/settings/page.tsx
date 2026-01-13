@@ -45,8 +45,8 @@ export default function SettingsPage() {
       {/* 成員管理 - 僅團隊模式顯示 */}
       {featureFlags.workspaceTeamMode && <MembersSection />}
 
-      {/* 危險區域 - 僅團隊模式顯示 */}
-      {featureFlags.workspaceTeamMode && <DangerZoneSection />}
+      {/* 危險區域 - 始終顯示（刪除帳號始終可用） */}
+      <DangerZoneSection />
     </div>
   );
 }
