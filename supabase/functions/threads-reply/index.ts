@@ -119,11 +119,13 @@ Deno.serve(async (req) => {
       return forbiddenResponse(req, 'No access to this workspace');
     }
 
-    // 取得 Token
+    // 取得 Token（必須是 primary 且未撤銷的）
     const { data: tokenData, error: tokenError } = await serviceClient
       .from('workspace_threads_tokens')
       .select('access_token_encrypted')
       .eq('workspace_threads_account_id', accountId)
+      .eq('is_primary', true)
+      .is('revoked_at', null)
       .single();
 
     if (tokenError || !tokenData) {

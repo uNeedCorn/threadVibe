@@ -1,18 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PanelLeftClose, PanelLeft } from "lucide-react";
+import { PanelLeftClose, PanelLeft, PenSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { QuickComposeSheet } from "@/components/compose";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
 
 export function Header() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
 
   // 從 localStorage 讀取收折狀態
   useEffect(() => {
@@ -39,27 +41,47 @@ export function Header() {
   };
 
   return (
-    <header className="flex h-16 items-center border-b bg-card px-6">
-      {/* Sidebar Toggle Button */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleCollapsed}
-            className="size-9"
-          >
-            {isCollapsed ? (
-              <PanelLeft className="size-5" />
-            ) : (
-              <PanelLeftClose className="size-5" />
-            )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          {isCollapsed ? "展開側邊欄" : "收合側邊欄"}
-        </TooltipContent>
-      </Tooltip>
-    </header>
+    <>
+      <header className="flex h-16 items-center justify-between border-b bg-card px-6">
+        {/* Sidebar Toggle Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleCollapsed}
+              className="size-9"
+            >
+              {isCollapsed ? (
+                <PanelLeft className="size-5" />
+              ) : (
+                <PanelLeftClose className="size-5" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            {isCollapsed ? "展開側邊欄" : "收合側邊欄"}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Compose Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsComposeOpen(true)}
+              className="size-9"
+            >
+              <PenSquare className="size-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">發文</TooltipContent>
+        </Tooltip>
+      </header>
+
+      {/* Quick Compose Sheet */}
+      <QuickComposeSheet open={isComposeOpen} onOpenChange={setIsComposeOpen} />
+    </>
   );
 }

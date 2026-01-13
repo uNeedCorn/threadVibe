@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
     const authUrl = new URL('https://threads.net/oauth/authorize');
     authUrl.searchParams.set('client_id', THREADS_APP_ID);
     authUrl.searchParams.set('redirect_uri', redirectUri);
-    authUrl.searchParams.set('scope', 'threads_basic,threads_manage_insights');
+    authUrl.searchParams.set('scope', 'threads_basic,threads_manage_insights,threads_content_publish');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('state', state);
 

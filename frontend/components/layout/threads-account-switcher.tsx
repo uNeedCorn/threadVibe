@@ -70,8 +70,8 @@ export function ThreadsAccountSwitcher() {
   const handleSelect = (accountId: string) => {
     setSelectedAccountId(accountId);
     localStorage.setItem("currentThreadsAccountId", accountId);
-    // 觸發 storage 事件讓其他元件更新
-    window.dispatchEvent(new Event("storage"));
+    // 重新整理頁面以載入新帳號的資料
+    window.location.reload();
   };
 
   if (isLoading) {
