@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { WorkspaceInitializer } from "@/components/workspace-initializer";
+import { SettingsModal } from "@/components/settings";
 
 export default function AuthLayout({
   children,
@@ -22,6 +23,9 @@ export default function AuthLayout({
           {children}
         </main>
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal />
     </div>
   );
 }
