@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { ExternalLink, Loader2, ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 import {
   Sheet,
   SheetContent,
@@ -9,6 +10,11 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -233,7 +239,22 @@ export function PostDetailPanel({
         className="w-full sm:max-w-[500px] p-0 flex flex-col"
       >
         <SheetHeader className="px-6 py-4 border-b">
-          <SheetTitle>貼文詳情</SheetTitle>
+          <SheetTitle className="flex items-center gap-1">
+            {postId && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={`/posts/${postId}`}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ArrowUpRight className="size-4" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>開啟詳細頁面</TooltipContent>
+              </Tooltip>
+            )}
+            貼文詳情
+          </SheetTitle>
           <SheetDescription className="sr-only">
             查看貼文詳情和回覆
           </SheetDescription>
@@ -245,13 +266,34 @@ export function PostDetailPanel({
           </div>
         ) : post ? (
           <ScrollArea className="flex-1">
-            <div className="space-y-6 p-6">
+            <div className="space-y-6 px-6 pt-4 pb-6">
               {/* 貼文內容 */}
               <div className="space-y-4">
                 {/* 文字 */}
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {post.text || "（無文字內容）"}
-                </p>
+                <div className="relative">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed pr-8">
+                    {post.text || "（無文字內容）"}
+                  </p>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-0 right-0 size-7 text-muted-foreground hover:text-foreground"
+                        asChild
+                      >
+                        <a
+                          href={post.permalink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="size-4" />
+                        </a>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>在 Threads 開啟</TooltipContent>
+                  </Tooltip>
+                </div>
 
                 {/* 發布資訊 */}
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -279,18 +321,6 @@ export function PostDetailPanel({
                     onCreateTag={onCreateTag}
                   />
                 </div>
-
-                {/* Threads 連結 */}
-                <Button variant="outline" size="sm" asChild>
-                  <a
-                    href={post.permalink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink className="mr-2 size-4" />
-                    在 Threads 開啟
-                  </a>
-                </Button>
               </div>
 
               <Separator />

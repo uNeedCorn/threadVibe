@@ -292,10 +292,6 @@ export function PostMetricsChart({ postId, publishedAt }: PostMetricsChartProps)
           )}
         </LineChart>
       </ChartContainer>
-
-      <p className="text-center text-xs text-muted-foreground">
-        共 {data.length} 個數據點
-      </p>
     </div>
   );
 }
