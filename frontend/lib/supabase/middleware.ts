@@ -58,13 +58,12 @@ export async function updateSession(request: NextRequest) {
 
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
-  const isInvitationPage = request.nextUrl.pathname.startsWith("/register/invitation");
   const isPublicApiRoute = request.nextUrl.pathname.startsWith("/api/turnstile") ||
                            request.nextUrl.pathname.startsWith("/api/waitlist") ||
                            request.nextUrl.pathname.startsWith("/api/invitation");
   const isMarketingPage = request.nextUrl.pathname === "/" ||
                           request.nextUrl.pathname.startsWith("/#");
-  const isPublicPath = isLoginPage || isAuthCallback || isInvitationPage || isPublicApiRoute || isMarketingPage;
+  const isPublicPath = isLoginPage || isAuthCallback || isPublicApiRoute || isMarketingPage;
 
   // 未登入且不在公開頁面 → 導向登入頁
   if (!user && !isPublicPath) {

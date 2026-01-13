@@ -50,12 +50,15 @@ const ALLOWED_ENDPOINTS: EndpointConfig[] = [
   { id: 'me_mentions', name: '被提及內容', path: '/me/mentions', fields: 'id,text,username,timestamp,media_type,permalink', category: 'read', description: '取得被提及的內容列表' },
 
   // === threads_keyword_search ===
-  // 注意：此端點需要 threads_keyword_search 進階權限，且端點格式可能因 API 版本而異
+  // 注意：此端點需要 threads_keyword_search 進階權限
   // 參考：https://developers.facebook.com/docs/threads/keyword-search
-  { id: 'keyword_search', name: '關鍵字搜尋（需進階權限）', path: '/search', params: { type: 'thread' }, fields: 'id,text,username,timestamp,media_type,permalink', requireKeyword: true, category: 'read', description: '搜尋貼文（需 threads_keyword_search 進階權限核准）' },
+  { id: 'keyword_search', name: '關鍵字搜尋（需進階權限）', path: '/keyword_search', params: { search_type: 'TOP' }, fields: 'id,text,media_type,permalink,timestamp,username,has_replies,is_quote_post,is_reply', requireKeyword: true, category: 'read', description: '搜尋貼文（需 threads_keyword_search 進階權限核准）' },
 
   // === threads_profile_discovery ===
-  { id: 'profile_lookup', name: '公開帳號資料', path: '/{username}', fields: 'id,username,name,threads_profile_picture_url,threads_biography', requireUsername: true, category: 'read', description: '取得指定公開帳號的資料' },
+  // 注意：此端點需要 threads_profile_discovery 進階權限
+  // 參考：https://developers.facebook.com/docs/threads/profile-discovery
+  // 限制：只能查詢 18+ 歲且 100+ 粉絲的公開帳號，每日 1,000 次配額
+  { id: 'profile_lookup', name: '公開帳號資料（需進階權限）', path: '/profile_lookup', fields: 'username,name,profile_picture_url,biography,follower_count,likes_count,quotes_count,reposts_count,views_count,is_verified', requireUsername: true, category: 'read', description: '查詢公開帳號的資料與 7 日統計（需 threads_profile_discovery 進階權限）' },
 
   // === threads_location_tagging ===
   { id: 'location_search', name: '地點搜尋', path: '/pages/search', params: { type: 'place' }, requireLocation: true, category: 'read', description: '搜尋地點（用於標籤）' },
@@ -242,6 +245,10 @@ Deno.serve(async (req) => {
     }
     if (endpointConfig.requireLocation && locationQuery) {
       url.searchParams.set('q', locationQuery);
+    }
+    // profile_lookup 的 username 要作為查詢參數傳遞
+    if (endpointConfig.id === 'profile_lookup' && username) {
+      url.searchParams.set('username', username);
     }
 
     // 準備請求選項
