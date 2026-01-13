@@ -269,7 +269,7 @@ export function DangerZoneSection() {
             onClick={() => setIsDeleteAccountOpen(true)}
           >
             <Trash2 className="mr-2 size-4" />
-            刪除帳號
+            刪除
           </Button>
         </div>
       </CardContent>
