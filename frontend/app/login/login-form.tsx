@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -9,18 +8,29 @@ import { Loader2, AlertCircle } from "lucide-react";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
-export function LoginForm() {
+interface LoginFormProps {
+  turnstileToken: string | null;
+  turnstileError: string | null;
+  setTurnstileError: (error: string | null) => void;
+  resetTurnstile: () => void;
+}
+
+export function LoginForm({
+  turnstileToken,
+  turnstileError,
+  setTurnstileError,
+  resetTurnstile,
+}: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const turnstileRef = useRef<TurnstileInstance>(null);
 
   const handleGoogleLogin = async () => {
     setError(null);
+    setTurnstileError(null);
 
     // 如果有設定 Turnstile，必須先驗證
     if (TURNSTILE_SITE_KEY && !turnstileToken) {
-      setError("請先完成人機驗證");
+      setError("請先完成下方的人機驗證");
       return;
     }
 
@@ -39,8 +49,7 @@ export function LoginForm() {
           if (!verifyResponse.ok) {
             console.error("Turnstile verify failed:", verifyResponse.status, verifyResponse.statusText);
             setError(`人機驗證失敗 (${verifyResponse.status})，請重試`);
-            setTurnstileToken(null);
-            turnstileRef.current?.reset();
+            resetTurnstile();
             setIsLoading(false);
             return;
           }
@@ -49,16 +58,14 @@ export function LoginForm() {
 
           if (!verifyResult.success) {
             setError("人機驗證失敗，請重試");
-            setTurnstileToken(null);
-            turnstileRef.current?.reset();
+            resetTurnstile();
             setIsLoading(false);
             return;
           }
         } catch (verifyError) {
           console.error("Turnstile verify error:", verifyError);
           setError("人機驗證請求失敗，請重試");
-          setTurnstileToken(null);
-          turnstileRef.current?.reset();
+          resetTurnstile();
           setIsLoading(false);
           return;
         }
@@ -85,12 +92,14 @@ export function LoginForm() {
     }
   };
 
+  const displayError = error || turnstileError;
+
   return (
     <div className="space-y-4">
-      {error && (
+      {displayError && (
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{displayError}</AlertDescription>
         </Alert>
       )}
 
@@ -126,28 +135,6 @@ export function LoginForm() {
           </>
         )}
       </Button>
-
-      {/* Turnstile Widget */}
-      {TURNSTILE_SITE_KEY && (
-        <div className="flex justify-center">
-          <Turnstile
-            ref={turnstileRef}
-            siteKey={TURNSTILE_SITE_KEY}
-            onSuccess={(token) => setTurnstileToken(token)}
-            onError={() => {
-              setError("人機驗證載入失敗，請重新整理頁面");
-              setTurnstileToken(null);
-            }}
-            onExpire={() => {
-              setTurnstileToken(null);
-            }}
-            options={{
-              theme: "auto",
-              size: "normal",
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }

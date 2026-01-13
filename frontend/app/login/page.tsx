@@ -1,6 +1,21 @@
+"use client";
+
+import { useState, useRef } from "react";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { LoginForm } from "./login-form";
 
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
 export default function LoginPage() {
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
+
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    turnstileRef.current?.reset();
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-8">
@@ -34,7 +49,12 @@ export default function LoginPage() {
         </div>
 
         {/* Login Form */}
-        <LoginForm />
+        <LoginForm
+          turnstileToken={turnstileToken}
+          turnstileError={turnstileError}
+          setTurnstileError={setTurnstileError}
+          resetTurnstile={resetTurnstile}
+        />
 
         {/* Description */}
         <div className="text-center text-sm text-muted-foreground space-y-4">
@@ -57,6 +77,31 @@ export default function LoginPage() {
             </a>
           </p>
         </div>
+
+        {/* Turnstile Widget - 放在服務條款下方 */}
+        {TURNSTILE_SITE_KEY && (
+          <div className="flex justify-center">
+            <Turnstile
+              ref={turnstileRef}
+              siteKey={TURNSTILE_SITE_KEY}
+              onSuccess={(token) => {
+                setTurnstileToken(token);
+                setTurnstileError(null);
+              }}
+              onError={() => {
+                setTurnstileError("人機驗證載入失敗，請重新整理頁面");
+                setTurnstileToken(null);
+              }}
+              onExpire={() => {
+                setTurnstileToken(null);
+              }}
+              options={{
+                theme: "auto",
+                size: "normal",
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
