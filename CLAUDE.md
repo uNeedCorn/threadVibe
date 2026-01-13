@@ -151,6 +151,25 @@ Console warnings → 視情況修正
 | 新增頁面/元件 | `docs/05-frontend/` |
 | 完成任務 | `docs/tasks/TASKS.md` |
 
+### Git 部署規範
+
+**重要：推送到正式環境前必須取得用戶確認。**
+
+| 指令 | 權限 | 說明 |
+|------|------|------|
+| `git add` | ✅ 可直接執行 | 暫存變更 |
+| `git commit` | ✅ 可直接執行 | 提交變更 |
+| `git push` | ⛔ **需用戶確認** | 推送到 remote（會觸發部署） |
+| `supabase db push` | ⛔ **需用戶確認** | 套用 migration 到正式資料庫 |
+| `supabase functions deploy` | ⛔ **需用戶確認** | 部署 Edge Functions |
+
+```
+正確流程：
+1. 執行 git add 和 git commit
+2. 詢問用戶：「是否要 push 到 remote？」
+3. 等待用戶確認後才執行 git push
+```
+
 ### Supabase 最佳實踐
 
 ```typescript
