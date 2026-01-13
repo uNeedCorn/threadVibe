@@ -278,7 +278,7 @@ export function WaitlistModal({
                 <Label htmlFor="reason">申請原因</Label>
                 <Textarea
                   id="reason"
-                  placeholder="為什麼想試用 ThreadsVibe？（選填）"
+                  placeholder="為什麼想試用 Postlyzer？（選填）"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={3}
