@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-
-// 從環境變數讀取是否需要邀請碼（server-side）
-const REQUIRE_INVITATION_CODE = process.env.NEXT_PUBLIC_REQUIRE_INVITATION_CODE === "true";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -35,15 +33,37 @@ export async function GET(request: Request) {
       const isNewUser = !memberships || memberships.length === 0;
 
       if (isNewUser) {
-        // 新用戶：檢查是否需要邀請碼
-        if (REQUIRE_INVITATION_CODE) {
-          // 導向邀請碼頁面
-          const invitationUrl = new URL("/register/invitation", origin);
-          invitationUrl.searchParams.set("next", next);
-          return NextResponse.redirect(invitationUrl.toString());
+        // 新用戶：從 cookie 讀取邀請碼
+        const cookieStore = await cookies();
+        const invitationCode = cookieStore.get("invitation_code")?.value;
+
+        if (!invitationCode) {
+          // 沒有邀請碼，導回登入頁
+          return NextResponse.redirect(`${origin}/login?error=no_invitation`);
         }
 
-        // 不需要邀請碼，直接建立 workspace
+        // 驗證並使用邀請碼
+        const { data: invitation, error: invError } = await serviceClient
+          .from("invitation_codes")
+          .select("id, code, is_used, expires_at")
+          .eq("code", invitationCode.toUpperCase())
+          .maybeSingle();
+
+        if (invError || !invitation || invitation.is_used) {
+          // 邀請碼無效或已使用
+          const response = NextResponse.redirect(`${origin}/login?error=invalid_invitation`);
+          response.cookies.delete("invitation_code");
+          return response;
+        }
+
+        if (invitation.expires_at && new Date(invitation.expires_at) < new Date()) {
+          // 邀請碼已過期
+          const response = NextResponse.redirect(`${origin}/login?error=expired_invitation`);
+          response.cookies.delete("invitation_code");
+          return response;
+        }
+
+        // 建立 workspace
         const displayName =
           user.user_metadata?.name ||
           user.user_metadata?.full_name ||
@@ -61,9 +81,10 @@ export async function GET(request: Request) {
 
         if (createError) {
           console.error("Failed to create workspace:", createError);
+          return NextResponse.redirect(`${origin}/login?error=workspace_failed`);
         }
 
-        if (!createError && newWorkspace) {
+        if (newWorkspace) {
           // 建立成員關係（owner）
           const { error: memberError } = await serviceClient
             .from("workspace_members")
@@ -78,8 +99,25 @@ export async function GET(request: Request) {
             console.error("Failed to create workspace member:", memberError);
           }
 
+          // 標記邀請碼為已使用
+          await serviceClient
+            .from("invitation_codes")
+            .update({
+              is_used: true,
+              used_by_user_id: user.id,
+              used_at: new Date().toISOString(),
+            })
+            .eq("id", invitation.id);
+
           workspaceId = newWorkspace.id;
         }
+
+        // 清除邀請碼 cookie
+        const response = NextResponse.redirect(
+          `${origin}/settings?workspace_id=${workspaceId}`
+        );
+        response.cookies.delete("invitation_code");
+        return response;
       } else {
         // 已有 Workspace（舊用戶）
         const workspace = memberships[0].workspaces as unknown as { id: string; name: string } | null;
