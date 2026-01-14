@@ -1923,6 +1923,32 @@ export default function EngagementPage() {
                 quotes: 0,
               };
             }
+
+            // 填入月報表的趨勢資料
+            for (const [, metrics] of Object.entries(metricsByPost)) {
+              for (let i = 0; i < metrics.length; i++) {
+                const m = metrics[i];
+                const prevM = i > 0 ? metrics[i - 1] : null;
+                const bucketDate = new Date(m.bucket_ts);
+                if (bucketDate.getTime() < currentStart.getTime()) continue;
+                if (bucketDate.getTime() > getEndOfDay(currentEnd).getTime()) continue;
+
+                const dayDiff = Math.floor((bucketDate.getTime() - currentStart.getTime()) / (24 * 60 * 60 * 1000));
+                const key = `${dayDiff}`;
+                if (!trendMap[key]) continue;
+
+                const deltaLikes = prevM ? Math.max(0, (m.likes || 0) - (prevM.likes || 0)) : m.likes || 0;
+                const deltaReplies = prevM ? Math.max(0, (m.replies || 0) - (prevM.replies || 0)) : m.replies || 0;
+                const deltaReposts = prevM ? Math.max(0, (m.reposts || 0) - (prevM.reposts || 0)) : m.reposts || 0;
+                const deltaQuotes = prevM ? Math.max(0, (m.quotes || 0) - (prevM.quotes || 0)) : m.quotes || 0;
+
+                trendMap[key].likes += deltaLikes;
+                trendMap[key].replies += deltaReplies;
+                trendMap[key].reposts += deltaReposts;
+                trendMap[key].quotes += deltaQuotes;
+                trendMap[key].totalInteractions += deltaLikes + deltaReplies + deltaReposts + deltaQuotes;
+              }
+            }
           }
 
           // Calculate engagement rate for trend
