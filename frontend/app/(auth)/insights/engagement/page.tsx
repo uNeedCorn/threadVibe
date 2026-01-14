@@ -36,6 +36,7 @@ import {
   ComposedChart,
   LabelList,
 } from "recharts";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,10 +52,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
+import {
+  type Period,
+  DAY_NAMES,
+  WEEKDAY_NAMES,
+  HOUR_LABELS_24,
+  TEAL_SHADES,
+  formatNumber,
+  truncateText,
+  getDateRange,
+  getEndOfDay,
+  calcGrowth,
+  getHeatmapColor,
+} from "@/lib/insights-utils";
+import { GrowthBadge, KPICard, HeatmapLegend } from "@/components/insights/shared-components";
 import { PostDetailPanel } from "@/components/posts/post-detail-panel";
 
-type Period = "week" | "month";
 type ViewMode = "report" | "insights";
 
 // ============================================================================
@@ -133,102 +146,12 @@ interface CompositionData {
 // Constants
 // ============================================================================
 
-const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
-
-function getDateRange(period: Period, offset: number = 0): { start: Date; end: Date; label: string } {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-
-  if (period === "week") {
-    const dayOfWeek = now.getDay();
-    const thisWeekSunday = new Date(now);
-    thisWeekSunday.setDate(now.getDate() - dayOfWeek);
-
-    const targetSunday = new Date(thisWeekSunday);
-    targetSunday.setDate(thisWeekSunday.getDate() + offset * 7);
-
-    const start = new Date(targetSunday);
-    let end: Date;
-
-    if (offset === 0) {
-      end = new Date(now);
-    } else {
-      end = new Date(targetSunday);
-      end.setDate(end.getDate() + 6);
-    }
-
-    let label: string;
-    if (offset === 0) {
-      label = "本週";
-    } else if (offset === -1) {
-      label = "上週";
-    } else {
-      const startLabel = `${start.getMonth() + 1}/${start.getDate()}`;
-      const endLabel = `${end.getMonth() + 1}/${end.getDate()}`;
-      label = `${startLabel} - ${endLabel}`;
-    }
-
-    return { start, end, label };
-  } else {
-    const targetMonth = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-    const start = new Date(targetMonth);
-    let end: Date;
-
-    if (offset === 0) {
-      end = new Date(now);
-    } else {
-      end = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
-    }
-
-    let label: string;
-    if (offset === 0) {
-      label = "本月";
-    } else if (offset === -1) {
-      label = "上月";
-    } else {
-      label = `${targetMonth.getFullYear()}/${targetMonth.getMonth() + 1}`;
-    }
-
-    return { start, end, label };
-  }
-}
-
-/**
- * 格式化日期為 YYYY-MM-DD（本地時區）
- * 避免 toISOString() 轉換為 UTC 造成日期偏移
- */
-function formatDateLocal(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-/**
- * 取得日期的結束時間（23:59:59.999）用於時間戳查詢
- * 確保包含當天所有資料
- */
-function getEndOfDay(date: Date): Date {
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-  return endOfDay;
-}
-
 const INTERACTION_COLORS = {
   likes: "#14B8A6",
   replies: "#0D9488",
   reposts: "#2DD4BF",
   quotes: "#5EEAD4",
 };
-
-const TEAL_SHADES = [
-  "#0F766E",
-  "#0D9488",
-  "#14B8A6",
-  "#2DD4BF",
-  "#5EEAD4",
-  "#99F6E4",
-];
 
 const trendChartConfig: ChartConfig = {
   totalInteractions: { label: "互動數", color: "#14B8A6" },
@@ -245,23 +168,6 @@ const compositionChartConfig: ChartConfig = {
 // ============================================================================
 // Utility Functions
 // ============================================================================
-
-function formatNumber(v: number): string {
-  if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
-  return v.toLocaleString();
-}
-
-function truncateText(text: string, maxLength: number = 20): string {
-  if (!text) return "(無文字內容)";
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + "...";
-}
-
-function calcGrowth(current: number, previous: number): number {
-  if (previous === 0) return current > 0 ? 100 : 0;
-  return ((current - previous) / previous) * 100;
-}
 
 function calculateQualityScore(data: EngagementData): number {
   const total = data.totalLikes + data.totalReplies + data.totalReposts + data.totalQuotes;
@@ -298,79 +204,6 @@ function getEffectRating(replyRate: number, engagementRate: number): { stars: nu
 // ============================================================================
 // Report Tab Components (基本圖表)
 // ============================================================================
-
-function GrowthBadge({ value, className }: { value: number; className?: string }) {
-  if (value === 0) return null;
-  const isPositive = value > 0;
-  return (
-    <span className={cn(
-      "inline-flex items-center gap-0.5 text-xs font-medium",
-      isPositive ? "text-green-600" : "text-red-600",
-      className
-    )}>
-      {isPositive ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-      {isPositive ? "+" : ""}{value.toFixed(1)}%
-    </span>
-  );
-}
-
-function KPICard({
-  title,
-  value,
-  growth,
-  icon,
-  isLoading,
-  format = "number",
-  periodLabel,
-}: {
-  title: string;
-  value: number;
-  growth?: number;
-  icon: React.ReactNode;
-  isLoading?: boolean;
-  format?: "number" | "percent";
-  periodLabel: string;
-}) {
-  const formatValue = (v: number) => {
-    if (format === "percent") return `${v.toFixed(2)}%`;
-    return formatNumber(v);
-  };
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="size-4" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-8 w-24" />
-          <Skeleton className="mt-1 h-3 w-16" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <div className="text-muted-foreground">{icon}</div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{formatValue(value)}</div>
-        {growth !== undefined && (
-          <div className="flex items-center gap-1">
-            <GrowthBadge value={growth} />
-            {growth !== 0 && (
-              <span className="text-xs text-muted-foreground">vs {periodLabel}</span>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 function EngagementTrendChart({
   data,
@@ -1116,22 +949,6 @@ function ContentEffectBlock({
   );
 }
 
-// 熱力圖顏色計算（與 reach 頁面一致）
-function getHeatmapColor(value: number, max: number): string {
-  if (value === 0) return "bg-muted";
-  const intensity = value / max;
-  if (intensity > 0.75) return "bg-teal-500";
-  if (intensity > 0.5) return "bg-teal-400";
-  if (intensity > 0.25) return "bg-teal-300";
-  return "bg-teal-200";
-}
-
-// 24 小時標籤
-const HOUR_LABELS_24 = Array.from({ length: 24 }, (_, i) => i);
-
-// 星期幾名稱（完整）
-const WEEKDAY_NAMES_FULL = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
-
 function BestTimeBlock({
   hourlyData,
   userPostingHours,
@@ -1220,7 +1037,7 @@ function BestTimeBlock({
                 {[1, 2, 3, 4, 5, 6, 0].map((dayOfWeek) => (
                   <div key={dayOfWeek} className="mb-1 flex items-center">
                     <div className="w-10 text-xs text-muted-foreground">
-                      {WEEKDAY_NAMES_FULL[dayOfWeek]}
+                      {WEEKDAY_NAMES[dayOfWeek]}
                     </div>
                     {HOUR_LABELS_24.map((hour) => {
                       const interactions = heatmapMap.get(`${dayOfWeek}-${hour}`) || 0;
@@ -1239,7 +1056,7 @@ function BestTimeBlock({
                           {/* Tooltip */}
                           <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 rounded border bg-background px-3 py-2 shadow-lg group-hover:block">
                             <div className="whitespace-nowrap text-sm font-medium">
-                              {WEEKDAY_NAMES_FULL[dayOfWeek]} {hour}:00
+                              {WEEKDAY_NAMES[dayOfWeek]} {hour}:00
                             </div>
                             <div className="text-sm text-muted-foreground">
                               {formatNumber(interactions)} 互動
@@ -1277,7 +1094,7 @@ function BestTimeBlock({
                       : 0;
                     return (
                       <div key={index} className="flex items-center justify-between text-sm">
-                        <span>{index + 1}. {WEEKDAY_NAMES_FULL[slot.day]} {slot.hour}:00-{slot.hour + 1}:00</span>
+                        <span>{index + 1}. {WEEKDAY_NAMES[slot.day]} {slot.hour}:00-{slot.hour + 1}:00</span>
                         <span className="font-medium text-teal-600">+{improvement.toFixed(0)}%</span>
                       </div>
                     );
@@ -1293,7 +1110,7 @@ function BestTimeBlock({
                 <div className="text-sm">
                   <p className="font-medium text-foreground">你通常在非活躍時段發文</p>
                   <p className="mt-1 text-muted-foreground">
-                    建議：將發文時間調整到 {WEEKDAY_NAMES_FULL[topSlots[0].day]} {topSlots[0].hour}:00 左右
+                    建議：將發文時間調整到 {WEEKDAY_NAMES[topSlots[0].day]} {topSlots[0].hour}:00 左右
                   </p>
                 </div>
               </div>
@@ -2201,7 +2018,7 @@ export default function EngagementPage() {
                             {[1, 2, 3, 4, 5, 6, 0].map((dayOfWeek) => (
                               <div key={dayOfWeek} className="mb-1 flex items-center">
                                 <div className="w-10 text-xs text-muted-foreground">
-                                  {WEEKDAY_NAMES_FULL[dayOfWeek]}
+                                  {WEEKDAY_NAMES[dayOfWeek]}
                                 </div>
                                 {HOUR_LABELS_24.map((hour) => {
                                   const interactions = heatmapMap.get(`${dayOfWeek}-${hour}`) || 0;
@@ -2220,7 +2037,7 @@ export default function EngagementPage() {
                                       {/* Tooltip */}
                                       <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 rounded border bg-background px-3 py-2 shadow-lg group-hover:block">
                                         <div className="whitespace-nowrap text-sm font-medium">
-                                          {WEEKDAY_NAMES_FULL[dayOfWeek]} {hour}:00
+                                          {WEEKDAY_NAMES[dayOfWeek]} {hour}:00
                                         </div>
                                         <div className="text-sm text-muted-foreground">
                                           {formatNumber(interactions)} 互動

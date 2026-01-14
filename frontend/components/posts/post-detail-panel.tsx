@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { createClient } from "@/lib/supabase/client";
+import { formatNumber } from "@/lib/insights-utils";
 import { RepliesSection } from "./replies-section";
 import { ReplyForm } from "./reply-form";
 import { PostMetricsChart } from "./post-metrics-chart";
@@ -241,12 +242,6 @@ export function PostDetailPanel({
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toLocaleString();
   };
 
   return (

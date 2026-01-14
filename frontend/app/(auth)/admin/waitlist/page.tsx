@@ -41,6 +41,7 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  Trash2,
 } from "lucide-react";
 
 interface WaitlistEntry {
@@ -99,6 +100,10 @@ export default function WaitlistPage() {
   const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 刪除對話框
+  const [deleteEntry, setDeleteEntry] = useState<WaitlistEntry | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchEntries = useCallback(async () => {
     setIsLoading(true);
@@ -171,6 +176,31 @@ export default function WaitlistPage() {
     setSelectedEntry(null);
     setReviewAction(null);
     setReviewNotes("");
+  };
+
+  const handleDelete = async () => {
+    if (!deleteEntry) return;
+
+    setIsDeleting(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      const { error: deleteError } = await supabase
+        .from("beta_waitlist")
+        .delete()
+        .eq("id", deleteEntry.id);
+
+      if (deleteError) throw deleteError;
+
+      setDeleteEntry(null);
+      fetchEntries();
+    } catch (err) {
+      console.error("Failed to delete entry:", err);
+      setError("刪除失敗，請稍後再試");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isUserLoading) {
@@ -307,10 +337,13 @@ export default function WaitlistPage() {
                     <TableHead>申請者</TableHead>
                     <TableHead>Threads 帳號</TableHead>
                     <TableHead>身份/粉絲</TableHead>
+                    <TableHead>內容類型</TableHead>
+                    <TableHead>管理帳號</TableHead>
                     <TableHead>來源</TableHead>
+                    <TableHead>申請原因</TableHead>
                     <TableHead>狀態</TableHead>
                     <TableHead>申請時間</TableHead>
-                    <TableHead className="w-[120px]">操作</TableHead>
+                    <TableHead className="w-[140px]">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -354,9 +387,36 @@ export default function WaitlistPage() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        {entry.content_type ? (
+                          <span className="text-sm">
+                            {CONTENT_TYPE_LABELS[entry.content_type] || entry.content_type}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {entry.managed_accounts ? (
+                          <span className="text-sm max-w-[120px] truncate block" title={entry.managed_accounts}>
+                            {entry.managed_accounts}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         {entry.referral_source ? (
                           <span className="text-sm">
                             {REFERRAL_SOURCE_LABELS[entry.referral_source] || entry.referral_source}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {entry.reason ? (
+                          <span className="text-sm max-w-[150px] truncate block" title={entry.reason}>
+                            {entry.reason}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">-</span>
@@ -369,26 +429,36 @@ export default function WaitlistPage() {
                         {formatDate(entry.created_at)}
                       </TableCell>
                       <TableCell>
-                        {entry.status === "pending" && (
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                              onClick={() => openReviewDialog(entry, "approve")}
-                            >
-                              <Check className="size-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => openReviewDialog(entry, "reject")}
-                            >
-                              <X className="size-4" />
-                            </Button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {entry.status === "pending" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={() => openReviewDialog(entry, "approve")}
+                              >
+                                <Check className="size-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => openReviewDialog(entry, "reject")}
+                              >
+                                <X className="size-4" />
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                            onClick={() => setDeleteEntry(entry)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -507,6 +577,57 @@ export default function WaitlistPage() {
                 <X className="mr-2 size-4" />
               )}
               {reviewAction === "approve" ? "確認通過" : "確認拒絕"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 刪除確認對話框 */}
+      <Dialog open={!!deleteEntry} onOpenChange={() => setDeleteEntry(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>確認刪除</DialogTitle>
+            <DialogDescription>
+              確定要刪除此申請記錄嗎？此操作無法復原。
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteEntry && (
+            <div className="rounded-lg bg-muted p-4">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">申請者</span>
+                  <span className="font-medium">{deleteEntry.name || deleteEntry.email}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Email</span>
+                  <span>{deleteEntry.email}</span>
+                </div>
+                {deleteEntry.threads_username && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Threads</span>
+                    <span>@{deleteEntry.threads_username}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteEntry(null)}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 size-4" />
+              )}
+              確認刪除
             </Button>
           </DialogFooter>
         </DialogContent>

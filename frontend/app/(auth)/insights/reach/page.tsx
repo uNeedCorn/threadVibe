@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { TrendingUp, TrendingDown, Eye, Activity, Clock, BarChart3, Users, Trophy, AlertTriangle, Flame, Snowflake, ChevronDown, ChevronLeft, ChevronRight, Zap, Rocket, Scale, BarChart2, PanelRightOpen, Lightbulb, Target, Sparkles, CheckCircle2, FileText } from "lucide-react";
-import { XAxis, YAxis, CartesianGrid, Area, AreaChart, Tooltip, BarChart, Bar, Cell, LabelList } from "recharts";
+import { TrendingUp, TrendingDown, Eye, Clock, BarChart3, Users, Trophy, AlertTriangle, Flame, Snowflake, ChevronDown, ChevronLeft, ChevronRight, Zap, Rocket, Scale, BarChart2, PanelRightOpen, Lightbulb, Target, Sparkles, CheckCircle2, FileText, Activity } from "lucide-react";
+import { XAxis, YAxis, CartesianGrid, Area, AreaChart, BarChart, Bar, Cell, LabelList } from "recharts";
 import { createClient } from "@/lib/supabase/client";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,8 +14,19 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Button } from "@/components/ui/button";
 import { PostDetailPanel } from "@/components/posts/post-detail-panel";
 import { cn } from "@/lib/utils";
+import {
+  type Period,
+  WEEKDAY_NAMES,
+  HOUR_LABELS_24,
+  TAG_COLORS,
+  formatNumber,
+  truncateText,
+  formatDateLocal,
+  getDateRange,
+  getHeatmapColor,
+} from "@/lib/insights-utils";
+import { GrowthBadge, KPICard, HeatmapLegend } from "@/components/insights/shared-components";
 
-type Period = "week" | "month";
 type ViewMode = "report" | "insights";
 
 interface DailyViewsData {
@@ -82,197 +93,9 @@ interface AnomalyAlert {
 const chartConfig: ChartConfig = {
   views: {
     label: "新增曝光",
-    color: "#14B8A6", // Teal 500
+    color: "#14B8A6",
   },
 };
-
-// 標籤圖表的預設顏色
-const TAG_COLORS = [
-  "#14B8A6", // Teal
-  "#8B5CF6", // Violet
-  "#F59E0B", // Amber
-  "#EF4444", // Red
-  "#3B82F6", // Blue
-  "#10B981", // Emerald
-  "#EC4899", // Pink
-  "#6366F1", // Indigo
-];
-
-// 星期幾名稱
-const WEEKDAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
-
-// 24 小時標籤
-const HOUR_LABELS_24 = Array.from({ length: 24 }, (_, i) => i);
-
-function GrowthBadge({ value, className }: { value: number; className?: string }) {
-  if (value === 0) return null;
-
-  const isPositive = value > 0;
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-0.5 text-sm font-medium",
-        isPositive ? "text-green-600" : "text-red-600",
-        className
-      )}
-    >
-      {isPositive ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
-      {isPositive ? "+" : ""}{value.toFixed(1)}%
-    </span>
-  );
-}
-
-function KPICard({
-  title,
-  value,
-  growth,
-  icon,
-  isLoading,
-  format = "number",
-  periodLabel,
-  suffix,
-}: {
-  title: string;
-  value: number;
-  growth?: number;
-  icon: React.ReactNode;
-  isLoading?: boolean;
-  format?: "number" | "multiplier";
-  periodLabel: string;
-  suffix?: string;
-}) {
-  const formatValue = (v: number) => {
-    if (format === "multiplier") return `${v.toFixed(1)}x`;
-    return formatNumber(v);
-  };
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="size-4" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-8 w-24" />
-          <Skeleton className="mt-1 h-3 w-16" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <div className="text-muted-foreground">{icon}</div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">
-          {formatValue(value)}{suffix && <span className="text-base font-normal text-muted-foreground ml-1">{suffix}</span>}
-        </div>
-        {growth !== undefined && (
-          <div className="flex items-center gap-1">
-            <GrowthBadge value={growth} />
-            {growth !== 0 && (
-              <span className="text-xs text-muted-foreground">vs {periodLabel}</span>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function formatNumber(v: number) {
-  if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
-  return v.toLocaleString();
-}
-
-function truncateText(text: string, maxLength: number = 20): string {
-  if (!text) return "(無文字內容)";
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + "...";
-}
-
-function getDateRange(period: Period, offset: number = 0): { start: Date; end: Date; label: string } {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-
-  if (period === "week") {
-    // 計算本週日
-    const dayOfWeek = now.getDay();
-    const thisWeekSunday = new Date(now);
-    thisWeekSunday.setDate(now.getDate() - dayOfWeek);
-
-    // 套用 offset（負數 = 往前幾週）
-    const targetSunday = new Date(thisWeekSunday);
-    targetSunday.setDate(thisWeekSunday.getDate() + offset * 7);
-
-    const start = new Date(targetSunday);
-    let end: Date;
-
-    if (offset === 0) {
-      // 本週：到今天
-      end = new Date(now);
-    } else {
-      // 過去的週：完整一週（週六）
-      end = new Date(targetSunday);
-      end.setDate(end.getDate() + 6);
-    }
-
-    // 產生標籤
-    const startLabel = `${start.getMonth() + 1}/${start.getDate()}`;
-    const endLabel = `${end.getMonth() + 1}/${end.getDate()}`;
-    let label: string;
-    if (offset === 0) {
-      label = "本週";
-    } else if (offset === -1) {
-      label = "上週";
-    } else {
-      label = `${startLabel} - ${endLabel}`;
-    }
-
-    return { start, end, label };
-  } else {
-    // 計算目標月份
-    const targetMonth = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-    const start = new Date(targetMonth);
-    let end: Date;
-
-    if (offset === 0) {
-      // 本月：到今天
-      end = new Date(now);
-    } else {
-      // 過去的月：到該月最後一天
-      end = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
-    }
-
-    // 產生標籤
-    let label: string;
-    if (offset === 0) {
-      label = "本月";
-    } else if (offset === -1) {
-      label = "上月";
-    } else {
-      label = `${targetMonth.getFullYear()}/${targetMonth.getMonth() + 1}`;
-    }
-
-    return { start, end, label };
-  }
-}
-
-/**
- * 格式化日期為 YYYY-MM-DD（本地時區）
- * 避免 toISOString() 轉換為 UTC 造成日期偏移
- */
-function formatDateLocal(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function LifecycleTagCard({ tag }: { tag: TagLifecycleAnalysis }) {
   return (
@@ -1046,16 +869,6 @@ export default function ReachPage() {
 
   // 找出熱力圖最大值（用於顏色計算）
   const maxHeatmapViews = Math.max(...heatmapData.map((d) => d.avgViews), 1);
-
-  // 計算熱力圖格子顏色
-  function getHeatmapColor(value: number, max: number): string {
-    if (value === 0) return "bg-muted";
-    const intensity = value / max;
-    if (intensity > 0.75) return "bg-teal-500";
-    if (intensity > 0.5) return "bg-teal-400";
-    if (intensity > 0.25) return "bg-teal-300";
-    return "bg-teal-200";
-  }
 
   return (
     <div className="space-y-6">
