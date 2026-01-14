@@ -88,13 +88,7 @@ export function WaitlistModal({
     setStatus("submitting");
     setErrorMessage("");
 
-    // 驗證 Gmail
     const emailTrimmed = email.trim().toLowerCase();
-    if (!emailTrimmed.endsWith("@gmail.com")) {
-      setErrorMessage("目前僅支援 Gmail 登入，請使用 Gmail 信箱");
-      setStatus("error");
-      return;
-    }
 
     // 驗證必填欄位
     if (!threadsUsername.trim()) {
@@ -223,14 +217,14 @@ export function WaitlistModal({
                 <Input
                   id="email"
                   type="email"
-                  placeholder="your@gmail.com"
+                  placeholder="your@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={status === "submitting"}
                 />
                 <p className="text-xs text-muted-foreground">
-                  目前僅支援 Gmail 登入
+                  Beta 階段僅支援 Google 登入
                 </p>
               </div>
 
