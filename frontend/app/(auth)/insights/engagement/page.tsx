@@ -2057,13 +2057,13 @@ export default function EngagementPage() {
 
       {/* View Mode Tabs - 報告/洞察切換 */}
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-        <TabsList>
-          <TabsTrigger value="report" className="flex items-center gap-1.5">
-            <BarChart3 className="size-4" />
+        <TabsList className="h-10 border bg-muted/50 p-1">
+          <TabsTrigger value="report" className="h-8 px-4 data-[state=active]:bg-background data-[state=active]:shadow">
+            <BarChart3 className="mr-1.5 size-4" />
             報告
           </TabsTrigger>
-          <TabsTrigger value="insights" className="flex items-center gap-1.5">
-            <Lightbulb className="size-4" />
+          <TabsTrigger value="insights" className="h-8 px-4 data-[state=active]:bg-background data-[state=active]:shadow">
+            <Lightbulb className="mr-1.5 size-4" />
             洞察
           </TabsTrigger>
         </TabsList>
