@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
 /**
  * POST /api/waitlist
  * 加入 Beta 等待名單（支援登入/未登入用戶）
@@ -72,6 +75,19 @@ export async function POST(request: Request) {
       );
     }
 
+    // 發送 Telegram 通知（非阻塞，失敗不影響回應）
+    sendWaitlistNotification({
+      email: targetEmail,
+      name: name?.trim() || null,
+      threadsUsername: threadsUsername?.trim() || null,
+      userType: userType || null,
+      followerTier: followerTier || null,
+      referralSource: referralSource || null,
+      reason: reason?.trim() || null,
+    }).catch((err) => {
+      console.error("Failed to send waitlist notification:", err);
+    });
+
     return NextResponse.json({
       success: true,
       alreadyExists: false,
@@ -120,5 +136,39 @@ export async function GET() {
       { success: false, error: "INTERNAL_ERROR" },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * 發送 Waitlist 通知到 Telegram
+ */
+async function sendWaitlistNotification(data: {
+  email: string;
+  name: string | null;
+  threadsUsername: string | null;
+  userType: string | null;
+  followerTier: string | null;
+  referralSource: string | null;
+  reason: string | null;
+}): Promise<void> {
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/functions/v1/waitlist-notification`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Waitlist notification failed:", errorText);
+    }
+  } catch (error) {
+    console.error("Waitlist notification error:", error);
   }
 }

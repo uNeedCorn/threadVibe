@@ -3,27 +3,16 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 /**
  * Waitlist Notification Edge Function
  * 當有新用戶申請加入 waitlist 時發送 Telegram 通知
- *
- * 觸發方式：Database Webhook (on INSERT to beta_waitlist)
  */
 
-interface WaitlistRecord {
-  id: string;
+interface WaitlistData {
   email: string;
-  name: string | null;
-  threads_username: string | null;
-  user_type: string | null;
-  follower_tier: string | null;
-  referral_source: string | null;
-  reason: string | null;
-  created_at: string;
-}
-
-interface WebhookPayload {
-  type: "INSERT";
-  table: "beta_waitlist";
-  record: WaitlistRecord;
-  schema: "public";
+  name?: string | null;
+  threadsUsername?: string | null;
+  userType?: string | null;
+  followerTier?: string | null;
+  referralSource?: string | null;
+  reason?: string | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -33,15 +22,12 @@ Deno.serve(async (req: Request) => {
       return new Response("Method not allowed", { status: 405 });
     }
 
-    // 解析 webhook payload
-    const payload: WebhookPayload = await req.json();
+    // 解析請求
+    const data: WaitlistData = await req.json();
 
-    // 只處理 INSERT 事件
-    if (payload.type !== "INSERT") {
-      return new Response("Ignored: not an INSERT event", { status: 200 });
+    if (!data.email) {
+      return new Response("Email is required", { status: 400 });
     }
-
-    const record = payload.record;
 
     // 取得 Telegram 認證
     const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
@@ -49,11 +35,14 @@ Deno.serve(async (req: Request) => {
 
     if (!token || !chatId) {
       console.error("Telegram credentials not configured");
-      return new Response("Telegram not configured", { status: 200 });
+      return new Response(JSON.stringify({ success: false, error: "Telegram not configured" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // 組成通知訊息
-    const message = formatMessage(record);
+    const message = formatMessage(data);
 
     // 發送 Telegram 通知
     const response = await fetch(
@@ -72,52 +61,61 @@ Deno.serve(async (req: Request) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Telegram API error:", errorText);
-      return new Response(`Telegram error: ${errorText}`, { status: 500 });
+      return new Response(JSON.stringify({ success: false, error: errorText }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    return new Response("Notification sent", { status: 200 });
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("Waitlist notification error:", error);
-    return new Response(`Error: ${error}`, { status: 500 });
+    return new Response(JSON.stringify({ success: false, error: String(error) }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 });
 
 /**
  * 格式化通知訊息
  */
-function formatMessage(record: WaitlistRecord): string {
+function formatMessage(data: WaitlistData): string {
   const lines = [
     `📬 *Waitlist 新申請*`,
     ``,
-    `*Email:* ${escapeMarkdown(record.email)}`,
+    `*Email:* ${escapeMarkdown(data.email)}`,
   ];
 
-  if (record.name) {
-    lines.push(`*姓名:* ${escapeMarkdown(record.name)}`);
+  if (data.name) {
+    lines.push(`*姓名:* ${escapeMarkdown(data.name)}`);
   }
 
-  if (record.threads_username) {
-    lines.push(`*Threads:* @${escapeMarkdown(record.threads_username)}`);
+  if (data.threadsUsername) {
+    lines.push(`*Threads:* @${escapeMarkdown(data.threadsUsername)}`);
   }
 
-  if (record.user_type) {
-    lines.push(`*類型:* ${escapeMarkdown(record.user_type)}`);
+  if (data.userType) {
+    lines.push(`*類型:* ${escapeMarkdown(data.userType)}`);
   }
 
-  if (record.follower_tier) {
-    lines.push(`*粉絲數:* ${escapeMarkdown(record.follower_tier)}`);
+  if (data.followerTier) {
+    lines.push(`*粉絲數:* ${escapeMarkdown(data.followerTier)}`);
   }
 
-  if (record.referral_source) {
-    lines.push(`*來源:* ${escapeMarkdown(record.referral_source)}`);
+  if (data.referralSource) {
+    lines.push(`*來源:* ${escapeMarkdown(data.referralSource)}`);
   }
 
-  if (record.reason) {
-    lines.push(`*原因:* ${escapeMarkdown(record.reason)}`);
+  if (data.reason) {
+    lines.push(`*原因:* ${escapeMarkdown(data.reason)}`);
   }
 
   lines.push(``);
-  lines.push(`_${new Date(record.created_at).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}_`);
+  lines.push(`_${new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}_`);
 
   return lines.join("\n");
 }
