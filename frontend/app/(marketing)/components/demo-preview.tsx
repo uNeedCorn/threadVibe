@@ -1,288 +1,277 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-} from "recharts";
-import {
-  Eye,
-  Heart,
-  MessageCircle,
-  Users,
   TrendingUp,
+  Clock,
   BarChart3,
+  History,
+  LineChart,
+  PieChart,
+  ArrowLeftRight,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
-// 假數據 - 7 天趨勢
-const trendData = [
-  { date: "1/6", views: 2400, likes: 180, comments: 24 },
-  { date: "1/7", views: 3200, likes: 240, comments: 32 },
-  { date: "1/8", views: 2800, likes: 210, comments: 28 },
-  { date: "1/9", views: 4100, likes: 320, comments: 45 },
-  { date: "1/10", views: 3800, likes: 290, comments: 38 },
-  { date: "1/11", views: 5200, likes: 410, comments: 52 },
-  { date: "1/12", views: 4800, likes: 380, comments: 48 },
-];
-
-// 假數據 - 粉絲成長
-const followerData = [
-  { date: "1/6", followers: 12340 },
-  { date: "1/7", followers: 12380 },
-  { date: "1/8", followers: 12420 },
-  { date: "1/9", followers: 12510 },
-  { date: "1/10", followers: 12580 },
-  { date: "1/11", followers: 12720 },
-  { date: "1/12", followers: 12850 },
-];
-
-// 假數據 - 熱門貼文
-const topPosts = [
-  { id: 1, preview: "分享一個提升效率的小技巧...", views: 5200, likes: 410 },
-  { id: 2, preview: "今天學到的三個重要觀念...", views: 4100, likes: 320 },
-  { id: 3, preview: "關於創作這件事，我想說...", views: 3800, likes: 290 },
-];
-
-function MiniKPICard({
-  title,
+// 動態數字組件
+function AnimatedNumber({
   value,
-  change,
-  icon: Icon,
+  suffix = "",
+  prefix = "",
+  decimals = 0,
 }: {
-  title: string;
-  value: string;
-  change: string;
-  icon: React.ElementType;
+  value: number;
+  suffix?: string;
+  prefix?: string;
+  decimals?: number;
 }) {
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    const duration = 1500;
+    const steps = 30;
+    const increment = value / steps;
+    let current = 0;
+
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= value) {
+        setDisplay(value);
+        clearInterval(timer);
+      } else {
+        setDisplay(current);
+      }
+    }, duration / steps);
+
+    return () => clearInterval(timer);
+  }, [value]);
+
+  const formatted = decimals > 0
+    ? display.toFixed(decimals)
+    : Math.floor(display).toLocaleString();
+
   return (
-    <div className="rounded-lg border bg-card p-3">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-muted-foreground">{title}</span>
-        <Icon className="size-3.5 text-muted-foreground" />
-      </div>
-      <div className="text-lg font-bold">{value}</div>
-      <div className="flex items-center gap-1 text-xs text-green-600">
-        <TrendingUp className="size-3" />
-        {change}
-      </div>
-    </div>
+    <span>
+      {prefix}{formatted}{suffix}
+    </span>
   );
 }
 
-export function DemoPreview() {
+// 迷你折線圖動畫
+function MiniChart({ color = "#14B8A6" }: { color?: string }) {
   return (
-    <div className="relative mx-auto max-w-5xl px-4">
-      {/* Browser Frame */}
-      <div className="rounded-xl border bg-background shadow-2xl overflow-hidden">
-        {/* Browser Header */}
-        <div className="flex items-center gap-2 border-b bg-muted/50 px-4 py-3">
-          <div className="flex gap-1.5">
-            <div className="size-3 rounded-full bg-red-400" />
-            <div className="size-3 rounded-full bg-yellow-400" />
-            <div className="size-3 rounded-full bg-green-400" />
-          </div>
-          <div className="flex-1 flex justify-center">
-            <div className="flex items-center gap-2 rounded-md bg-background border px-3 py-1 text-xs text-muted-foreground">
-              <BarChart3 className="size-3" />
-              app.postlyzer.com/dashboard
-            </div>
-          </div>
-        </div>
+    <svg
+      viewBox="0 0 100 40"
+      className="w-full h-10 opacity-60"
+      preserveAspectRatio="none"
+    >
+      <path
+        d="M0,35 Q15,30 25,25 T50,20 T75,10 T100,5"
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        className="animate-[draw_2s_ease-in-out_forwards]"
+        style={{
+          strokeDasharray: 200,
+          strokeDashoffset: 200,
+          animation: "draw 2s ease-in-out forwards",
+        }}
+      />
+      <style>{`
+        @keyframes draw {
+          to { stroke-dashoffset: 0; }
+        }
+      `}</style>
+    </svg>
+  );
+}
 
-        {/* Dashboard Content */}
-        <div className="p-4 md:p-6 bg-muted/30">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="size-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
-              <div>
-                <div className="font-semibold">@postlyzer_demo</div>
-                <div className="text-xs text-muted-foreground">12.8K 粉絲</div>
+// 第一頁：基礎數據分析
+const page1Features = [
+  {
+    icon: TrendingUp,
+    title: "貼文成效追蹤",
+    description: "每篇貼文的觀看、互動數據，完整記錄成長軌跡",
+    metric: { value: 156, suffix: " 篇", label: "已追蹤貼文" },
+    color: "#14B8A6",
+  },
+  {
+    icon: Clock,
+    title: "發文時間分析",
+    description: "根據你的歷史數據，找出互動率最高的時段",
+    metric: { value: 21, suffix: ":00", label: "你的黃金時段" },
+    color: "#F59E0B",
+  },
+  {
+    icon: BarChart3,
+    title: "互動趨勢洞察",
+    description: "觀察長期趨勢變化，了解內容表現起伏",
+    metric: { value: 5.8, suffix: "%", label: "平均互動率", decimals: 1 },
+    color: "#8B5CF6",
+  },
+  {
+    icon: History,
+    title: "歷史數據保存",
+    description: "Threads 不提供的歷史紀錄，我們幫你完整保留",
+    metric: { value: 30, suffix: " 天", label: "數據回溯" },
+    color: "#EC4899",
+  },
+];
+
+// 第二頁：進階數據分析
+const page2Features = [
+  {
+    icon: LineChart,
+    title: "粉絲成長曲線",
+    description: "追蹤追蹤者數量變化，掌握帳號成長節奏",
+    metric: { value: 847, suffix: "", prefix: "+", label: "本月新增追蹤" },
+    color: "#14B8A6",
+  },
+  {
+    icon: PieChart,
+    title: "內容表現分析",
+    description: "哪類主題最受歡迎？用數據優化你的內容策略",
+    metric: { value: 12.3, suffix: "%", label: "最佳類型互動率", decimals: 1 },
+    color: "#F59E0B",
+  },
+  {
+    icon: ArrowLeftRight,
+    title: "時段成效比較",
+    description: "本週 vs 上週、本月 vs 上月，一目了然的成長對比",
+    metric: { value: 23, suffix: "%", prefix: "+", label: "週成長率" },
+    color: "#8B5CF6",
+  },
+  {
+    icon: BarChart3,
+    title: "單篇深度分析",
+    description: "點擊任一貼文，查看完整的成效變化歷程",
+    metric: { value: 48, suffix: " hr", label: "追蹤發布後" },
+    color: "#EC4899",
+  },
+];
+
+const pages = [
+  { id: 0, title: "基礎分析", features: page1Features },
+  { id: 1, title: "進階洞察", features: page2Features },
+];
+
+export function DemoPreview() {
+  const [currentPage, setCurrentPage] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const goToPage = (page: number) => {
+    if (isAnimating || page === currentPage) return;
+    setIsAnimating(true);
+    setCurrentPage(page);
+    setTimeout(() => setIsAnimating(false), 500);
+  };
+
+  const features = pages[currentPage].features;
+
+  return (
+    <div className="relative mx-auto max-w-4xl">
+      {/* Cards Grid */}
+      <div
+        className={`grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity duration-300 ${
+          isAnimating ? "opacity-0" : "opacity-100"
+        }`}
+      >
+        {features.map((feature, index) => (
+          <Card
+            key={`${currentPage}-${index}`}
+            className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+          >
+            <CardContent className="p-5">
+              <div className="flex items-start gap-4">
+                {/* Icon */}
+                <div
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: `${feature.color}15` }}
+                >
+                  <feature.icon
+                    className="size-5"
+                    style={{ color: feature.color }}
+                  />
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-foreground mb-1">
+                    {feature.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {feature.description}
+                  </p>
+                </div>
               </div>
-            </div>
-            <Badge variant="outline" className="text-xs">
-              過去 7 天
-            </Badge>
-          </div>
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <MiniKPICard
-              title="總觀看"
-              value="26.3K"
-              change="+18.5%"
-              icon={Eye}
-            />
-            <MiniKPICard
-              title="總愛心"
-              value="2,030"
-              change="+24.2%"
-              icon={Heart}
-            />
-            <MiniKPICard
-              title="總留言"
-              value="267"
-              change="+15.8%"
-              icon={MessageCircle}
-            />
-            <MiniKPICard
-              title="新粉絲"
-              value="+510"
-              change="+12.3%"
-              icon={Users}
-            />
-          </div>
-
-          {/* Charts Row */}
-          <div className="grid md:grid-cols-2 gap-4 mb-4">
-            {/* Engagement Trend */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">互動趨勢</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[140px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 10 }}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10 }}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="views"
-                        stroke="#2563eb"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="likes"
-                        stroke="#16a34a"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex gap-4 mt-2 justify-center">
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <div className="size-2 rounded-full bg-blue-600" />
-                    <span className="text-muted-foreground">觀看</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <div className="size-2 rounded-full bg-green-600" />
-                    <span className="text-muted-foreground">愛心</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Follower Growth */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">粉絲成長</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[140px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={followerData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 10 }}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10 }}
-                        tickLine={false}
-                        axisLine={false}
-                        domain={['dataMin - 100', 'dataMax + 100']}
-                        tickFormatter={(v) => `${(v/1000).toFixed(1)}K`}
-                      />
-                      <defs>
-                        <linearGradient id="followerGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <Area
-                        type="monotone"
-                        dataKey="followers"
-                        stroke="#8b5cf6"
-                        strokeWidth={2}
-                        fill="url(#followerGradient)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="text-center mt-2">
-                  <span className="text-xs text-muted-foreground">
-                    本週新增 <span className="text-purple-600 font-medium">+510</span> 位粉絲
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Top Posts */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">熱門貼文</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {topPosts.map((post, index) => (
+              {/* Metric + Mini Chart */}
+              <div className="mt-4 pt-4 border-t flex items-end justify-between">
+                <div>
                   <div
-                    key={post.id}
-                    className="flex items-center justify-between rounded-lg border bg-background p-2.5"
+                    className="text-2xl font-bold"
+                    style={{ color: feature.color }}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                        {index + 1}
-                      </span>
-                      <span className="text-sm truncate max-w-[200px] md:max-w-none">
-                        {post.preview}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Eye className="size-3" />
-                        {(post.views / 1000).toFixed(1)}K
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Heart className="size-3" />
-                        {post.likes}
-                      </span>
-                    </div>
+                    <AnimatedNumber
+                      value={feature.metric.value}
+                      suffix={feature.metric.suffix}
+                      prefix={feature.metric.prefix || ""}
+                      decimals={feature.metric.decimals || 0}
+                    />
                   </div>
-                ))}
+                  <div className="text-xs text-muted-foreground">
+                    {feature.metric.label}
+                  </div>
+                </div>
+                <div className="w-20">
+                  <MiniChart color={feature.color} />
+                </div>
               </div>
             </CardContent>
           </Card>
-        </div>
+        ))}
       </div>
 
-      {/* Decorative elements */}
-      <div className="absolute -z-10 -bottom-4 -right-4 w-72 h-72 bg-primary/5 rounded-full blur-3xl" />
-      <div className="absolute -z-10 -top-4 -left-4 w-48 h-48 bg-purple-500/5 rounded-full blur-3xl" />
+      {/* Pagination */}
+      <div className="flex items-center justify-center gap-4 mt-8">
+        <button
+          onClick={() => goToPage(currentPage - 1 < 0 ? pages.length - 1 : currentPage - 1)}
+          className="p-2 rounded-full hover:bg-muted transition-colors"
+          aria-label="上一頁"
+        >
+          <ChevronLeft className="size-5 text-muted-foreground" />
+        </button>
+
+        <div className="flex items-center gap-2">
+          {pages.map((page, i) => (
+            <button
+              key={page.id}
+              onClick={() => goToPage(i)}
+              className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                i === currentPage
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {page.title}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => goToPage((currentPage + 1) % pages.length)}
+          className="p-2 rounded-full hover:bg-muted transition-colors"
+          aria-label="下一頁"
+        >
+          <ChevronRight className="size-5 text-muted-foreground" />
+        </button>
+      </div>
+
+      {/* Subtle hint */}
+      <p className="text-center text-sm text-muted-foreground mt-6">
+        連結帳號後，即可開始追蹤你的 Threads 成效
+      </p>
     </div>
   );
 }
