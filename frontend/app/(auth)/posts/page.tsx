@@ -372,6 +372,13 @@ export default function PostsPage() {
     fetchPosts(true);
   }, [selectedAccountId, isAccountLoading, filters, sortField, sortOrder]);
 
+  // 帳號變更時關閉貼文詳情面板
+  useEffect(() => {
+    // 關閉面板，避免顯示舊帳號的貼文資料
+    setIsPanelOpen(false);
+    setSelectedPostId(null);
+  }, [selectedAccountId]);
+
   // 載入更多
   const loadMore = useCallback(() => {
     if (!isLoadingMore && hasMore && selectedAccountId) {
@@ -559,6 +566,7 @@ export default function PostsPage() {
         open={isPanelOpen}
         onOpenChange={handlePanelOpenChange}
         postId={selectedPostId}
+        selectedAccountId={selectedAccountId}
         accountTags={accountTags}
         onTagsChange={handlePostTagsChange}
         onCreateTag={handleCreateTag}

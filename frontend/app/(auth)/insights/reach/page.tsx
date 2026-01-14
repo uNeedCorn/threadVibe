@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { TrendingUp, TrendingDown, Eye, Activity, Clock, BarChart3, Users, Trophy, AlertTriangle, Flame, Snowflake, ChevronDown, ChevronLeft, ChevronRight, Zap, Rocket, Scale, BarChart2, PanelRightOpen } from "lucide-react";
-import { XAxis, YAxis, CartesianGrid, Area, AreaChart, Tooltip } from "recharts";
+import { TrendingUp, TrendingDown, Eye, Activity, Clock, BarChart3, Users, Trophy, AlertTriangle, Flame, Snowflake, ChevronDown, ChevronLeft, ChevronRight, Zap, Rocket, Scale, BarChart2, PanelRightOpen, Lightbulb, Target, Sparkles, CheckCircle2, FileText } from "lucide-react";
+import { XAxis, YAxis, CartesianGrid, Area, AreaChart, Tooltip, BarChart, Bar, Cell, LabelList } from "recharts";
 import { createClient } from "@/lib/supabase/client";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { PostDetailPanel } from "@/components/posts/post-detail-panel";
 import { cn } from "@/lib/utils";
 
 type Period = "week" | "month";
+type ViewMode = "report" | "insights";
 
 interface DailyViewsData {
   date: string;
@@ -121,6 +122,68 @@ function GrowthBadge({ value, className }: { value: number; className?: string }
   );
 }
 
+function KPICard({
+  title,
+  value,
+  growth,
+  icon,
+  isLoading,
+  format = "number",
+  periodLabel,
+  suffix,
+}: {
+  title: string;
+  value: number;
+  growth?: number;
+  icon: React.ReactNode;
+  isLoading?: boolean;
+  format?: "number" | "multiplier";
+  periodLabel: string;
+  suffix?: string;
+}) {
+  const formatValue = (v: number) => {
+    if (format === "multiplier") return `${v.toFixed(1)}x`;
+    return formatNumber(v);
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="size-4" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-8 w-24" />
+          <Skeleton className="mt-1 h-3 w-16" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        <div className="text-muted-foreground">{icon}</div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">
+          {formatValue(value)}{suffix && <span className="text-base font-normal text-muted-foreground ml-1">{suffix}</span>}
+        </div>
+        {growth !== undefined && (
+          <div className="flex items-center gap-1">
+            <GrowthBadge value={growth} />
+            {growth !== 0 && (
+              <span className="text-xs text-muted-foreground">vs {periodLabel}</span>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function formatNumber(v: number) {
   if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
   if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
@@ -198,6 +261,17 @@ function getDateRange(period: Period, offset: number = 0): { start: Date; end: D
 
     return { start, end, label };
   }
+}
+
+/**
+ * 格式化日期為 YYYY-MM-DD（本地時區）
+ * 避免 toISOString() 轉換為 UTC 造成日期偏移
+ */
+function formatDateLocal(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function LifecycleTagCard({ tag }: { tag: TagLifecycleAnalysis }) {
@@ -315,6 +389,7 @@ export default function ReachPage() {
   const { selectedAccountId } = useSelectedAccount();
   const [period, setPeriod] = useState<Period>("week");
   const [offset, setOffset] = useState(0); // 0 = 本週/本月，-1 = 上週/上月，依此類推
+  const [viewMode, setViewMode] = useState<ViewMode>("report");
   const [isLoading, setIsLoading] = useState(true);
   const [isLifecycleLoading, setIsLifecycleLoading] = useState(true);
   const [isHeatmapLoading, setIsHeatmapLoading] = useState(true);
@@ -365,8 +440,8 @@ export default function ReachPage() {
             workspace_threads_posts!inner(workspace_threads_account_id)
           `)
           .eq("workspace_threads_posts.workspace_threads_account_id", selectedAccountId)
-          .gte("bucket_date", queryStart.toISOString().split("T")[0])
-          .lte("bucket_date", currentEnd.toISOString().split("T")[0])
+          .gte("bucket_date", formatDateLocal(queryStart))
+          .lte("bucket_date", formatDateLocal(currentEnd))
           .order("bucket_date", { ascending: true });
 
         if (currentError) {
@@ -388,8 +463,8 @@ export default function ReachPage() {
             workspace_threads_posts!inner(workspace_threads_account_id)
           `)
           .eq("workspace_threads_posts.workspace_threads_account_id", selectedAccountId)
-          .gte("bucket_date", previousQueryStart.toISOString().split("T")[0])
-          .lte("bucket_date", previousEnd.toISOString().split("T")[0])
+          .gte("bucket_date", formatDateLocal(previousQueryStart))
+          .lte("bucket_date", formatDateLocal(previousEnd))
           .order("bucket_date", { ascending: true });
 
         if (previousError) {
@@ -408,7 +483,7 @@ export default function ReachPage() {
           const start = new Date(startDate);
           const end = new Date(endDate);
           for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            dailyDeltaMap.set(d.toISOString().split("T")[0], 0);
+            dailyDeltaMap.set(formatDateLocal(d), 0);
           }
 
           if (!data || data.length === 0) return dailyDeltaMap;
@@ -431,13 +506,17 @@ export default function ReachPage() {
             // 按日期排序
             records.sort((a, b) => a.date.localeCompare(b.date));
 
+            // 預先計算日期字串，用於比較（避免 Date 物件時區問題）
+            const startDateStr = formatDateLocal(startDate);
+            const endDateStr = formatDateLocal(endDate);
+
             for (let i = 0; i < records.length; i++) {
               const current = records[i];
               const prev = i > 0 ? records[i - 1] : null;
 
-              // 只計算在目標範圍內的日期
-              const currentDate = new Date(current.date);
-              if (currentDate < startDate || currentDate > endDate) continue;
+              // 只計算在目標範圍內的日期（使用字串比較避免時區問題）
+              const currentDateStr = current.date;
+              if (currentDateStr < startDateStr || currentDateStr > endDateStr) continue;
 
               // Delta = 當天 views - 前一天 views
               // 如果沒有前一天資料，delta = 當天 views（新貼文）
@@ -1022,6 +1101,20 @@ export default function ReachPage() {
         </div>
       </div>
 
+      {/* View Mode Tabs - 報告/洞察切換 */}
+      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+        <TabsList>
+          <TabsTrigger value="report" className="flex items-center gap-1.5">
+            <BarChart3 className="size-4" />
+            報告
+          </TabsTrigger>
+          <TabsTrigger value="insights" className="flex items-center gap-1.5">
+            <Lightbulb className="size-4" />
+            洞察
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* 未選擇帳號提示 */}
       {!selectedAccountId && (
         <Card>
@@ -1031,221 +1124,130 @@ export default function ReachPage() {
         </Card>
       )}
 
-      {/* 曝光趨勢圖 */}
-      {selectedAccountId && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="size-5" />
-                  曝光趨勢
-                </CardTitle>
-                <CardDescription>
-                  {(() => {
-                    const range = getDateRange(period, offset);
-                    const startLabel = `${range.start.getMonth() + 1}/${range.start.getDate()}`;
-                    const endLabel = `${range.end.getMonth() + 1}/${range.end.getDate()}`;
-                    return `${startLabel} - ${endLabel} 每日新增曝光數`;
-                  })()}
-                </CardDescription>
-              </div>
-              {!isLoading && viewsStats && (
-                <div className="text-right">
-                  <div className="text-2xl font-bold">
-                    {formatNumber(viewsStats.totalViews)}
-                  </div>
-                  <div className="flex items-center justify-end gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      vs {getDateRange(period, offset - 1).label}
-                    </span>
-                    <GrowthBadge value={viewsStats.growthRate} />
-                  </div>
+      {/* ============================================================ */}
+      {/* 報告 Tab - 基本圖表 */}
+      {/* ============================================================ */}
+      {selectedAccountId && viewMode === "report" && (
+        <>
+          {/* 曝光趨勢圖 */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="size-5" />
+                    曝光趨勢
+                  </CardTitle>
+                  <CardDescription>
+                    {(() => {
+                      const range = getDateRange(period, offset);
+                      const startLabel = `${range.start.getMonth() + 1}/${range.start.getDate()}`;
+                      const endLabel = `${range.end.getMonth() + 1}/${range.end.getDate()}`;
+                      return `${startLabel} - ${endLabel} 每日新增曝光數`;
+                    })()}
+                  </CardDescription>
                 </div>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : viewsStats && viewsStats.dailyData.length > 0 ? (
-              <ChartContainer config={chartConfig} className="h-[300px] w-full">
-                <AreaChart data={viewsStats.dailyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="viewsGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#14B8A6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#14B8A6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 12 }}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(v) => formatNumber(v)}
-                    width={50}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value) => [formatNumber(value as number), "新增曝光"]}
-                      />
-                    }
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="views"
-                    stroke="#14B8A6"
-                    strokeWidth={2}
-                    fill="url(#viewsGradient)"
-                  />
-                </AreaChart>
-              </ChartContainer>
-            ) : (
-              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                該期間內沒有曝光數據
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 內容類型生命週期分析 */}
-      {selectedAccountId && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="size-5" />
-              內容類型生命週期分析
-            </CardTitle>
-            <CardDescription>
-              分析不同標籤類型的曝光特性，了解哪種內容是爆文型或長效型
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLifecycleLoading ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                {[...Array(4)].map((_, i) => (
-                  <Skeleton key={i} className="h-36 w-full" />
-                ))}
-              </div>
-            ) : lifecycleAnalysis.length > 0 ? (
-              <div className="space-y-4">
-                {/* 前 4 名始終顯示 */}
-                <div className="grid gap-4 md:grid-cols-2">
-                  {lifecycleAnalysis.slice(0, 4).map((tag) => (
-                    <LifecycleTagCard key={tag.id} tag={tag} />
-                  ))}
-                </div>
-
-                {/* 更多標籤（折疊） */}
-                {lifecycleAnalysis.length > 4 && (
-                  <Collapsible open={isLifecycleOpen} onOpenChange={setIsLifecycleOpen}>
-                    <CollapsibleContent>
-                      <div className="grid gap-4 md:grid-cols-2 mb-4">
-                        {lifecycleAnalysis.slice(4).map((tag) => (
-                          <LifecycleTagCard key={tag.id} tag={tag} />
-                        ))}
-                      </div>
-                    </CollapsibleContent>
-                    <CollapsibleTrigger asChild>
-                      <button className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
-                        <ChevronDown className={cn(
-                          "size-4 transition-transform duration-200",
-                          isLifecycleOpen && "rotate-180"
-                        )} />
-                        {isLifecycleOpen ? "收起" : `顯示更多 (${lifecycleAnalysis.length - 4})`}
-                      </button>
-                    </CollapsibleTrigger>
-                  </Collapsible>
+                {!isLoading && viewsStats && (
+                  <div className="text-right">
+                    <div className="text-2xl font-bold">
+                      {formatNumber(viewsStats.totalViews)}
+                    </div>
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        vs {getDateRange(period, offset - 1).label}
+                      </span>
+                      <GrowthBadge value={viewsStats.growthRate} />
+                    </div>
+                  </div>
                 )}
-
-                {/* 圖例說明 */}
-                <div className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
-                  <div className="mb-2 font-medium text-foreground">類型說明</div>
-                  <div className="grid gap-2 md:grid-cols-3">
-                    <div className="flex items-center gap-1"><Zap className="size-4 text-orange-500" /> <strong>病毒型</strong>：前 24h 曝光佔比 &gt; 70%</div>
-                    <div className="flex items-center gap-1"><TrendingUp className="size-4 text-green-500" /> <strong>長青型</strong>：第 3-7 天曝光佔比 &gt; 30%</div>
-                    <div className="flex items-center gap-1"><BarChart2 className="size-4 text-gray-500" /> <strong>一般型</strong>：其他</div>
-                  </div>
-                </div>
               </div>
-            ) : (
-              <div className="flex h-48 flex-col items-center justify-center gap-2 text-muted-foreground">
-                <p>沒有標籤生命週期數據</p>
-                <p className="text-sm">請先為貼文設定標籤，系統會自動追蹤各類型內容的曝光變化</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 曝光效率指標 */}
-      {selectedAccountId && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <BarChart3 className="size-4" />
-                平均每篇曝光數
-              </CardTitle>
             </CardHeader>
             <CardContent>
-              {isHeatmapLoading ? (
-                <Skeleton className="h-12 w-32" />
-              ) : efficiencyStats ? (
-                <div>
-                  <div className="text-3xl font-bold">
-                    {formatNumber(efficiencyStats.avgViewsPerPost)}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {getDateRange(period, offset).label} {efficiencyStats.totalPosts} 篇貼文
-                  </p>
-                </div>
+              {isLoading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : viewsStats && viewsStats.dailyData.length > 0 ? (
+                <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                  <AreaChart data={viewsStats.dailyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="viewsGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#14B8A6" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#14B8A6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(v) => formatNumber(v)}
+                      width={50}
+                    />
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value) => [formatNumber(value as number), "新增曝光"]}
+                        />
+                      }
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="views"
+                      stroke="#14B8A6"
+                      strokeWidth={2}
+                      fill="url(#viewsGradient)"
+                    />
+                  </AreaChart>
+                </ChartContainer>
               ) : (
-                <div className="text-muted-foreground">無數據</div>
+                <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                  該期間內沒有曝光數據
+                </div>
               )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="size-4" />
-                曝光/粉絲比
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isHeatmapLoading ? (
-                <Skeleton className="h-12 w-32" />
-              ) : efficiencyStats ? (
-                <div>
-                  <div className="text-3xl font-bold">
-                    {efficiencyStats.viewsPerFollower.toFixed(1)}x
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {formatNumber(efficiencyStats.followersCount)} 粉絲
-                  </p>
-                </div>
-              ) : (
-                <div className="text-muted-foreground">無數據</div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+          {/* KPI 卡片區 */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <KPICard
+              title="總曝光數"
+              value={viewsStats?.totalViews || 0}
+              growth={viewsStats?.growthRate}
+              icon={<Eye className="size-4" />}
+              isLoading={isLoading}
+              periodLabel={period === "week" ? "上週" : "上月"}
+            />
+            <KPICard
+              title="曝光/粉絲比"
+              value={efficiencyStats?.viewsPerFollower || 0}
+              icon={<Users className="size-4" />}
+              isLoading={isHeatmapLoading}
+              format="multiplier"
+              periodLabel={period === "week" ? "上週" : "上月"}
+            />
+            <KPICard
+              title="平均每篇曝光"
+              value={efficiencyStats?.avgViewsPerPost || 0}
+              icon={<BarChart3 className="size-4" />}
+              isLoading={isHeatmapLoading}
+              periodLabel={period === "week" ? "上週" : "上月"}
+            />
+            <KPICard
+              title="貼文數"
+              value={efficiencyStats?.totalPosts || 0}
+              icon={<FileText className="size-4" />}
+              isLoading={isHeatmapLoading}
+              periodLabel={period === "week" ? "上週" : "上月"}
+            />
+          </div>
 
-      {/* 最佳發文時段 + 異常提醒 */}
-      {selectedAccountId && (
-        <div className="flex flex-col gap-4 md:flex-row">
           {/* 最佳發文時段熱力圖 */}
-          <Card className="md:w-1/2">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="size-5" />
@@ -1263,9 +1265,9 @@ export default function ReachPage() {
                   {/* 熱力圖 */}
                   <div className="overflow-visible">
                     <div className="min-w-[320px]">
-                      {/* 時段標題（只顯示部分小時以避免太擁擠） */}
+                      {/* 時段標題 */}
                       <div className="mb-1.5 flex">
-                        <div className="w-10" /> {/* 空白對齊 */}
+                        <div className="w-10" />
                         {HOUR_LABELS_24.map((hour) => (
                           <div
                             key={hour}
@@ -1341,202 +1343,275 @@ export default function ReachPage() {
             </CardContent>
           </Card>
 
-          {/* 異常提醒 */}
-          {anomalies.length > 0 && (
-            <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 md:w-1/2">
+          {/* 標籤曝光效果圖 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="size-5" />
+                標籤曝光效率
+              </CardTitle>
+              <CardDescription>各標籤的平均曝光數對比</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLifecycleLoading ? (
+                <Skeleton className="h-[200px] w-full" />
+              ) : lifecycleAnalysis.length > 0 ? (
+                <ChartContainer
+                  config={{ avgViews: { label: "平均曝光", color: "#14B8A6" } }}
+                  className="h-[200px] w-full"
+                >
+                  <BarChart
+                    data={[...lifecycleAnalysis].sort((a, b) => b.avgViewsPerPost - a.avgViewsPerPost).slice(0, 6)}
+                    layout="vertical"
+                    margin={{ left: 0, right: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      fontSize={10}
+                      tickFormatter={(v) => formatNumber(v)}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tickLine={false}
+                      axisLine={false}
+                      width={80}
+                      fontSize={10}
+                    />
+                    <ChartTooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.[0]) return null;
+                        const item = payload[0].payload as TagLifecycleAnalysis;
+                        return (
+                          <div className="rounded-lg border bg-background p-2 shadow-lg text-xs">
+                            <div className="font-medium mb-1">{item.name}</div>
+                            <div className="space-y-0.5">
+                              <div className="flex justify-between gap-4">
+                                <span className="text-muted-foreground">貼文數</span>
+                                <span>{item.postCount} 篇</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-muted-foreground">平均曝光</span>
+                                <span>{formatNumber(item.avgViewsPerPost)}</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-muted-foreground">類型</span>
+                                <span>
+                                  {item.lifecycleType === "viral" ? "病毒型" :
+                                   item.lifecycleType === "evergreen" ? "長青型" : "一般型"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="avgViewsPerPost" radius={[0, 4, 4, 0]}>
+                      {[...lifecycleAnalysis]
+                        .sort((a, b) => b.avgViewsPerPost - a.avgViewsPerPost)
+                        .slice(0, 6)
+                        .map((item) => (
+                          <Cell key={item.id} fill={item.color} />
+                        ))}
+                      <LabelList
+                        dataKey="avgViewsPerPost"
+                        position="right"
+                        formatter={(v: number) => formatNumber(v)}
+                        fontSize={10}
+                        className="fill-foreground"
+                      />
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              ) : (
+                <div className="flex h-[200px] items-center justify-center text-muted-foreground">
+                  尚無已標籤的貼文
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Top/Flop 榜 */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Top 5 */}
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="size-5 text-amber-600" />
-                  異常提醒
+                  <Trophy className="size-5 text-amber-500" />
+                  曝光 Top 5
                 </CardTitle>
                 <CardDescription>
-                  {getDateRange(period, offset).label}表現異常的貼文
+                  {getDateRange(period, offset).label}曝光數最高的貼文
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {anomalies.map((anomaly) => (
-                    <div
-                      key={anomaly.postId}
-                      className="flex items-center gap-3 rounded-lg border bg-background p-3"
-                    >
-                      {anomaly.type === "viral" ? (
-                        <Flame className="size-5 shrink-0 text-orange-500" />
-                      ) : (
-                        <Snowflake className="size-5 shrink-0 text-blue-500" />
-                      )}
-                      <span
-                        className={cn(
-                          "shrink-0 rounded px-2 py-0.5 text-sm font-medium",
-                          anomaly.type === "viral"
-                            ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                            : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                        )}
+                {isRankingLoading ? (
+                  <div className="space-y-3">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-14 w-full" />
+                    ))}
+                  </div>
+                ) : topPosts.length > 0 ? (
+                  <div className="space-y-2">
+                    {topPosts.map((post, index) => (
+                      <div
+                        key={post.id}
+                        className="flex items-center gap-3 rounded-lg border p-3"
                       >
-                        {anomaly.type === "viral" ? "爆文" : "低迷"}
-                      </span>
-                      <span className="shrink-0 text-sm font-medium">
-                        {formatNumber(anomaly.views)}
-                      </span>
-                      <span className="shrink-0 text-sm text-muted-foreground">
-                        ({anomaly.ratio.toFixed(1)}x)
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-                        {truncateText(anomaly.postText, 20)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 shrink-0"
-                        onClick={() => {
-                          setSelectedPostId(anomaly.postId);
-                          setIsPanelOpen(true);
-                        }}
-                      >
-                        <PanelRightOpen className="size-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                        <div
+                          className={cn(
+                            "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                            index === 0
+                              ? "bg-amber-500 text-white"
+                              : index === 1
+                                ? "bg-gray-400 text-white"
+                                : index === 2
+                                  ? "bg-amber-700 text-white"
+                                  : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm">
+                            {truncateText(post.text, 20)}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="text-sm font-medium text-green-600">
+                            {formatNumber(post.views)}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0"
+                          onClick={() => {
+                            setSelectedPostId(post.id);
+                            setIsPanelOpen(true);
+                          }}
+                        >
+                          <PanelRightOpen className="size-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex h-[200px] items-center justify-center text-muted-foreground">
+                    沒有貼文數據
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
-        </div>
+
+            {/* Flop 5 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingDown className="size-5 text-red-500" />
+                  曝光 Flop 5
+                </CardTitle>
+                <CardDescription>
+                  {getDateRange(period, offset).label}曝光數最低的貼文
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isRankingLoading ? (
+                  <div className="space-y-3">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-14 w-full" />
+                    ))}
+                  </div>
+                ) : flopPosts.length > 0 ? (
+                  <div className="space-y-2">
+                    {flopPosts.map((post, index) => (
+                      <div
+                        key={post.id}
+                        className="flex items-center gap-3 rounded-lg border p-3"
+                      >
+                        <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm">
+                            {truncateText(post.text, 20)}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="text-sm font-medium text-red-600">
+                            {formatNumber(post.views)}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0"
+                          onClick={() => {
+                            setSelectedPostId(post.id);
+                            setIsPanelOpen(true);
+                          }}
+                        >
+                          <PanelRightOpen className="size-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex h-[200px] items-center justify-center text-muted-foreground">
+                    沒有貼文數據
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
       )}
 
-      {/* Top/Flop 榜 */}
-      {selectedAccountId && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Top 5 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trophy className="size-5 text-amber-500" />
-                曝光 Top 5
-              </CardTitle>
-              <CardDescription>
-                {getDateRange(period, offset).label}曝光數最高的貼文
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isRankingLoading ? (
-                <div className="space-y-3">
-                  {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} className="h-14 w-full" />
-                  ))}
-                </div>
-              ) : topPosts.length > 0 ? (
-                <div className="space-y-2">
-                  {topPosts.map((post, index) => (
-                    <div
-                      key={post.id}
-                      className="flex items-center gap-3 rounded-lg border p-3"
-                    >
-                      <div
-                        className={cn(
-                          "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                          index === 0
-                            ? "bg-amber-500 text-white"
-                            : index === 1
-                              ? "bg-gray-400 text-white"
-                              : index === 2
-                                ? "bg-amber-700 text-white"
-                                : "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {index + 1}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm">
-                          {truncateText(post.text, 20)}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <div className="text-sm font-medium text-green-600">
-                          {formatNumber(post.views)}
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 shrink-0"
-                        onClick={() => {
-                          setSelectedPostId(post.id);
-                          setIsPanelOpen(true);
-                        }}
-                      >
-                        <PanelRightOpen className="size-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex h-[200px] items-center justify-center text-muted-foreground">
-                  沒有貼文數據
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      {/* ============================================================ */}
+      {/* 洞察 Tab - 深度分析 */}
+      {/* ============================================================ */}
+      {selectedAccountId && viewMode === "insights" && (
+        <div className="space-y-6">
+          {/* 區塊 1：曝光效率分數 */}
+          <ReachEfficiencyBlock
+            efficiencyStats={efficiencyStats}
+            viewsStats={viewsStats}
+            isLoading={isLoading || isHeatmapLoading}
+            period={period}
+            offset={offset}
+          />
 
-          {/* Flop 5 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingDown className="size-5 text-red-500" />
-                曝光 Flop 5
-              </CardTitle>
-              <CardDescription>
-                {getDateRange(period, offset).label}曝光數最低的貼文
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isRankingLoading ? (
-                <div className="space-y-3">
-                  {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} className="h-14 w-full" />
-                  ))}
-                </div>
-              ) : flopPosts.length > 0 ? (
-                <div className="space-y-2">
-                  {flopPosts.map((post, index) => (
-                    <div
-                      key={post.id}
-                      className="flex items-center gap-3 rounded-lg border p-3"
-                    >
-                      <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
-                        {index + 1}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm">
-                          {truncateText(post.text, 20)}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <div className="text-sm font-medium text-red-600">
-                          {formatNumber(post.views)}
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 shrink-0"
-                        onClick={() => {
-                          setSelectedPostId(post.id);
-                          setIsPanelOpen(true);
-                        }}
-                      >
-                        <PanelRightOpen className="size-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex h-[200px] items-center justify-center text-muted-foreground">
-                  沒有貼文數據
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* 區塊 2：內容生命週期策略 */}
+          <ContentStrategyBlock
+            lifecycleAnalysis={lifecycleAnalysis}
+            isLoading={isLifecycleLoading}
+          />
+
+          {/* 區塊 3：演算法推薦分析 */}
+          <AlgorithmAnalysisBlock
+            efficiencyStats={efficiencyStats}
+            topPosts={topPosts}
+            isLoading={isLoading || isHeatmapLoading || isRankingLoading}
+          />
+
+          {/* 區塊 4：最佳發文策略 */}
+          <PostingStrategyBlock
+            heatmapData={heatmapData}
+            lifecycleAnalysis={lifecycleAnalysis}
+            isLoading={isHeatmapLoading || isLifecycleLoading}
+          />
+
+          {/* 區塊 5：行動建議 */}
+          <ActionSuggestionsBlock
+            efficiencyStats={efficiencyStats}
+            lifecycleAnalysis={lifecycleAnalysis}
+            heatmapData={heatmapData}
+            viewsStats={viewsStats}
+            isLoading={isLoading || isHeatmapLoading || isLifecycleLoading}
+          />
         </div>
       )}
 
@@ -1545,7 +1620,654 @@ export default function ReachPage() {
         open={isPanelOpen}
         onOpenChange={setIsPanelOpen}
         postId={selectedPostId}
+        selectedAccountId={selectedAccountId}
       />
     </div>
+  );
+}
+
+// ============================================================================
+// Insights Tab Components (洞察分析)
+// ============================================================================
+
+function ReachEfficiencyBlock({
+  efficiencyStats,
+  viewsStats,
+  isLoading,
+  period,
+  offset,
+}: {
+  efficiencyStats: EfficiencyStats | null;
+  viewsStats: ViewsStats | null;
+  isLoading: boolean;
+  period: Period;
+  offset: number;
+}) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader><Skeleton className="h-5 w-40" /></CardHeader>
+        <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
+      </Card>
+    );
+  }
+
+  if (!efficiencyStats) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="size-5 text-teal-600" />
+            曝光效率
+          </CardTitle>
+          <CardDescription>我的內容觸及效率如何？</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex h-[180px] items-center justify-center text-muted-foreground">
+            尚無曝光資料
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const reachMultiplier = efficiencyStats.viewsPerFollower;
+
+  // 評級
+  let rating: { label: string; color: string; description: string };
+  if (reachMultiplier >= 5) {
+    rating = { label: "優秀", color: "text-green-600", description: "演算法大力推薦" };
+  } else if (reachMultiplier >= 2) {
+    rating = { label: "良好", color: "text-teal-600", description: "有推薦流量" };
+  } else if (reachMultiplier >= 1) {
+    rating = { label: "正常", color: "text-amber-600", description: "粉絲基本都能看到" };
+  } else {
+    rating = { label: "受限", color: "text-red-600", description: "只有部分粉絲看到" };
+  }
+
+  // 建議
+  const suggestions: string[] = [];
+  if (reachMultiplier < 1) {
+    suggestions.push("觸及率偏低，建議提升內容品質或增加互動");
+  }
+  if (viewsStats && viewsStats.growthRate < -10) {
+    suggestions.push("觸及率正在下降，檢視最近內容是否有變化");
+  }
+  if (viewsStats && viewsStats.growthRate > 10) {
+    suggestions.push("觸及率提升中，保持目前策略");
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Target className="size-5 text-teal-600" />
+          曝光效率
+        </CardTitle>
+        <CardDescription>我的內容觸及效率如何？</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-6">
+          {/* 左側：觸及倍數 */}
+          <div className="flex flex-col items-center justify-center rounded-lg bg-muted/50 p-6">
+            <div className="text-4xl font-bold">{reachMultiplier.toFixed(1)}x</div>
+            <div className="text-sm text-muted-foreground">觸及倍數</div>
+            <div className={cn("mt-1 text-sm font-medium", rating.color)}>
+              {rating.label}
+            </div>
+          </div>
+
+          {/* 右側：評級說明 */}
+          <div className="flex-1 space-y-3">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                你的貼文平均被 <span className="font-medium text-foreground">{reachMultiplier.toFixed(1)} 倍</span>粉絲數看到
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">{rating.description}</p>
+            </div>
+
+            {/* 評級參考 */}
+            <div className="rounded-lg border p-3 space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">評級參考</p>
+              <div className="grid grid-cols-2 gap-1 text-xs">
+                <div className={reachMultiplier < 1 ? "font-medium text-foreground" : "text-muted-foreground"}>
+                  {"< 1x"} 觸及受限
+                </div>
+                <div className={reachMultiplier >= 1 && reachMultiplier < 2 ? "font-medium text-foreground" : "text-muted-foreground"}>
+                  1-2x 觸及正常
+                </div>
+                <div className={reachMultiplier >= 2 && reachMultiplier < 5 ? "font-medium text-foreground" : "text-muted-foreground"}>
+                  2-5x 觸及良好
+                </div>
+                <div className={reachMultiplier >= 5 ? "font-medium text-foreground" : "text-muted-foreground"}>
+                  {"> 5x"} 演算法推薦
+                </div>
+              </div>
+            </div>
+
+            {/* 成長趨勢 */}
+            {viewsStats && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">vs {getDateRange(period, offset - 1).label}：</span>
+                <GrowthBadge value={viewsStats.growthRate} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 建議 */}
+        {suggestions.length > 0 && (
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 dark:border-teal-800 dark:bg-teal-950/30">
+            <Lightbulb className="mt-0.5 size-4 shrink-0 text-teal-600" />
+            <div className="text-sm">
+              <p className="font-medium text-foreground">{suggestions[0]}</p>
+              {suggestions.length > 1 && (
+                <p className="mt-1 text-muted-foreground">{suggestions.slice(1).join("、")}</p>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ContentStrategyBlock({
+  lifecycleAnalysis,
+  isLoading,
+}: {
+  lifecycleAnalysis: TagLifecycleAnalysis[];
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader><Skeleton className="h-5 w-40" /></CardHeader>
+        <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
+      </Card>
+    );
+  }
+
+  if (lifecycleAnalysis.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="size-5 text-teal-600" />
+            我應該專注什麼類型的內容？
+          </CardTitle>
+          <CardDescription>分析你的內容策略效果</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex h-[180px] items-center justify-center text-muted-foreground">
+            請先為貼文設定標籤以分析內容策略
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // 統計各類型
+  const viralTags = lifecycleAnalysis.filter(t => t.lifecycleType === "viral");
+  const evergreenTags = lifecycleAnalysis.filter(t => t.lifecycleType === "evergreen");
+  const normalTags = lifecycleAnalysis.filter(t => t.lifecycleType === "normal");
+
+  // 計算各類型總曝光
+  const viralViews = viralTags.reduce((sum, t) => sum + t.avgViewsPerPost * t.postCount, 0);
+  const evergreenViews = evergreenTags.reduce((sum, t) => sum + t.avgViewsPerPost * t.postCount, 0);
+  const normalViews = normalTags.reduce((sum, t) => sum + t.avgViewsPerPost * t.postCount, 0);
+  const totalViews = viralViews + evergreenViews + normalViews;
+
+  const viralRatio = totalViews > 0 ? (viralViews / totalViews) * 100 : 0;
+  const evergreenRatio = totalViews > 0 ? (evergreenViews / totalViews) * 100 : 0;
+
+  // 計算各類型平均曝光
+  const viralPostCount = viralTags.reduce((sum, t) => sum + t.postCount, 0);
+  const evergreenPostCount = evergreenTags.reduce((sum, t) => sum + t.postCount, 0);
+  const viralAvg = viralPostCount > 0 ? Math.round(viralViews / viralPostCount) : 0;
+  const evergreenAvg = evergreenPostCount > 0 ? Math.round(evergreenViews / evergreenPostCount) : 0;
+
+  // 建議
+  let suggestion = "";
+  if (viralRatio > 70) {
+    suggestion = "你的內容偏向病毒型，曝光集中在前 24 小時。建議增加長青型內容（教學、實用資訊）以維持持續流量。";
+  } else if (evergreenRatio > 50) {
+    suggestion = "你的長青型內容表現良好，持續帶來穩定曝光。可維持目前策略，適時搭配時事內容提升爆發力。";
+  } else {
+    suggestion = "你的內容策略較均衡。建議根據目標調整：追求爆發選病毒型，追求穩定選長青型。";
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Activity className="size-5 text-teal-600" />
+          我應該專注什麼類型的內容？
+        </CardTitle>
+        <CardDescription>分析你的內容策略效果</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* 病毒型 */}
+          <div className="rounded-lg border p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap className="size-5 text-orange-500" />
+              <span className="font-medium">病毒型內容</span>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">佔比</span>
+                <span className="font-medium">{viralRatio.toFixed(0)}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">平均曝光</span>
+                <span className="font-medium">{formatNumber(viralAvg)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">特點</span>
+                <span>爆發力強，衰退快</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 長青型 */}
+          <div className="rounded-lg border p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="size-5 text-green-500" />
+              <span className="font-medium">長青型內容</span>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">佔比</span>
+                <span className="font-medium">{evergreenRatio.toFixed(0)}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">平均曝光</span>
+                <span className="font-medium">{formatNumber(evergreenAvg)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">特點</span>
+                <span>持續帶來流量</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 建議 */}
+        <div className="mt-4 flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 dark:border-teal-800 dark:bg-teal-950/30">
+          <Lightbulb className="mt-0.5 size-4 shrink-0 text-teal-600" />
+          <div className="text-sm">
+            <p className="text-foreground">{suggestion}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AlgorithmAnalysisBlock({
+  efficiencyStats,
+  topPosts,
+  isLoading,
+}: {
+  efficiencyStats: EfficiencyStats | null;
+  topPosts: RankedPost[];
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader><Skeleton className="h-5 w-40" /></CardHeader>
+        <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
+      </Card>
+    );
+  }
+
+  if (!efficiencyStats || efficiencyStats.followersCount === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="size-5 text-teal-600" />
+            演算法有在推薦我的內容嗎？
+          </CardTitle>
+          <CardDescription>分析你的推薦流量比例</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex h-[180px] items-center justify-center text-muted-foreground">
+            尚無足夠數據
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // 估算推薦流量比例
+  // 假設：總曝光中超過粉絲數的部分來自推薦
+  const totalViews = efficiencyStats.avgViewsPerPost * efficiencyStats.totalPosts;
+  const ownReach = Math.min(totalViews, efficiencyStats.followersCount * efficiencyStats.totalPosts);
+  const recommendedReach = Math.max(0, totalViews - ownReach);
+  const recommendRatio = totalViews > 0 ? (recommendedReach / totalViews) * 100 : 0;
+  const ownRatio = 100 - recommendRatio;
+
+  // 分析高推薦率貼文特徵
+  const avgViews = efficiencyStats.avgViewsPerPost;
+  const highPerformPosts = topPosts.filter(p => p.views > avgViews * 1.5);
+
+  // 建議
+  let suggestion = "";
+  if (recommendRatio > 50) {
+    suggestion = "演算法正在積極推薦你的內容給非粉絲，保持目前的內容策略。";
+  } else if (recommendRatio > 20) {
+    suggestion = "你有一定的推薦流量，可嘗試更多互動式或爭議性內容來提升推薦率。";
+  } else {
+    suggestion = "你的內容主要觸及自有粉絲，建議嘗試問題式或爭議性內容來獲得演算法推薦。";
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="size-5 text-teal-600" />
+          演算法有在推薦我的內容嗎？
+        </CardTitle>
+        <CardDescription>分析你的推薦流量比例</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {/* 推薦流量比例 */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2 text-sm">
+            <span>自有觸及（粉絲）</span>
+            <span>推薦觸及（非粉絲）</span>
+          </div>
+          <div className="flex h-6 overflow-hidden rounded-full">
+            <div
+              className="bg-teal-300 flex items-center justify-center text-xs font-medium"
+              style={{ width: `${ownRatio}%` }}
+            >
+              {ownRatio > 20 && `${ownRatio.toFixed(0)}%`}
+            </div>
+            <div
+              className="bg-teal-600 flex items-center justify-center text-xs font-medium text-white"
+              style={{ width: `${recommendRatio}%` }}
+            >
+              {recommendRatio > 20 && `${recommendRatio.toFixed(0)}%`}
+            </div>
+          </div>
+        </div>
+
+        {/* 高推薦率貼文特徵 */}
+        {highPerformPosts.length > 0 && (
+          <div className="rounded-lg border p-3 mb-4">
+            <p className="text-sm font-medium mb-2">高推薦率貼文特徵</p>
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p>• 你有 {highPerformPosts.length} 篇貼文獲得高於平均的推薦</p>
+              <p>• 這些貼文的平均曝光是一般貼文的 {((highPerformPosts.reduce((s, p) => s + p.views, 0) / highPerformPosts.length) / avgViews).toFixed(1)} 倍</p>
+            </div>
+          </div>
+        )}
+
+        {/* 建議 */}
+        <div className="flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 dark:border-teal-800 dark:bg-teal-950/30">
+          <Lightbulb className="mt-0.5 size-4 shrink-0 text-teal-600" />
+          <div className="text-sm">
+            <p className="text-foreground">{suggestion}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PostingStrategyBlock({
+  heatmapData,
+  lifecycleAnalysis,
+  isLoading,
+}: {
+  heatmapData: HeatmapCell[];
+  lifecycleAnalysis: TagLifecycleAnalysis[];
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader><Skeleton className="h-5 w-40" /></CardHeader>
+        <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
+      </Card>
+    );
+  }
+
+  if (heatmapData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="size-5 text-teal-600" />
+            什麼時候發什麼內容最有效？
+          </CardTitle>
+          <CardDescription>找出你的最佳發文組合</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex h-[180px] items-center justify-center text-muted-foreground">
+            尚無足夠數據
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // 找出最佳時段
+  const sortedSlots = [...heatmapData]
+    .filter(d => d.postCount > 0)
+    .sort((a, b) => b.avgViews - a.avgViews)
+    .slice(0, 3);
+
+  // 找出最佳內容類型
+  const sortedTags = [...lifecycleAnalysis]
+    .sort((a, b) => b.avgViewsPerPost - a.avgViewsPerPost)
+    .slice(0, 3);
+
+  // 最佳組合
+  const bestSlot = sortedSlots[0];
+  const bestTag = sortedTags[0];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="size-5 text-teal-600" />
+          什麼時候發什麼內容最有效？
+        </CardTitle>
+        <CardDescription>找出你的最佳發文組合</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* 最佳發文時段 */}
+          <div className="rounded-lg border p-4">
+            <p className="text-sm font-medium mb-3">最佳發文時段</p>
+            <div className="space-y-2">
+              {sortedSlots.map((slot, index) => (
+                <div key={`${slot.dayOfWeek}-${slot.hour}`} className="flex items-center justify-between text-sm">
+                  <span>
+                    {index + 1}. {WEEKDAY_NAMES[slot.dayOfWeek]} {slot.hour}:00
+                  </span>
+                  <span className="font-medium text-teal-600">
+                    平均 {formatNumber(slot.avgViews)} 曝光
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 最佳內容類型 */}
+          <div className="rounded-lg border p-4">
+            <p className="text-sm font-medium mb-3">最佳內容類型</p>
+            {sortedTags.length > 0 ? (
+              <div className="space-y-2">
+                {sortedTags.map((tag, index) => (
+                  <div key={tag.id} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="size-3 rounded-full"
+                        style={{ backgroundColor: tag.color }}
+                      />
+                      <span>{index + 1}. {tag.name}</span>
+                    </div>
+                    <span className="font-medium text-teal-600">
+                      {formatNumber(tag.avgViewsPerPost)} 曝光
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">請先設定標籤</p>
+            )}
+          </div>
+        </div>
+
+        {/* 最佳組合建議 */}
+        {bestSlot && bestTag && (
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 dark:border-teal-800 dark:bg-teal-950/30">
+            <Lightbulb className="mt-0.5 size-4 shrink-0 text-teal-600" />
+            <div className="text-sm">
+              <p className="font-medium text-foreground">最佳組合</p>
+              <p className="mt-1 text-muted-foreground">
+                在 <span className="font-medium text-foreground">{WEEKDAY_NAMES[bestSlot.dayOfWeek]} {bestSlot.hour}:00</span> 發布
+                「<span className="font-medium text-foreground">{bestTag.name}</span>」類內容，預期可獲得最高曝光
+              </p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ActionSuggestionsBlock({
+  efficiencyStats,
+  lifecycleAnalysis,
+  heatmapData,
+  viewsStats,
+  isLoading,
+}: {
+  efficiencyStats: EfficiencyStats | null;
+  lifecycleAnalysis: TagLifecycleAnalysis[];
+  heatmapData: HeatmapCell[];
+  viewsStats: ViewsStats | null;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader><Skeleton className="h-5 w-40" /></CardHeader>
+        <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
+      </Card>
+    );
+  }
+
+  const suggestions: { title: string; reason: string; action: string; priority: "high" | "medium" | "low" }[] = [];
+
+  // 1. 觸及倍數建議
+  if (efficiencyStats) {
+    if (efficiencyStats.viewsPerFollower < 1) {
+      suggestions.push({
+        title: "提升內容觸及率",
+        reason: `你的觸及倍數只有 ${efficiencyStats.viewsPerFollower.toFixed(1)}x，低於平均水準`,
+        action: "嘗試發布更多問題式或爭議性內容，增加互動率來提升演算法推薦",
+        priority: "high",
+      });
+    }
+  }
+
+  // 2. 發文時間建議
+  if (heatmapData.length > 0) {
+    const bestSlot = [...heatmapData]
+      .filter(d => d.postCount > 0)
+      .sort((a, b) => b.avgViews - a.avgViews)[0];
+
+    if (bestSlot) {
+      suggestions.push({
+        title: "調整發文時間",
+        reason: `${WEEKDAY_NAMES[bestSlot.dayOfWeek]} ${bestSlot.hour}:00 是你的最佳發文時段`,
+        action: `將主要發文時間調整到 ${WEEKDAY_NAMES[bestSlot.dayOfWeek]} ${bestSlot.hour}:00`,
+        priority: "medium",
+      });
+    }
+  }
+
+  // 3. 內容類型建議
+  if (lifecycleAnalysis.length > 0) {
+    const bestTag = [...lifecycleAnalysis].sort((a, b) => b.avgViewsPerPost - a.avgViewsPerPost)[0];
+    const totalPosts = lifecycleAnalysis.reduce((sum, t) => sum + t.postCount, 0);
+    const bestTagRatio = (bestTag.postCount / totalPosts) * 100;
+
+    if (bestTagRatio < 30) {
+      suggestions.push({
+        title: `增加「${bestTag.name}」類內容`,
+        reason: `「${bestTag.name}」平均曝光最高，但只佔 ${bestTagRatio.toFixed(0)}% 發文`,
+        action: `將「${bestTag.name}」類內容比例提高到 30%`,
+        priority: "medium",
+      });
+    }
+  }
+
+  // 4. 成長趨勢建議
+  if (viewsStats && viewsStats.growthRate < -20) {
+    suggestions.push({
+      title: "曝光下滑警示",
+      reason: `本期曝光較上期下降 ${Math.abs(viewsStats.growthRate).toFixed(0)}%`,
+      action: "檢視最近內容策略，嘗試新的內容形式或主題",
+      priority: "high",
+    });
+  }
+
+  if (suggestions.length === 0) {
+    suggestions.push({
+      title: "保持目前策略",
+      reason: "你的曝光表現穩定",
+      action: "持續目前的內容策略，可嘗試小幅度實驗新形式",
+      priority: "low",
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CheckCircle2 className="size-5 text-teal-600" />
+          行動建議
+        </CardTitle>
+        <CardDescription>我現在該怎麼提升曝光？</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {suggestions.slice(0, 3).map((suggestion, index) => (
+            <div key={index} className="rounded-lg border p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{suggestion.title}</p>
+                    <span className={cn(
+                      "rounded-full px-2 py-0.5 text-xs",
+                      suggestion.priority === "high"
+                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        : suggestion.priority === "medium"
+                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                          : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                    )}>
+                      {suggestion.priority === "high" ? "高優先" : suggestion.priority === "medium" ? "中優先" : "低優先"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{suggestion.reason}</p>
+                  <p className="mt-2 text-sm">
+                    <span className="text-teal-600">✓</span> {suggestion.action}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

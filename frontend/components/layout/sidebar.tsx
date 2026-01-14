@@ -100,7 +100,6 @@ const mainNavItems: NavEntry[] = [
         title: "互動分析",
         href: "/insights/engagement",
         icon: MessageSquare,
-        adminOnly: true,
       },
       {
         title: "粉絲趨勢",
@@ -164,11 +163,19 @@ export function Sidebar() {
   const router = useRouter();
   const { isAdmin } = useCurrentUser();
 
+  // 客戶端掛載狀態（防止 hydration mismatch）
+  const [mounted, setMounted] = useState(false);
+
   // Sidebar 收折狀態
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // 登入者資訊
   const [user, setUser] = useState<UserProfile | null>(null);
+
+  // 確保客戶端掛載後才渲染動態內容
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     async function fetchUser() {
@@ -315,6 +322,26 @@ export function Sidebar() {
               );
             }
 
+            // 在客戶端掛載前，顯示靜態版本避免 hydration mismatch
+            if (!mounted) {
+              return (
+                <div key={item.basePath}>
+                  <div
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      isGroupActive
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    <item.icon className="size-5" />
+                    <span className="flex-1 text-left">{item.title}</span>
+                    <ChevronRight className="size-4" />
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <Collapsible
                 key={item.basePath}
@@ -442,7 +469,24 @@ export function Sidebar() {
               );
             }
 
-            // 展開模式
+            // 展開模式 - 在客戶端掛載前顯示靜態版本
+            if (!mounted) {
+              return (
+                <div
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    isGroupActive
+                      ? "text-orange-600"
+                      : "text-orange-500"
+                  )}
+                >
+                  <adminNavGroup.icon className="size-5" />
+                  <span className="flex-1 text-left">{adminNavGroup.title}</span>
+                  <ChevronRight className="size-4" />
+                </div>
+              );
+            }
+
             return (
               <Collapsible
                 open={isOpen}
@@ -494,35 +538,44 @@ export function Sidebar() {
       {/* Bottom: User + Settings */}
       <div className={cn("border-t flex items-center justify-between", isCollapsed ? "p-2" : "p-4")}>
         {/* User Menu - 左側 */}
-        <DropdownMenu>
-          <DropdownMenuTrigger className="outline-none">
-            <Avatar className={cn("cursor-pointer", isCollapsed ? "size-8" : "size-9")}>
-              <AvatarImage src={user?.avatarUrl} alt={user?.name} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                {user ? getInitials(user.name) : "U"}
-              </AvatarFallback>
-            </Avatar>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top" className="w-56">
-            <div className="px-2 py-1.5">
-              <p className="text-sm font-medium">{user?.name}</p>
-              <p className="text-xs text-muted-foreground">{user?.email}</p>
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer" disabled>
-              <User className="mr-2 size-4" />
-              個人資料
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleLogout}
-              className="cursor-pointer text-destructive focus:text-destructive"
-            >
-              <LogOut className="mr-2 size-4" />
-              登出
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {!mounted ? (
+          // 客戶端掛載前顯示靜態 Avatar
+          <Avatar className={cn("cursor-pointer", isCollapsed ? "size-8" : "size-9")}>
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+              U
+            </AvatarFallback>
+          </Avatar>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger className="outline-none">
+              <Avatar className={cn("cursor-pointer", isCollapsed ? "size-8" : "size-9")}>
+                <AvatarImage src={user?.avatarUrl} alt={user?.name} />
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                  {user ? getInitials(user.name) : "U"}
+                </AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" side="top" className="w-56">
+              <div className="px-2 py-1.5">
+                <p className="text-sm font-medium">{user?.name}</p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer" disabled>
+                <User className="mr-2 size-4" />
+                個人資料
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <LogOut className="mr-2 size-4" />
+                登出
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Settings - 右側 */}
         <Tooltip>

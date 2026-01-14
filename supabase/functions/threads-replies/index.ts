@@ -141,7 +141,12 @@ Deno.serve(async (req) => {
     const data: ThreadsRepliesResponse = await response.json();
 
     if (!response.ok || data.error) {
-      console.error('Threads API error:', data.error);
+      console.error('Threads API error:', {
+        status: response.status,
+        error: data.error,
+        postId,
+        accountId,
+      });
       return errorResponse(
         req,
         data.error?.message || 'Failed to fetch replies',
@@ -188,7 +193,10 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Threads replies error:', error);
+    console.error('Threads replies error:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return errorResponse(
       req,
       `Failed to fetch replies: ${error instanceof Error ? error.message : 'Unknown error'}`,

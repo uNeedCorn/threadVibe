@@ -32,6 +32,7 @@ interface PostDetailPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   postId: string | null;
+  selectedAccountId: string | null;
   accountTags?: AccountTag[];
   onTagsChange?: (postId: string, tags: PostTag[]) => void;
   onCreateTag?: (name: string, color: string) => Promise<AccountTag | null>;
@@ -64,6 +65,7 @@ export function PostDetailPanel({
   open,
   onOpenChange,
   postId,
+  selectedAccountId,
   accountTags = [],
   onTagsChange,
   onCreateTag,
@@ -178,8 +180,16 @@ export function PostDetailPanel({
 
   useEffect(() => {
     if (open && postId) {
+      // 先清除舊資料，避免回覆區塊使用過期的 accountId/threadsPostId
+      setPost(null);
+      setReplyToId(undefined);
+      setReplyToUsername(undefined);
+      setHasOwnerReply(false);
+      // 再載入新資料
       fetchPost();
-      // 重置狀態
+    } else if (!open) {
+      // 面板關閉時清除資料
+      setPost(null);
       setReplyToId(undefined);
       setReplyToUsername(undefined);
       setHasOwnerReply(false);
@@ -379,21 +389,23 @@ export function PostDetailPanel({
 
               <Separator />
 
-              {/* 回覆列表 */}
-              <RepliesSection
-                accountId={post.account.id}
-                postId={post.id}
-                threadsPostId={post.threads_post_id}
-                refreshTrigger={refreshTrigger}
-                activeReplyId={replyToId}
-                onRepliesLoaded={handleRepliesLoaded}
-                onReplyToReply={handleReplyToReply}
-                onCancelReplyTo={handleCancelReplyTo}
-                onReplySuccess={handleReplySuccess}
-              />
+              {/* 回覆列表（只有當貼文所屬帳號與當前選擇帳號一致時才顯示，避免帳號切換時的競態條件） */}
+              {post.account.id === selectedAccountId && (
+                <RepliesSection
+                  accountId={post.account.id}
+                  postId={post.id}
+                  threadsPostId={post.threads_post_id}
+                  refreshTrigger={refreshTrigger}
+                  activeReplyId={replyToId}
+                  onRepliesLoaded={handleRepliesLoaded}
+                  onReplyToReply={handleReplyToReply}
+                  onCancelReplyTo={handleCancelReplyTo}
+                  onReplySuccess={handleReplySuccess}
+                />
+              )}
 
-              {/* 回覆輸入（僅在未選擇特定回覆對象時顯示） */}
-              {!replyToId && (
+              {/* 回覆輸入（僅在未選擇特定回覆對象時顯示，且帳號需匹配） */}
+              {!replyToId && post.account.id === selectedAccountId && (
                 <>
                   <Separator />
                   <div className="space-y-2">

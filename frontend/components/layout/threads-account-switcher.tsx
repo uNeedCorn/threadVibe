@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,67 +11,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createClient } from "@/lib/supabase/client";
-
-interface ThreadsAccount {
-  id: string;
-  threadsUserId: string;
-  username: string;
-  profilePicUrl: string | null;
-}
+import { useSelectedAccountContext } from "@/contexts/selected-account-context";
 
 export function ThreadsAccountSwitcher() {
-  const [accounts, setAccounts] = useState<ThreadsAccount[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchAccounts() {
-      const supabase = createClient();
-      const workspaceId = localStorage.getItem("currentWorkspaceId");
-
-      if (!workspaceId) {
-        setIsLoading(false);
-        return;
-      }
-
-      const { data } = await supabase
-        .from("workspace_threads_accounts")
-        .select("id, threads_user_id, username, profile_pic_url")
-        .eq("workspace_id", workspaceId)
-        .eq("is_active", true)
-        .order("created_at", { ascending: true });
-
-      if (data && data.length > 0) {
-        const accountsList = data.map((a) => ({
-          id: a.id,
-          threadsUserId: a.threads_user_id,
-          username: a.username,
-          profilePicUrl: a.profile_pic_url,
-        }));
-        setAccounts(accountsList);
-
-        // 從 localStorage 讀取上次選擇的帳號，或使用第一個
-        const savedId = localStorage.getItem("currentThreadsAccountId");
-        const validSavedId = savedId && accountsList.some((a) => a.id === savedId);
-        const initialId = validSavedId ? savedId : accountsList[0].id;
-
-        setSelectedAccountId(initialId);
-        localStorage.setItem("currentThreadsAccountId", initialId);
-      }
-
-      setIsLoading(false);
-    }
-
-    fetchAccounts();
-  }, []);
-
-  const handleSelect = (accountId: string) => {
-    setSelectedAccountId(accountId);
-    localStorage.setItem("currentThreadsAccountId", accountId);
-    // 重新整理頁面以載入新帳號的資料
-    window.location.reload();
-  };
+  const {
+    accounts,
+    selectedAccount,
+    selectedAccountId,
+    isLoading,
+    hasMultipleAccounts,
+    switchAccount,
+  } = useSelectedAccountContext();
 
   if (isLoading) {
     return (
@@ -86,9 +35,6 @@ export function ThreadsAccountSwitcher() {
   if (accounts.length === 0) {
     return null;
   }
-
-  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
-  const hasMultipleAccounts = accounts.length > 1;
 
   // 帳號資訊顯示區塊
   const AccountInfo = () => (
@@ -138,7 +84,7 @@ export function ThreadsAccountSwitcher() {
           {accounts.map((account) => (
             <DropdownMenuItem
               key={account.id}
-              onClick={() => handleSelect(account.id)}
+              onClick={() => switchAccount(account.id)}
               className="cursor-pointer"
             >
               <div className="flex flex-1 items-center gap-2">

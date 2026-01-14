@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, MessageCircle, ExternalLink, RefreshCw, Reply, CheckCircle2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,22 @@ export function RepliesSection({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 用於追蹤請求是否應該被忽略（元件卸載或 props 變化）
+  const requestIdRef = useRef(0);
+  const isMountedRef = useRef(true);
+
+  // 追蹤元件掛載狀態
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const fetchReplies = useCallback(async () => {
+    // 遞增請求 ID，用於忽略過時的響應
+    const currentRequestId = ++requestIdRef.current;
+
     setIsLoading(true);
     setError(null);
 
@@ -62,6 +77,11 @@ export function RepliesSection({
         },
       });
 
+      // 檢查：如果元件已卸載或這不是最新的請求，忽略響應
+      if (!isMountedRef.current || currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       if (fnError) {
         throw new Error(fnError.message);
       }
@@ -76,10 +96,17 @@ export function RepliesSection({
       // 使用 API 回傳的 hasOwnerReply（已包含下鑽一層的檢查）
       onRepliesLoaded?.(repliesList.length, data.hasOwnerReply ?? false);
     } catch (err) {
+      // 檢查：如果元件已卸載或這不是最新的請求，忽略錯誤
+      if (!isMountedRef.current || currentRequestId !== requestIdRef.current) {
+        return;
+      }
       console.error("Fetch replies error:", err);
       setError(err instanceof Error ? err.message : "載入回覆失敗");
     } finally {
-      setIsLoading(false);
+      // 檢查：只有最新的請求才更新 loading 狀態
+      if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [accountId, threadsPostId, onRepliesLoaded]);
 

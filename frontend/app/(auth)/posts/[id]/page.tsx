@@ -394,6 +394,7 @@ export default function PostDetailPage() {
         open={panelOpen}
         onOpenChange={setPanelOpen}
         postId={panelPostId}
+        selectedAccountId={post.account.id}
         accountTags={accountTags}
         onCreateTag={createTag}
       />
