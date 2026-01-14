@@ -3,8 +3,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "服務條款 - Postlyzer",
-  description: "Postlyzer 服務使用條款與規範",
+  title: "Terms of Service - Postlyzer",
+  description: "Terms and conditions for using Postlyzer",
 };
 
 export default function TermsPage() {
@@ -17,145 +17,145 @@ export default function TermsPage() {
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8"
         >
           <ArrowLeft className="size-4" />
-          返回首頁
+          Back to Home
         </Link>
 
         <article className="prose prose-neutral dark:prose-invert max-w-none">
-          <h1>服務條款</h1>
+          <h1>Terms of Service</h1>
           <p className="lead">
-            最後更新日期：2025 年 1 月
+            Last updated: January 2026
           </p>
 
           <p>
-            歡迎使用 Postlyzer（以下簡稱「本服務」）。在使用本服務前，請仔細閱讀以下條款。使用本服務即表示您同意受本條款約束。
+            Welcome to Postlyzer (the &quot;Service&quot;). Please read these terms carefully before using the Service. By using the Service, you agree to be bound by these terms.
           </p>
 
-          <h2>1. 服務說明</h2>
+          <h2>1. Service Description</h2>
           <p>
-            Postlyzer 是一個 Threads 貼文成效分析平台，提供以下功能：
+            Postlyzer is a Threads post analytics platform that provides:
           </p>
           <ul>
-            <li>自動同步您的 Threads 貼文數據</li>
-            <li>追蹤貼文成效指標（觀看數、互動數等）</li>
-            <li>提供數據視覺化與分析報表</li>
-            <li>管理多個 Threads 帳號</li>
+            <li>Automatic synchronization of your Threads post data</li>
+            <li>Tracking of post performance metrics (views, engagement, etc.)</li>
+            <li>Data visualization and analytics reports</li>
+            <li>Management of multiple Threads accounts</li>
           </ul>
 
-          <h2>2. 帳號註冊與使用</h2>
-          <h3>2.1 帳號建立</h3>
+          <h2>2. Account Registration and Use</h2>
+          <h3>2.1 Account Creation</h3>
           <p>
-            您需要透過 Google 帳號登入並授權連結您的 Threads 帳號才能使用本服務。您必須提供準確、完整的資訊，並維護帳號資訊的更新。
+            You must sign in with a Google account and authorize your Threads account to use the Service. You must provide accurate and complete information and keep your account information up to date.
           </p>
 
-          <h3>2.2 帳號安全</h3>
+          <h3>2.2 Account Security</h3>
           <p>
-            您有責任維護帳號的安全性，包括保護您的登入憑證。任何透過您帳號進行的活動，無論是否經您授權，均由您負責。
+            You are responsible for maintaining the security of your account, including protecting your login credentials. You are responsible for all activities conducted through your account, whether or not authorized by you.
           </p>
 
-          <h3>2.3 帳號限制</h3>
-          <p>您不得：</p>
+          <h3>2.3 Account Restrictions</h3>
+          <p>You may not:</p>
           <ul>
-            <li>建立多個帳號以規避服務限制</li>
-            <li>與他人共享帳號</li>
-            <li>出售或轉讓您的帳號</li>
+            <li>Create multiple accounts to circumvent service limitations</li>
+            <li>Share your account with others</li>
+            <li>Sell or transfer your account</li>
           </ul>
 
-          <h2>3. 使用規範</h2>
-          <p>使用本服務時，您同意：</p>
+          <h2>3. Acceptable Use</h2>
+          <p>When using the Service, you agree to:</p>
           <ul>
-            <li>遵守所有適用法律和法規</li>
-            <li>遵守 Meta/Threads 的服務條款和使用政策</li>
-            <li>不從事任何可能損害本服務或其他用戶的行為</li>
-            <li>不嘗試存取未經授權的系統或資料</li>
-            <li>不使用自動化工具或腳本干擾服務運作</li>
+            <li>Comply with all applicable laws and regulations</li>
+            <li>Comply with Meta/Threads terms of service and usage policies</li>
+            <li>Not engage in any behavior that may harm the Service or other users</li>
+            <li>Not attempt to access unauthorized systems or data</li>
+            <li>Not use automated tools or scripts to interfere with the Service</li>
           </ul>
 
-          <h2>4. 智慧財產權</h2>
-          <h3>4.1 服務內容</h3>
+          <h2>4. Intellectual Property</h2>
+          <h3>4.1 Service Content</h3>
           <p>
-            本服務及其原創內容、功能和設計均為 Postlyzer 的財產，受著作權、商標權等智慧財產權法律保護。
+            The Service and its original content, features, and design are the property of Postlyzer and are protected by copyright, trademark, and other intellectual property laws.
           </p>
 
-          <h3>4.2 用戶內容</h3>
+          <h3>4.2 User Content</h3>
           <p>
-            您透過 Threads 產生的內容仍歸您所有。您授權本服務存取、處理和顯示這些內容，以提供服務功能。
+            Content you create on Threads remains yours. You grant the Service permission to access, process, and display this content to provide the Service functionality.
           </p>
 
-          <h2>5. 第三方服務</h2>
+          <h2>5. Third-Party Services</h2>
           <p>
-            本服務依賴 Meta/Threads API 運作。我們無法控制 Threads 的服務可用性、API 變更或政策調整。如因 Threads 端的變更導致服務受影響，我們不承擔相關責任。
+            The Service relies on the Meta/Threads API. We have no control over Threads service availability, API changes, or policy adjustments. We are not responsible for any impact to the Service caused by changes on the Threads side.
           </p>
 
-          <h2>6. 服務變更與中斷</h2>
+          <h2>6. Service Modifications and Interruptions</h2>
           <p>
-            我們保留隨時修改、暫停或終止服務（或其任何部分）的權利，無論是否事先通知。我們不對服務的任何修改、暫停或終止承擔責任。
+            We reserve the right to modify, suspend, or terminate the Service (or any part thereof) at any time, with or without notice. We are not liable for any modifications, suspension, or termination of the Service.
           </p>
 
-          <h2>7. 免責聲明</h2>
+          <h2>7. Disclaimer</h2>
           <p>
-            本服務按「現狀」和「可用性」提供，不提供任何明示或暗示的保證，包括但不限於：
+            The Service is provided &quot;as is&quot; and &quot;as available&quot; without any express or implied warranties, including but not limited to:
           </p>
           <ul>
-            <li>服務不會中斷或無錯誤</li>
-            <li>資料的準確性或完整性</li>
-            <li>服務適合特定用途</li>
+            <li>That the Service will be uninterrupted or error-free</li>
+            <li>The accuracy or completeness of data</li>
+            <li>Fitness for a particular purpose</li>
           </ul>
 
-          <h2>8. 責任限制</h2>
+          <h2>8. Limitation of Liability</h2>
           <p>
-            在法律允許的最大範圍內，Postlyzer 及其管理者、員工、合作夥伴不對以下情況承擔責任：
+            To the maximum extent permitted by law, Postlyzer and its administrators, employees, and partners shall not be liable for:
           </p>
           <ul>
-            <li>使用或無法使用本服務造成的任何損失</li>
-            <li>資料遺失或損壞</li>
-            <li>第三方服務的行為或內容</li>
-            <li>任何間接、附帶、特殊或懲罰性損害</li>
+            <li>Any loss arising from use or inability to use the Service</li>
+            <li>Loss or corruption of data</li>
+            <li>Actions or content of third-party services</li>
+            <li>Any indirect, incidental, special, or punitive damages</li>
           </ul>
 
-          <h2>9. 賠償</h2>
+          <h2>9. Indemnification</h2>
           <p>
-            您同意就因您違反本條款或使用本服務而產生的任何索賠、損失、責任、費用（包括律師費），賠償並使 Postlyzer 免受損害。
+            You agree to indemnify and hold Postlyzer harmless from any claims, losses, liabilities, and expenses (including attorney&apos;s fees) arising from your violation of these terms or use of the Service.
           </p>
 
-          <h2>10. 帳號終止</h2>
+          <h2>10. Account Termination</h2>
           <p>
-            您可以隨時刪除您的帳號。我們也保留在以下情況下暫停或終止您帳號的權利：
+            You may delete your account at any time. We also reserve the right to suspend or terminate your account in the following circumstances:
           </p>
           <ul>
-            <li>違反本服務條款</li>
-            <li>從事詐欺或非法活動</li>
-            <li>長期未使用帳號</li>
+            <li>Violation of these Terms of Service</li>
+            <li>Fraudulent or illegal activity</li>
+            <li>Prolonged account inactivity</li>
           </ul>
 
-          <h2>11. 條款變更</h2>
+          <h2>11. Changes to These Terms</h2>
           <p>
-            我們可能會不時更新本服務條款。重大變更時，我們會在服務中通知您。繼續使用本服務即表示您接受更新後的條款。
+            We may update these Terms of Service from time to time. For significant changes, we will notify you through the Service. Continued use of the Service constitutes acceptance of the updated terms.
           </p>
 
-          <h2>12. 準據法與管轄</h2>
+          <h2>12. Governing Law and Jurisdiction</h2>
           <p>
-            本條款以中華民國法律為準據法。任何因本條款或本服務產生的爭議，雙方同意以台灣台北地方法院為第一審管轄法院。
+            These terms are governed by the laws of the Republic of China (Taiwan). Any disputes arising from these terms or the Service shall be subject to the exclusive jurisdiction of the Taipei District Court, Taiwan.
           </p>
 
-          <h2>13. 一般條款</h2>
+          <h2>13. General Provisions</h2>
           <ul>
-            <li><strong>完整協議：</strong>本條款構成您與 Postlyzer 之間關於服務使用的完整協議</li>
-            <li><strong>可分割性：</strong>如本條款任何部分被認定無效或無法執行，其餘部分仍然有效</li>
-            <li><strong>棄權：</strong>未能執行本條款的任何權利不構成對該權利的放棄</li>
+            <li><strong>Entire Agreement:</strong> These terms constitute the entire agreement between you and Postlyzer regarding use of the Service</li>
+            <li><strong>Severability:</strong> If any part of these terms is found to be invalid or unenforceable, the remaining provisions remain in effect</li>
+            <li><strong>Waiver:</strong> Failure to enforce any right under these terms does not constitute a waiver of that right</li>
           </ul>
 
-          <h2>14. 聯絡我們</h2>
+          <h2>14. Contact Us</h2>
           <p>
-            如果您對本服務條款有任何疑問，請透過以下方式與我們聯繫：
+            If you have any questions about these Terms of Service, please contact us at:
           </p>
           <ul>
-            <li>電子郵件：support@postlyzer.com</li>
+            <li>Email: support@postlyzer.com</li>
           </ul>
 
           <hr />
 
           <p className="text-sm text-muted-foreground">
-            使用本服務即表示您已閱讀、理解並同意本服務條款。
+            By using the Service, you acknowledge that you have read, understood, and agree to these Terms of Service.
           </p>
         </article>
       </div>
