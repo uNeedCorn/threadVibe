@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { WaitlistModal } from "./waitlist-modal";
+import { DemoPreview } from "./demo-preview";
 
 export function HeroSection() {
   return (
@@ -59,6 +60,11 @@ export function HeroSection() {
               </a>
             </Button>
           </div>
+        </div>
+
+        {/* Demo Preview */}
+        <div className="mt-16 md:mt-20">
+          <DemoPreview />
         </div>
       </div>
     </section>
