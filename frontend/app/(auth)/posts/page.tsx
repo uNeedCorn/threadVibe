@@ -217,6 +217,9 @@ export default function PostsPage() {
       query = query.eq("media_type", filters.mediaType);
     }
 
+    // 排除轉發貼文（沒有成效數據）
+    query = query.neq("media_type", "REPOST_FACADE");
+
     // 排序
     query = query
       .order(sortField, { ascending: sortOrder === "asc" })
