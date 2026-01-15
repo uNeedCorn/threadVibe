@@ -31,6 +31,7 @@ interface ReportFiltersProps {
   filters: ReportFiltersValue;
   onFiltersChange: (filters: ReportFiltersValue) => void;
   children?: React.ReactNode;
+  hideReportType?: boolean;
 }
 
 /**
@@ -108,6 +109,7 @@ export function ReportFilters({
   filters,
   onFiltersChange,
   children,
+  hideReportType = false,
 }: ReportFiltersProps) {
   const handleChange = <K extends keyof ReportFiltersValue>(
     key: K,
@@ -134,21 +136,23 @@ export function ReportFilters({
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-4">
         {/* 報表類型 */}
-        <div className="space-y-2">
-          <Label>報表類型</Label>
-          <Select
-            value={filters.reportType}
-            onValueChange={(v) => handleChange("reportType", v as ReportType)}
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="選擇類型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="summary">彙總報表</SelectItem>
-              <SelectItem value="detail">明細報表</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {!hideReportType && (
+          <div className="space-y-2">
+            <Label>報表類型</Label>
+            <Select
+              value={filters.reportType}
+              onValueChange={(v) => handleChange("reportType", v as ReportType)}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="選擇類型" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="summary">彙總報表</SelectItem>
+                <SelectItem value="detail">明細報表</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* 時間範圍 */}
         <div className="space-y-2">

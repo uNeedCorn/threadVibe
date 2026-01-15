@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { FileSpreadsheet, Download, Loader2, Search } from "lucide-react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { FileSpreadsheet, FileText, Download, Loader2, Search, Image as ImageIcon, Eye, BookOpen } from "lucide-react";
+import { toPng } from "html-to-image";
+import { jsPDF } from "jspdf";
 import { createClient } from "@/lib/supabase/client";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +21,17 @@ import {
   ReportFilters,
   getDateRange,
   type ReportFiltersValue,
+  SummaryCardExport,
+  ThemeSelector,
+  type ReportTheme,
+  Page1Summary,
+  Page2Trend,
+  Page3Posts,
+  Page4Categories,
+  Page5TimeAnalysis,
 } from "@/components/reports";
+import { useReportData } from "@/hooks/use-report-data";
+import { useFullReportData } from "@/hooks/use-full-report-data";
 import {
   generateAndDownloadCsv,
   formatDate,
@@ -108,10 +120,37 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 預覽資料
+  // 預覽資料 (CSV)
   const [summaryData, setSummaryData] = useState<SummaryRow[] | null>(null);
   const [detailData, setDetailData] = useState<DetailRow[] | null>(null);
   const [dateRangeStr, setDateRangeStr] = useState<string>("");
+
+  // 圖片匯出相關
+  const [theme, setTheme] = useState<ReportTheme>("default");
+  const [customColor, setCustomColor] = useState<string>();
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const { data: imageReportData, isLoading: isImageLoading, error: imageError, fetchData: fetchImageData } = useReportData();
+
+  // 完整報表相關
+  const [showFullReport, setShowFullReport] = useState(false);
+  const [isFullExporting, setIsFullExporting] = useState(false);
+  const fullPage1Ref = useRef<HTMLDivElement>(null);
+  const fullPage2Ref = useRef<HTMLDivElement>(null);
+  const fullPage3Ref = useRef<HTMLDivElement>(null);
+  const fullPage4Ref = useRef<HTMLDivElement>(null);
+  const fullPage5Ref = useRef<HTMLDivElement>(null);
+  const { data: fullReportData, isLoading: isFullLoading, error: fullReportError, fetchData: fetchFullReportData } = useFullReportData();
+
+  // 切換帳號時清空預覽
+  useEffect(() => {
+    setShowImagePreview(false);
+    setShowFullReport(false);
+    setSummaryData(null);
+    setDetailData(null);
+    setError(null);
+  }, [selectedAccountId]);
 
   // 產生報表
   const handleGenerate = useCallback(async () => {
@@ -162,27 +201,442 @@ export default function ReportsPage() {
     }
   }, [filters.reportType, summaryData, detailData, dateRangeStr]);
 
+  // 產生圖片報表預覽
+  const handleGenerateImage = useCallback(async () => {
+    if (!selectedAccountId) {
+      setError("請先選擇 Threads 帳號");
+      return;
+    }
+
+    const { start, end } = getDateRange(
+      filters.timeRange,
+      filters.customStartDate,
+      filters.customEndDate
+    );
+
+    await fetchImageData(selectedAccountId, start, end);
+    setShowImagePreview(true);
+  }, [selectedAccountId, filters, fetchImageData]);
+
+  // 下載 PNG
+  const handleDownloadImage = useCallback(async () => {
+    if (!exportRef.current || !imageReportData) return;
+
+    setIsExporting(true);
+    try {
+      const dataUrl = await toPng(exportRef.current, {
+        width: 1920,
+        height: 1080,
+        backgroundColor: "#F8FAFC",
+        pixelRatio: 1,
+        skipFonts: true,
+      });
+
+      const link = document.createElement("a");
+      link.download = `成效報告_${imageReportData.accountUsername}_${formatDate(imageReportData.periodStart)}_${formatDate(imageReportData.periodEnd)}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Export image error:", err);
+      setError("匯出圖片失敗，請稍後再試");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [imageReportData]);
+
+  // 下載 PDF
+  const handleDownloadPdf = useCallback(async () => {
+    if (!exportRef.current || !imageReportData) return;
+
+    setIsExporting(true);
+    try {
+      const dataUrl = await toPng(exportRef.current, {
+        width: 1920,
+        height: 1080,
+        backgroundColor: "#F8FAFC",
+        pixelRatio: 2, // 提高解析度讓 PDF 更清晰
+        skipFonts: true,
+      });
+
+      // 建立 PDF (A4 橫向，但使用 16:9 比例)
+      // 1920x1080 = 16:9 比例
+      // A4 橫向: 297mm x 210mm
+      // 使用自訂尺寸以保持 16:9 比例
+      const pdfWidth = 297; // mm
+      const pdfHeight = (pdfWidth * 9) / 16; // 167.0625mm
+
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: [pdfWidth, pdfHeight],
+      });
+
+      pdf.addImage(dataUrl, "PNG", 0, 0, pdfWidth, pdfHeight);
+
+      const filename = `成效報告_${imageReportData.accountUsername}_${formatDate(imageReportData.periodStart)}_${formatDate(imageReportData.periodEnd)}.pdf`;
+      pdf.save(filename);
+    } catch (err) {
+      console.error("Export PDF error:", err);
+      setError("匯出 PDF 失敗，請稍後再試");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [imageReportData]);
+
+  // 主題變更
+  const handleThemeChange = useCallback((newTheme: ReportTheme, newCustomColor?: string) => {
+    setTheme(newTheme);
+    if (newCustomColor) {
+      setCustomColor(newCustomColor);
+    }
+  }, []);
+
+  // 產生完整報表預覽
+  const handleGenerateFullReport = useCallback(async () => {
+    if (!selectedAccountId) {
+      setError("請先選擇 Threads 帳號");
+      return;
+    }
+
+    const { start, end } = getDateRange(
+      filters.timeRange,
+      filters.customStartDate,
+      filters.customEndDate
+    );
+
+    await fetchFullReportData(selectedAccountId, start, end);
+    setShowFullReport(true);
+  }, [selectedAccountId, filters, fetchFullReportData]);
+
+  // 下載完整報表 PDF
+  const handleDownloadFullPdf = useCallback(async () => {
+    if (!fullReportData) return;
+
+    const pageRefs = [fullPage1Ref, fullPage2Ref, fullPage3Ref, fullPage4Ref, fullPage5Ref];
+    const validRefs = pageRefs.filter((ref) => ref.current !== null);
+
+    if (validRefs.length === 0) return;
+
+    setIsFullExporting(true);
+    try {
+      const pdfWidth = 297; // mm
+      const pdfHeight = (pdfWidth * 9) / 16; // 167.0625mm
+
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: [pdfWidth, pdfHeight],
+      });
+
+      for (let i = 0; i < validRefs.length; i++) {
+        const ref = validRefs[i];
+        if (!ref.current) continue;
+
+        const dataUrl = await toPng(ref.current, {
+          width: 1920,
+          height: 1080,
+          backgroundColor: "#F8FAFC",
+          pixelRatio: 2,
+          skipFonts: true,
+        });
+
+        if (i > 0) {
+          pdf.addPage([pdfWidth, pdfHeight], "landscape");
+        }
+
+        pdf.addImage(dataUrl, "PNG", 0, 0, pdfWidth, pdfHeight);
+      }
+
+      const filename = `完整報告_${fullReportData.accountUsername}_${formatDate(fullReportData.periodStart)}_${formatDate(fullReportData.periodEnd)}.pdf`;
+      pdf.save(filename);
+    } catch (err) {
+      console.error("Export full PDF error:", err);
+      setError("匯出完整報告失敗，請稍後再試");
+    } finally {
+      setIsFullExporting(false);
+    }
+  }, [fullReportData]);
+
   const hasPreviewData = summaryData !== null || detailData !== null;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">報表下載</h1>
+        <h1 className="text-2xl font-bold">報表匯出</h1>
         <p className="text-muted-foreground">
-          下載週報、月報數據，支援彙總報表和明細報表
+          匯出成效報告，支援 PNG 圖片和 CSV 數據
         </p>
       </div>
 
-      {/* 篩選器 */}
+      {/* 沒有選擇帳號的提示 */}
+      {!selectedAccountId && (
+        <Alert>
+          <AlertDescription>
+            請先在左側選單選擇一個 Threads 帳號
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* 圖片報表 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ImageIcon className="size-5" />
+            成效摘要圖
+          </CardTitle>
+          <CardDescription>
+            產生精美的單頁成效報告圖片 (1920×1080)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <ReportFilters
+              filters={{ ...filters, reportType: "summary" }}
+              onFiltersChange={(f) => setFilters({ ...f, reportType: filters.reportType })}
+              hideReportType
+            />
+            <ThemeSelector
+              value={theme}
+              customColor={customColor}
+              onChange={handleThemeChange}
+            />
+            <Button
+              onClick={handleGenerateImage}
+              disabled={isImageLoading || !selectedAccountId}
+            >
+              {isImageLoading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  產生中...
+                </>
+              ) : (
+                <>
+                  <Eye className="mr-2 size-4" />
+                  預覽
+                </>
+              )}
+            </Button>
+            {showImagePreview && imageReportData && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadImage}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      匯出中...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 size-4" />
+                      下載 PNG
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadPdf}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      匯出中...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="mr-2 size-4" />
+                      下載 PDF
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* 圖片錯誤提示 */}
+          {imageError && (
+            <Alert variant="destructive">
+              <AlertDescription>{imageError}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* 圖片預覽 */}
+          {showImagePreview && imageReportData && (
+            <div className="mt-4">
+              <p className="mb-2 text-sm text-muted-foreground">
+                預覽（縮小顯示，實際匯出為 1920x1080）
+              </p>
+              <div className="overflow-hidden rounded-lg border bg-muted/50" style={{ height: "378px" }}>
+                <div className="origin-top-left scale-[0.35]" style={{ width: "1920px", height: "1080px" }}>
+                  <SummaryCardExport
+                    data={imageReportData}
+                    theme={theme}
+                    customColor={customColor}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 隱藏的全尺寸匯出元件 - 使用 iframe 隔離 CSS */}
+          {showImagePreview && imageReportData && (
+            <div
+              id="export-container"
+              style={{
+                position: "fixed",
+                left: "-9999px",
+                top: 0,
+                width: "1920px",
+                height: "1080px",
+                backgroundColor: "#F8FAFC",
+                overflow: "hidden",
+                // 重設所有 CSS 變數避免 lab() 色彩
+                colorScheme: "light",
+              }}
+            >
+              <SummaryCardExport
+                ref={exportRef}
+                data={imageReportData}
+                theme={theme}
+                customColor={customColor}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 完整報表 PDF */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="size-5" />
+            完整報表 PDF
+          </CardTitle>
+          <CardDescription>
+            產生 5 頁完整成效報告：摘要、趨勢、貼文排行、分類分析、時段分析
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <ReportFilters
+              filters={{ ...filters, reportType: "summary" }}
+              onFiltersChange={(f) => setFilters({ ...f, reportType: filters.reportType })}
+              hideReportType
+            />
+            <Button
+              onClick={handleGenerateFullReport}
+              disabled={isFullLoading || !selectedAccountId}
+            >
+              {isFullLoading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  產生中...
+                </>
+              ) : (
+                <>
+                  <Eye className="mr-2 size-4" />
+                  預覽
+                </>
+              )}
+            </Button>
+            {showFullReport && fullReportData && (
+              <Button
+                variant="outline"
+                onClick={handleDownloadFullPdf}
+                disabled={isFullExporting}
+              >
+                {isFullExporting ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    匯出中...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="mr-2 size-4" />
+                    下載完整 PDF
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+
+          {/* 完整報表錯誤提示 */}
+          {fullReportError && (
+            <Alert variant="destructive">
+              <AlertDescription>{fullReportError}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* 完整報表預覽 */}
+          {showFullReport && fullReportData && (
+            <div className="mt-4 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                預覽（縮小顯示，共 5 頁）
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  { title: "第 1 頁：摘要", component: <Page1Summary data={fullReportData} /> },
+                  { title: "第 2 頁：趨勢", component: <Page2Trend data={fullReportData} /> },
+                  { title: "第 3 頁：貼文", component: <Page3Posts data={fullReportData} /> },
+                  { title: "第 4 頁：分類", component: <Page4Categories data={fullReportData} /> },
+                  { title: "第 5 頁：時段", component: <Page5TimeAnalysis data={fullReportData} /> },
+                ].map((page, idx) => (
+                  <div key={idx} className="space-y-2">
+                    <p className="text-xs text-muted-foreground">{page.title}</p>
+                    <div className="overflow-hidden rounded-lg border bg-muted/50" style={{ height: "180px" }}>
+                      <div className="origin-top-left scale-[0.167]" style={{ width: "1920px", height: "1080px" }}>
+                        {page.component}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 隱藏的完整報表匯出元件 */}
+          {showFullReport && fullReportData && (
+            <div
+              style={{
+                position: "fixed",
+                left: "-9999px",
+                top: 0,
+                colorScheme: "light",
+              }}
+            >
+              <div style={{ width: "1920px", height: "1080px", backgroundColor: "#F8FAFC" }}>
+                <Page1Summary ref={fullPage1Ref} data={fullReportData} />
+              </div>
+              <div style={{ width: "1920px", height: "1080px", backgroundColor: "#F8FAFC" }}>
+                <Page2Trend ref={fullPage2Ref} data={fullReportData} />
+              </div>
+              <div style={{ width: "1920px", height: "1080px", backgroundColor: "#F8FAFC" }}>
+                <Page3Posts ref={fullPage3Ref} data={fullReportData} />
+              </div>
+              <div style={{ width: "1920px", height: "1080px", backgroundColor: "#F8FAFC" }}>
+                <Page4Categories ref={fullPage4Ref} data={fullReportData} />
+              </div>
+              <div style={{ width: "1920px", height: "1080px", backgroundColor: "#F8FAFC" }}>
+                <Page5TimeAnalysis ref={fullPage5Ref} data={fullReportData} />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* CSV 報表 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileSpreadsheet className="size-5" />
-            報表設定
+            CSV 數據匯出
           </CardTitle>
           <CardDescription>
-            選擇時間範圍和報表類型
+            下載彙總或明細數據，方便進一步分析
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -219,15 +673,6 @@ export default function ReportsPage() {
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* 沒有選擇帳號的提示 */}
-      {!selectedAccountId && (
-        <Alert>
-          <AlertDescription>
-            請先在左側選單選擇一個 Threads 帳號
-          </AlertDescription>
         </Alert>
       )}
 
