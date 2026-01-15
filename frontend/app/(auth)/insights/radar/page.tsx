@@ -13,8 +13,13 @@ import {
   Zap,
   Clock,
   TrendingUp,
+  TrendingDown,
   Filter,
   ArrowUpDown,
+  Rocket,
+  Sparkles,
+  Lightbulb,
+  BarChart3,
 } from "lucide-react";
 import {
   LineChart,
@@ -222,46 +227,63 @@ function formatRelativeTime(minutes: number): string {
 
 // ============ Components ============
 
+// 簡化標籤配置（v2 新增）
+const VIRALITY_CONFIG = {
+  viral: {
+    label: "爆紅中",
+    percentile: "前 1%",
+    description: "正在病毒式傳播！",
+    className: "bg-destructive text-white",
+    icon: Flame,
+  },
+  excellent: {
+    label: "表現優異",
+    percentile: "前 10%",
+    description: "超越 90% 的貼文",
+    className: "bg-warning text-white",
+    icon: Star,
+  },
+  good: {
+    label: "表現良好",
+    percentile: "前 50%",
+    description: "優於平均水準",
+    className: "bg-primary text-white",
+    icon: TrendingUp,
+  },
+  normal: {
+    label: "正常發揮",
+    percentile: "平均",
+    description: "穩定累積中",
+    className: "bg-muted text-muted-foreground",
+    icon: null,
+  },
+};
+
 function ViralityBadge({
   score,
   level,
+  showPercentile = false,
 }: {
   score: number;
   level: ViralityLevel;
+  showPercentile?: boolean;
 }) {
-  const config = {
-    viral: {
-      label: "爆紅中",
-      className: "bg-destructive text-white",
-      icon: Flame,
-    },
-    excellent: {
-      label: "表現優異",
-      className: "bg-warning text-white",
-      icon: Star,
-    },
-    good: {
-      label: "表現良好",
-      className: "bg-primary text-white",
-      icon: TrendingUp,
-    },
-    normal: {
-      label: "",
-      className: "bg-muted text-muted-foreground",
-      icon: null,
-    },
-  };
-
-  const { label, className, icon: Icon } = config[level];
+  const config = VIRALITY_CONFIG[level];
+  const { label, percentile, className, icon: Icon } = config;
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="font-mono font-medium">{score.toFixed(1)}</span>
-      {level !== "normal" && (
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon className="size-4" style={{ color: level === "viral" ? "#ef4444" : level === "excellent" ? "#f59e0b" : level === "good" ? "#14b8a6" : "#a1a1aa" }} />}
+        <span className="font-mono font-medium">{score.toFixed(1)}</span>
         <Badge className={cn("gap-1", className)}>
-          {Icon && <Icon className="size-3" />}
           {label}
         </Badge>
+      </div>
+      {showPercentile && (
+        <span className="text-[10px] text-muted-foreground ml-6">
+          {percentile}
+        </span>
       )}
     </div>
   );
@@ -293,51 +315,79 @@ function MiniTrendChart({ data }: { data: TrendPoint[] }) {
   );
 }
 
-// 擴散動態狀態圖示
-function DiffusionStatusIcon({ diffusion }: { diffusion: DiffusionMetrics | null }) {
+// 擴散動態配置（v2 增強）
+const DIFFUSION_CONFIG = {
+  accelerating: {
+    icon: Rocket,
+    label: "正在擴散",
+    description: "觸及人數持續增加中",
+    hint: "可考慮加碼推廣",
+    className: "text-destructive",
+    bgClassName: "bg-destructive/10",
+  },
+  stable: {
+    icon: Sparkles,
+    label: "穩定傳播",
+    description: "保持穩定的曝光速度",
+    hint: "持續觀察",
+    className: "text-warning",
+    bgClassName: "bg-warning/10",
+  },
+  decelerating: {
+    icon: TrendingDown,
+    label: "熱度趨緩",
+    description: "已過高峰，自然衰退",
+    hint: "正常現象",
+    className: "text-muted-foreground",
+    bgClassName: "bg-muted",
+  },
+};
+
+// 擴散動態狀態圖示（v2 增強版）
+function DiffusionStatusIcon({
+  diffusion,
+  showDescription = false,
+}: {
+  diffusion: DiffusionMetrics | null;
+  showDescription?: boolean;
+}) {
   if (!diffusion) {
     return (
-      <span
-        className="text-muted-foreground text-xs cursor-help"
-        title="需要至少 45 分鐘的數據才能計算擴散動態"
-      >
-        <Clock className="inline size-3 mr-0.5" />
-        累積中
-      </span>
+      <div className="flex flex-col gap-0.5">
+        <span
+          className="text-muted-foreground text-xs cursor-help flex items-center gap-1"
+          title="需要至少 45 分鐘的數據才能計算擴散動態"
+        >
+          <Clock className="size-3" />
+          <span>數據累積中</span>
+        </span>
+        {showDescription && (
+          <span className="text-[10px] text-muted-foreground/70">
+            約需 45 分鐘
+          </span>
+        )}
+      </div>
     );
   }
 
-  const config = {
-    accelerating: {
-      icon: "🔥",
-      label: "加速擴散",
-      tooltip: "擴散加速中（病毒式傳播）",
-      className: "text-destructive",
-    },
-    stable: {
-      icon: "✨",
-      label: "穩定傳播",
-      tooltip: "擴散穩定",
-      className: "text-warning",
-    },
-    decelerating: {
-      icon: "💤",
-      label: "熱度趨緩",
-      tooltip: "熱度趨緩（衰退/消退中）",
-      className: "text-muted-foreground",
-    },
-  };
-
-  const { icon, label, tooltip, className } = config[diffusion.status];
+  const config = DIFFUSION_CONFIG[diffusion.status];
+  const { icon: Icon, label, description, className } = config;
 
   return (
-    <span
-      className={cn("cursor-default flex items-center gap-0.5 text-xs", className)}
-      title={`${tooltip} (擴散指數 ${diffusion.rHat})`}
-    >
-      <span>{icon}</span>
-      <span>{label}</span>
-    </span>
+    <div className="flex flex-col gap-0.5">
+      <span
+        className={cn("cursor-default flex items-center gap-1 text-xs font-medium", className)}
+        title={`${description} (擴散指數 ${diffusion.rHat.toFixed(2)})`}
+      >
+        <Icon className="size-3" />
+        <span>{label}</span>
+      </span>
+      {showDescription && (
+        <span className="text-[10px] text-muted-foreground">
+          {description}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -1648,6 +1698,168 @@ function SummaryCard({
   );
 }
 
+// ============ 行動建議系統（v2 新增）============
+
+type ActionSuggestionType = "urgent" | "recommended" | "tip" | "info" | null;
+
+interface ActionSuggestion {
+  type: ActionSuggestionType;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  actions: string[];
+}
+
+// 根據貼文狀態計算行動建議
+function getActionSuggestion(post: TrackingPost): ActionSuggestion | null {
+  const { viralityLevel, timeStatus, diffusion } = post;
+  const diffusionStatus = diffusion?.status;
+
+  // P0: viral + golden 或 viral + accelerating
+  if (viralityLevel === "viral") {
+    if (timeStatus === "golden" || diffusionStatus === "accelerating") {
+      return {
+        type: "urgent",
+        icon: Flame,
+        title: "立即行動",
+        description: "這則貼文正在爆紅中！",
+        actions: [
+          "立即回覆留言，增加互動深度",
+          "考慮付費推廣，放大觸及效果",
+          "準備相關的後續內容",
+        ],
+      };
+    }
+  }
+
+  // P1: excellent + golden 或 excellent + accelerating
+  if (viralityLevel === "excellent") {
+    if (timeStatus === "golden") {
+      return {
+        type: "recommended",
+        icon: Star,
+        title: "把握黃金期",
+        description: "表現優異！趁黃金期多互動，有機會進一步爆發",
+        actions: [
+          "回覆留言增加互動率",
+          "觀察接下來 30 分鐘的變化",
+        ],
+      };
+    }
+    if (diffusionStatus === "accelerating") {
+      return {
+        type: "recommended",
+        icon: Rocket,
+        title: "建議推廣",
+        description: "貼文正在加速擴散，是推廣的好時機",
+        actions: [
+          "考慮付費推廣放大效果",
+          "回覆留言增加互動率",
+        ],
+      };
+    }
+  }
+
+  // P2: good + golden
+  if (viralityLevel === "good" && timeStatus === "golden") {
+    return {
+      type: "tip",
+      icon: Lightbulb,
+      title: "持續觀察",
+      description: "表現良好，關注接下來的數據變化",
+      actions: [],
+    };
+  }
+
+  // P3: decelerating（任何等級）
+  if (diffusionStatus === "decelerating" && viralityLevel !== "normal") {
+    return {
+      type: "info",
+      icon: BarChart3,
+      title: "正常衰退",
+      description: "熱度趨緩是自然現象，貼文已完成主要傳播週期",
+      actions: [],
+    };
+  }
+
+  return null;
+}
+
+// 行動建議卡片元件
+function ActionSuggestionCard({ suggestion }: { suggestion: ActionSuggestion }) {
+  const typeConfig = {
+    urgent: {
+      className: "bg-destructive/10 border-destructive/30 text-destructive",
+      titleClassName: "text-destructive font-semibold",
+    },
+    recommended: {
+      className: "bg-warning/10 border-warning/30 text-warning-foreground",
+      titleClassName: "text-warning font-semibold",
+    },
+    tip: {
+      className: "bg-primary/10 border-primary/30 text-primary-foreground",
+      titleClassName: "text-primary font-medium",
+    },
+    info: {
+      className: "bg-muted border-border text-muted-foreground",
+      titleClassName: "text-muted-foreground font-medium",
+    },
+  };
+
+  const config = typeConfig[suggestion.type || "info"];
+
+  const Icon = suggestion.icon;
+
+  return (
+    <div className={cn("rounded-lg border p-3 mt-2", config.className)}>
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="size-4" />
+        <span className={cn("text-sm", config.titleClassName)}>
+          {suggestion.title}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground mb-2">
+        {suggestion.description}
+      </p>
+      {suggestion.actions.length > 0 && (
+        <ul className="text-xs space-y-1">
+          {suggestion.actions.map((action, i) => (
+            <li key={i} className="flex items-start gap-1.5">
+              <span className="text-muted-foreground">•</span>
+              <span>{action}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// 內嵌式行動建議（用於表格）
+function InlineActionBadge({ suggestion }: { suggestion: ActionSuggestion | null }) {
+  if (!suggestion) return <span className="text-xs text-muted-foreground">—</span>;
+
+  const typeConfig = {
+    urgent: "bg-destructive/20 text-destructive border-destructive/30",
+    recommended: "bg-warning/20 text-warning border-warning/30",
+    tip: "bg-primary/20 text-primary border-primary/30",
+    info: "bg-muted text-muted-foreground border-border",
+  };
+
+  const Icon = suggestion.icon;
+
+  return (
+    <Badge
+      variant="outline"
+      className={cn("text-[10px] gap-1", typeConfig[suggestion.type || "info"])}
+      title={suggestion.description}
+    >
+      <Icon className="size-3" />
+      <span>{suggestion.title}</span>
+    </Badge>
+  );
+}
+
 function AlertBanner({ alerts, onDismiss }: { alerts: PageAlert[]; onDismiss: (id: string) => void }) {
   if (alerts.length === 0) return null;
 
@@ -1715,9 +1927,10 @@ function PostsTable({
                 <TableHead className="w-24">發布時間</TableHead>
                 <TableHead className="w-20 text-right">曝光</TableHead>
                 <TableHead className="w-36">互動</TableHead>
-                <TableHead className="w-32">傳播力</TableHead>
-                <TableHead className="w-20 text-center" title="擴散動態：需累積約 45 分鐘數據">擴散</TableHead>
-                <TableHead className="w-28">趨勢</TableHead>
+                <TableHead className="w-40">傳播力</TableHead>
+                <TableHead className="w-28">擴散動態</TableHead>
+                <TableHead className="w-24">建議</TableHead>
+                <TableHead className="w-24">趨勢</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1728,9 +1941,10 @@ function PostsTable({
                   <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-12" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-28" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-20" /></TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -1765,13 +1979,16 @@ function PostsTable({
               <TableHead className="w-24">發布時間</TableHead>
               <TableHead className="w-20 text-right">曝光</TableHead>
               <TableHead className="w-36">互動</TableHead>
-              <TableHead className="w-32">傳播力</TableHead>
-              <TableHead className="w-20 text-center" title="擴散動態：需累積約 45 分鐘數據">擴散</TableHead>
-              <TableHead className="w-28">趨勢</TableHead>
+              <TableHead className="w-40">傳播力</TableHead>
+              <TableHead className="w-28">擴散動態</TableHead>
+              <TableHead className="w-24">建議</TableHead>
+              <TableHead className="w-24">趨勢</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {posts.map((post) => (
+            {posts.map((post) => {
+              const suggestion = getActionSuggestion(post);
+              return (
               <TableRow
                 key={post.id}
                 className={cn(
@@ -1835,16 +2052,21 @@ function PostsTable({
                   <ViralityBadge
                     score={post.viralityScore}
                     level={post.viralityLevel}
+                    showPercentile
                   />
                 </TableCell>
-                <TableCell className="text-center">
-                  <DiffusionStatusIcon diffusion={post.diffusion} />
+                <TableCell>
+                  <DiffusionStatusIcon diffusion={post.diffusion} showDescription />
+                </TableCell>
+                <TableCell>
+                  <InlineActionBadge suggestion={suggestion} />
                 </TableCell>
                 <TableCell>
                   <MiniTrendChart data={post.trend} />
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
       </CardContent>
@@ -1871,15 +2093,18 @@ export default function RadarPage() {
   const [sortBy, setSortBy] = useState<SortOption>("latest");
   const [filterBy, setFilterBy] = useState<FilterOption>("all");
   const [hasNoAccounts, setHasNoAccounts] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(() => {
-    // 從 localStorage 讀取，預設不開啟
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("radar-auto-refresh") === "true";
-    }
-    return false;
-  });
+  // 初始值固定為 false，避免 hydration mismatch
+  const [autoRefresh, setAutoRefresh] = useState(false);
   // Live timer: 追蹤上次刷新後的秒數
   const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
+
+  // 從 localStorage 讀取自動同步狀態（客戶端）
+  useEffect(() => {
+    const saved = localStorage.getItem("radar-auto-refresh");
+    if (saved === "true") {
+      setAutoRefresh(true);
+    }
+  }, []);
 
   // 儲存自動同步狀態到 localStorage
   useEffect(() => {
