@@ -11,6 +11,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import {
+  TEAL_SHADES,
+  CHART_COLORS,
+  SEMANTIC_COLORS,
+  STONE,
+  getTealShadeColor,
+} from "@/lib/design-tokens";
 
 type Period = "week" | "month";
 
@@ -106,23 +113,13 @@ const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 // 時段標籤（顯示關鍵時間點）
 const HOUR_LABELS_24 = [0, 6, 12, 18];
 
-// Zenivy Teal 色階（從深到淺）
-const TEAL_SHADES = [
-  "#0F766E", // Teal 700 - 最深
-  "#0D9488", // Teal 600
-  "#14B8A6", // Teal 500 - 主色
-  "#2DD4BF", // Teal 400
-  "#5EEAD4", // Teal 300
-  "#99F6E4", // Teal 200
-  "#CCFBF1", // Teal 100
-  "#F0FDFA", // Teal 50 - 最淺
-];
+// TEAL_SHADES 已從 design-tokens 導入
 
-// 圖表配置 - 使用系統主色
+// 圖表配置 - 使用 design-tokens
 const postCountChartConfig: ChartConfig = {
   count: {
     label: "發文數",
-    color: "#14B8A6",
+    color: CHART_COLORS.chart1,
   },
 };
 
@@ -135,15 +132,15 @@ const tagViewsChartConfig: ChartConfig = {
 const trendChartConfig: ChartConfig = {
   views: {
     label: "曝光數",
-    color: "#14B8A6", // Teal 500
+    color: CHART_COLORS.chart1,
   },
   interactions: {
     label: "互動數",
-    color: "#0D9488", // Teal 600
+    color: SEMANTIC_COLORS.primaryDark,
   },
   engagementRate: {
     label: "互動率",
-    color: "#F59E0B", // Amber 500
+    color: CHART_COLORS.chart2,
   },
 };
 
@@ -160,14 +157,8 @@ function getBarColor(index: number, total: number): string {
 
 // 根據曝光數取得熱力圖顏色（曝光越高越深）
 function getHeatmapColor(views: number, maxViews: number): string {
-  if (views === 0 || maxViews === 0) return "#F5F5F4"; // Stone 100 - 無資料
-  // 計算比例，映射到色階（反轉：曝光高 = 深色）
-  const ratio = views / maxViews;
-  const shadeIndex = Math.min(
-    Math.floor((1 - ratio) * (TEAL_SHADES.length - 1)),
-    TEAL_SHADES.length - 1
-  );
-  return TEAL_SHADES[shadeIndex];
+  if (views === 0 || maxViews === 0) return STONE[100]; // Stone 100 - 無資料
+  return getTealShadeColor(views, maxViews);
 }
 
 function GrowthBadge({ value, className }: { value: number; className?: string }) {
@@ -178,7 +169,7 @@ function GrowthBadge({ value, className }: { value: number; className?: string }
     <span
       className={cn(
         "inline-flex items-center gap-0.5 text-xs font-medium",
-        isPositive ? "text-green-600" : "text-red-600",
+        isPositive ? "text-success" : "text-destructive",
         className
       )}
     >
@@ -304,7 +295,7 @@ function BenchmarkBadge({
     <span
       className={cn(
         "inline-flex items-center gap-0.5 text-xs font-medium",
-        isAbove ? "text-blue-600" : "text-orange-600"
+        isAbove ? "text-info" : "text-warning"
       )}
     >
       {isAbove ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
@@ -737,11 +728,11 @@ function TrendLineChart({
             {/* 圖例 */}
             <div className="flex items-center justify-end gap-4 text-xs">
               <div className="flex items-center gap-1.5">
-                <div className="h-0.5 w-4 rounded" style={{ backgroundColor: "#14B8A6" }} />
+                <div className="h-0.5 w-4 rounded bg-primary" />
                 <span className="text-muted-foreground">曝光數</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="h-0.5 w-4 rounded" style={{ backgroundColor: "#F59E0B" }} />
+                <div className="h-0.5 w-4 rounded bg-warning" />
                 <span className="text-muted-foreground">互動率</span>
               </div>
             </div>
@@ -864,7 +855,7 @@ function TrendLineChart({
                   yAxisId="left"
                   type="monotone"
                   dataKey="views"
-                  stroke="#14B8A6"
+                  stroke={CHART_COLORS.chart1}
                   strokeWidth={2}
                   dot={false}
                   name="曝光數"
@@ -873,7 +864,7 @@ function TrendLineChart({
                   yAxisId="right"
                   type="monotone"
                   dataKey="engagementRate"
-                  stroke="#F59E0B"
+                  stroke={CHART_COLORS.chart2}
                   strokeWidth={2}
                   dot={false}
                   name="互動率"

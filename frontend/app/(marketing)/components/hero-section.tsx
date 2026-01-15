@@ -15,8 +15,8 @@ export function HeroSection() {
         <div className="flex flex-col items-center text-center space-y-8">
           {/* Status Badge */}
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-sm font-medium text-orange-600">
-              <span className="size-2 rounded-full bg-orange-500 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/10 px-3 py-1 text-sm font-medium text-warning">
+              <span className="size-2 rounded-full bg-warning animate-pulse" />
               Beta 測試中
             </span>
             <span className="text-sm text-muted-foreground">

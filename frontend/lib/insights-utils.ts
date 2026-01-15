@@ -3,6 +3,13 @@
  * 供 engagement 和 reach 頁面使用
  */
 
+import {
+  TEAL_SHADES as DESIGN_TEAL_SHADES,
+  TAG_COLORS as DESIGN_TAG_COLORS,
+  TEAL,
+  STONE,
+} from "./design-tokens";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -16,32 +23,24 @@ export interface DateRange {
 }
 
 // ============================================================================
-// Constants
+// Constants (從 design-tokens 重新導出)
 // ============================================================================
 
 export const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
 export const WEEKDAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 export const HOUR_LABELS_24 = Array.from({ length: 24 }, (_, i) => i);
 
+// 從 design-tokens 導入色彩，保持向後兼容
 export const TEAL_SHADES = [
-  "#0F766E",
-  "#0D9488",
-  "#14B8A6",
-  "#2DD4BF",
-  "#5EEAD4",
-  "#99F6E4",
+  TEAL[700],
+  TEAL[600],
+  TEAL[500],
+  TEAL[400],
+  TEAL[300],
+  TEAL[200],
 ];
 
-export const TAG_COLORS = [
-  "#14B8A6",
-  "#8B5CF6",
-  "#F59E0B",
-  "#EF4444",
-  "#3B82F6",
-  "#10B981",
-  "#EC4899",
-  "#6366F1",
-];
+export const TAG_COLORS = DESIGN_TAG_COLORS;
 
 // ============================================================================
 // Formatting Functions
@@ -167,12 +166,13 @@ export function calcGrowth(current: number, previous: number): number {
 
 /**
  * 取得熱力圖格子的 CSS 類別
+ * 使用 primary 語意色彩的透明度變化
  */
 export function getHeatmapColor(value: number, max: number): string {
   if (value === 0) return "bg-muted";
   const intensity = value / max;
-  if (intensity > 0.75) return "bg-teal-500";
-  if (intensity > 0.5) return "bg-teal-400";
-  if (intensity > 0.25) return "bg-teal-300";
-  return "bg-teal-200";
+  if (intensity > 0.75) return "bg-primary";
+  if (intensity > 0.5) return "bg-primary/70";
+  if (intensity > 0.25) return "bg-primary/40";
+  return "bg-primary/20";
 }

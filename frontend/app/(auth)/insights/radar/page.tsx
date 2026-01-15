@@ -54,6 +54,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import {
+  CHART_COLORS_EXTENDED,
+  SEMANTIC_COLORS,
+  STONE,
+  TEAL,
+  getChartColor,
+  getHeatmapIntensityColor,
+} from "@/lib/design-tokens";
 
 // ============ Types ============
 
@@ -224,22 +232,22 @@ function ViralityBadge({
   const config = {
     viral: {
       label: "爆紅中",
-      className: "bg-red-600 text-white",
+      className: "bg-destructive text-white",
       icon: Flame,
     },
     excellent: {
       label: "表現優異",
-      className: "bg-amber-500 text-white",
+      className: "bg-warning text-white",
       icon: Star,
     },
     good: {
       label: "表現良好",
-      className: "bg-teal-500 text-white",
+      className: "bg-primary text-white",
       icon: TrendingUp,
     },
     normal: {
       label: "",
-      className: "bg-gray-100 text-gray-600",
+      className: "bg-muted text-muted-foreground",
       icon: null,
     },
   };
@@ -275,7 +283,7 @@ function MiniTrendChart({ data }: { data: TrendPoint[] }) {
           <Line
             type="monotone"
             dataKey="views"
-            stroke="#14B8A6"
+            stroke={TEAL[500]}
             strokeWidth={1.5}
             dot={false}
           />
@@ -304,19 +312,19 @@ function DiffusionStatusIcon({ diffusion }: { diffusion: DiffusionMetrics | null
       icon: "🔥",
       label: "加速擴散",
       tooltip: "擴散加速中（病毒式傳播）",
-      className: "text-red-600",
+      className: "text-destructive",
     },
     stable: {
       icon: "✨",
       label: "穩定傳播",
       tooltip: "擴散穩定",
-      className: "text-amber-500",
+      className: "text-warning",
     },
     decelerating: {
       icon: "💤",
       label: "熱度趨緩",
       tooltip: "熱度趨緩（衰退/消退中）",
-      className: "text-gray-400",
+      className: "text-muted-foreground",
     },
   };
 
@@ -353,21 +361,8 @@ interface ChartDataPoint {
   [postId: string]: number | string; // 動態 key 為 postId，值為 delta
 }
 
-// 貼文顏色調色盤（12 色，夠用於大多數情況）
-const POST_COLORS = [
-  "#14B8A6", // Teal 500
-  "#F59E0B", // Amber 500
-  "#8B5CF6", // Violet 500
-  "#EC4899", // Pink 500
-  "#3B82F6", // Blue 500
-  "#10B981", // Emerald 500
-  "#F97316", // Orange 500
-  "#6366F1", // Indigo 500
-  "#EF4444", // Red 500
-  "#06B6D4", // Cyan 500
-  "#84CC16", // Lime 500
-  "#A855F7", // Purple 500
-];
+// 貼文顏色調色盤 - 從 design-tokens 導入
+const POST_COLORS = CHART_COLORS_EXTENDED;
 
 // 格式化時間標籤（15 分鐘精度）
 function formatTimeLabel15m(timestamp: number): string {
@@ -680,11 +675,11 @@ function IgnitionCurveChart({
           </CardTitle>
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
-              <div className="h-0.5 w-4 bg-amber-500" />
+              <div className="h-0.5 w-4 bg-warning" />
               <span>互動訊號</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="h-0.5 w-4 bg-teal-500" />
+              <div className="h-0.5 w-4 bg-primary" />
               <span>曝光增量</span>
             </div>
           </div>
@@ -714,9 +709,7 @@ function IgnitionCurveChart({
                       variant="outline"
                       className={cn(
                         "text-xs",
-                        isDelayed
-                          ? "border-slate-300 bg-slate-50 text-slate-500"
-                          : "border-gray-300 bg-gray-50 text-gray-500"
+                        "border-border bg-muted text-muted-foreground"
                       )}
                     >
                       <Clock className="mr-1 size-3" />
@@ -731,7 +724,7 @@ function IgnitionCurveChart({
                         <>
                           <p className="text-xs">此貼文在加入追蹤前</p>
                           <p className="text-xs">已超過 3 小時</p>
-                          <p className="mt-1 text-[10px] text-slate-400">無法回溯早期點火數據</p>
+                          <p className="mt-1 text-[10px] text-muted-foreground/70">無法回溯早期點火數據</p>
                         </>
                       ) : (
                         <>
@@ -769,10 +762,10 @@ function IgnitionCurveChart({
                     className={cn(
                       "text-xs",
                       ignition.engagementLeadScore > 5
-                        ? "border-amber-300 bg-amber-50 text-amber-700"
+                        ? "border-warning/30 bg-warning/10 text-warning"
                         : ignition.engagementLeadScore > 0
-                          ? "border-teal-300 bg-teal-50 text-teal-700"
-                          : "border-gray-300 bg-gray-50 text-gray-600"
+                          ? "border-primary/30 bg-primary/10 text-primary"
+                          : "border-border bg-muted text-muted-foreground"
                     )}
                   >
                     {ignition.engagementLeadScore > 0 ? "+" : ""}
@@ -787,7 +780,7 @@ function IgnitionCurveChart({
                       <CartesianGrid
                         strokeDasharray="3 3"
                         vertical={false}
-                        stroke="#E5E7EB"
+                        stroke={STONE[200]}
                       />
                       <XAxis
                         dataKey="timeLabel"
@@ -803,10 +796,10 @@ function IgnitionCurveChart({
                           return (
                             <div className="rounded border bg-background p-2 text-xs shadow">
                               <p className="font-medium">{data.timeLabel}</p>
-                              <p className="text-amber-600">
+                              <p className="text-warning">
                                 互動：{data.engagementPct.toFixed(1)}%
                               </p>
-                              <p className="text-teal-600">
+                              <p className="text-primary">
                                 曝光：{data.viewsPct.toFixed(1)}%
                               </p>
                             </div>
@@ -817,7 +810,7 @@ function IgnitionCurveChart({
                       <Line
                         type="monotone"
                         dataKey="engagementPct"
-                        stroke="#F59E0B"
+                        stroke={SEMANTIC_COLORS.warning}
                         strokeWidth={2}
                         dot={false}
                       />
@@ -825,7 +818,7 @@ function IgnitionCurveChart({
                       <Line
                         type="monotone"
                         dataKey="viewsPct"
-                        stroke="#14B8A6"
+                        stroke={TEAL[500]}
                         strokeWidth={2}
                         dot={false}
                       />
@@ -870,21 +863,14 @@ const TIME_BUCKET_LABELS = [
   "165-180m",
 ];
 
-// 根據強度取得顏色
-function getHeatmapColor(intensity: number): string {
-  if (intensity <= 0) return "#F3F4F6"; // gray-100
-  if (intensity < 0.2) return "#FEF3C7"; // amber-100
-  if (intensity < 0.4) return "#FDE68A"; // amber-200
-  if (intensity < 0.6) return "#FCD34D"; // amber-300
-  if (intensity < 0.8) return "#FBBF24"; // amber-400
-  return "#F59E0B"; // amber-500
-}
+// 根據強度取得顏色 - 使用 design-tokens
+const getHeatmapColor = getHeatmapIntensityColor;
 
 // 熱力圖類型標籤設定
 const HEAT_TYPE_CONFIG = {
-  early: { label: "早熱", color: "text-amber-600" },
-  slow: { label: "慢熱", color: "text-blue-600" },
-  steady: { label: "穩定", color: "text-gray-500" },
+  early: { label: "早熱", color: "text-warning" },
+  slow: { label: "慢熱", color: "text-info" },
+  steady: { label: "穩定", color: "text-muted-foreground" },
 } as const;
 
 // 早期訊號熱力圖元件
@@ -1008,20 +994,14 @@ function EarlySignalHeatmap({
                   <div className="flex flex-1 gap-0.5">
                     {TIME_BUCKET_LABELS.map((_, i) => (
                       <div key={i} className="flex-1">
-                        <div className={cn(
-                          "h-6 w-full rounded-sm",
-                          isDelayed ? "bg-slate-100" : "bg-gray-100"
-                        )} />
+                        <div className="h-6 w-full rounded-sm bg-muted" />
                       </div>
                     ))}
                   </div>
 
                   {/* 狀態標籤 */}
                   <div
-                    className={cn(
-                      "w-20 shrink-0 text-center text-xs",
-                      isDelayed ? "text-slate-400" : "text-muted-foreground"
-                    )}
+                    className="w-20 shrink-0 text-center text-xs text-muted-foreground"
                     title={isDelayed ? "此貼文在加入追蹤前已超過 3 小時，無法追蹤早期訊號" : "資料累積中，下次同步後更新"}
                   >
                     <Clock className="inline size-3 mr-0.5" />
@@ -1041,8 +1021,8 @@ function EarlySignalHeatmap({
                 <div className="w-28 shrink-0 truncate pr-2 text-sm" title={post.postText}>
                   <span
                     className={cn(
-                      post.viralityLevel === "viral" && "font-semibold text-red-600",
-                      post.viralityLevel === "excellent" && "font-medium text-amber-600"
+                      post.viralityLevel === "viral" && "font-semibold text-destructive",
+                      post.viralityLevel === "excellent" && "font-medium text-warning"
                     )}
                   >
                     {post.postText}
@@ -1057,11 +1037,11 @@ function EarlySignalHeatmap({
                       className="group relative flex-1"
                     >
                       <div
-                        className="h-6 w-full rounded-sm transition-all hover:ring-2 hover:ring-amber-400"
+                        className="h-6 w-full rounded-sm transition-all hover:ring-2 hover:ring-warning"
                         style={{ backgroundColor: getHeatmapColor(cell.intensity) }}
                       />
                       {/* Tooltip */}
-                      <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white group-hover:block">
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-xs text-background group-hover:block">
                         {TIME_BUCKET_LABELS[cell.bucketIndex]}: {cell.viralityDelta.toFixed(1)}
                       </div>
                     </div>
@@ -1133,17 +1113,17 @@ function calculateQuadrantData(posts: TrackingPost[]): {
   return { data, midX, midY, maxX, maxY, minZ, maxZ };
 }
 
-// 根據象限位置決定顏色（曝光 vs 傳播力）
+// 根據象限位置決定顏色（曝光 vs 傳播力）- 使用 design-tokens
 function getQuadrantColor(
   x: number,
   y: number,
   avgX: number,
   avgY: number
 ): string {
-  if (x >= avgX && y >= avgY) return "#10B981"; // 右上：高曝光 + 高傳播力 = 明星貼文 - Emerald
-  if (x < avgX && y >= avgY) return "#8B5CF6"; // 左上：低曝光 + 高傳播力 = 潛力股 - Violet
-  if (x >= avgX && y < avgY) return "#F59E0B"; // 右下：高曝光 + 低傳播力 = 觸及廣但沒共鳴 - Amber
-  return "#6B7280"; // 左下：低曝光 + 低傳播力 = 待觀察 - Gray
+  if (x >= avgX && y >= avgY) return SEMANTIC_COLORS.success; // 右上：明星貼文 - Emerald
+  if (x < avgX && y >= avgY) return CHART_COLORS_EXTENDED[2]; // 左上：潛力股 - Violet
+  if (x >= avgX && y < avgY) return SEMANTIC_COLORS.warning; // 右下：觸及廣 - Amber
+  return STONE[500]; // 左下：待觀察 - Gray
 }
 
 // 四象限散佈圖
@@ -1200,19 +1180,19 @@ function QuadrantChart({
         </CardTitle>
         <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
           <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-emerald-500" />
+            <div className="size-2 rounded-full bg-success" />
             <span>明星貼文</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-violet-500" />
+            <div className="size-2 rounded-full" style={{ backgroundColor: CHART_COLORS_EXTENDED[2] }} />
             <span>潛力股</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-amber-500" />
+            <div className="size-2 rounded-full bg-warning" />
             <span>觸及廣</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-gray-500" />
+            <div className="size-2 rounded-full bg-muted-foreground" />
             <span>待觀察</span>
           </div>
         </div>
@@ -1252,12 +1232,12 @@ function QuadrantChart({
               {/* 中央分界線 */}
               <ReferenceLine
                 x={midX}
-                stroke="#CBD5E1"
+                stroke={STONE[300]}
                 strokeWidth={1.5}
               />
               <ReferenceLine
                 y={midY}
-                stroke="#CBD5E1"
+                stroke={STONE[300]}
                 strokeWidth={1.5}
               />
               <Tooltip
@@ -1303,7 +1283,7 @@ function QuadrantChart({
                   );
                 }}
               />
-              <Scatter data={data} fill="#14B8A6">
+              <Scatter data={data} fill={TEAL[500]}>
                 {data.map((entry) => (
                   <Cell
                     key={entry.postId}
@@ -1370,10 +1350,10 @@ function calculateViewsRHatData(posts: TrackingPost[]): {
 }
 
 function getViewsRHatColor(x: number, y: number, midX: number): string {
-  if (x >= midX && y >= RHAT_THRESHOLD) return "#3B82F6"; // 右上：大規模擴散中 - Blue
-  if (x < midX && y >= RHAT_THRESHOLD) return "#10B981"; // 左上：剛開始擴散 - Emerald
-  if (x >= midX && y < RHAT_THRESHOLD) return "#8B5CF6"; // 右下：已達峰值 - Violet
-  return "#6B7280"; // 左下：未能引起關注 - Gray
+  if (x >= midX && y >= RHAT_THRESHOLD) return SEMANTIC_COLORS.info; // 右上：大規模擴散中 - Blue
+  if (x < midX && y >= RHAT_THRESHOLD) return SEMANTIC_COLORS.success; // 左上：剛開始擴散 - Emerald
+  if (x >= midX && y < RHAT_THRESHOLD) return CHART_COLORS_EXTENDED[2]; // 右下：已達峰值 - Violet
+  return STONE[500]; // 左下：未能引起關注 - Gray
 }
 
 function ViewsRHatQuadrantChart({
@@ -1430,19 +1410,19 @@ function ViewsRHatQuadrantChart({
         </CardTitle>
         <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
           <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-blue-500" />
+            <div className="size-2 rounded-full bg-info" />
             <span>大規模擴散</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-emerald-500" />
+            <div className="size-2 rounded-full bg-success" />
             <span>剛開始擴散</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-violet-500" />
+            <div className="size-2 rounded-full" style={{ backgroundColor: CHART_COLORS_EXTENDED[2] }} />
             <span>已達峰值</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-gray-500" />
+            <div className="size-2 rounded-full bg-muted-foreground" />
             <span>未引起關注</span>
           </div>
         </div>
@@ -1481,18 +1461,18 @@ function ViewsRHatQuadrantChart({
                 name="傳播力"
               />
               {/* 曝光中央分界 */}
-              <ReferenceLine x={midX} stroke="#CBD5E1" strokeWidth={1.5} />
+              <ReferenceLine x={midX} stroke={STONE[300]} strokeWidth={1.5} />
               {/* 擴散動態 = 1.0 臨界線 */}
               <ReferenceLine
                 y={RHAT_THRESHOLD}
-                stroke="#EF4444"
+                stroke={SEMANTIC_COLORS.destructive}
                 strokeDasharray="4 4"
                 strokeWidth={1.5}
                 label={{
                   value: "臨界值 1.0",
                   position: "right",
                   fontSize: 10,
-                  fill: "#DC2626",
+                  fill: SEMANTIC_COLORS.destructive,
                 }}
               />
               <Tooltip
@@ -1533,7 +1513,7 @@ function ViewsRHatQuadrantChart({
                   );
                 }}
               />
-              <Scatter data={data} fill="#14B8A6">
+              <Scatter data={data} fill={TEAL[500]}>
                 {data.map((entry) => (
                   <Cell
                     key={entry.postId}
@@ -1561,17 +1541,17 @@ function TimeStatusBadge({ status }: { status: TimeStatus }) {
     golden: {
       label: "黃金期",
       icon: "🔥",
-      className: "bg-red-100 text-red-700 border-red-200",
+      className: "bg-destructive/10 text-destructive border-destructive/20",
     },
     early: {
       label: "早期",
       icon: "⏰",
-      className: "bg-amber-100 text-amber-700 border-amber-200",
+      className: "bg-warning/10 text-warning border-warning/20",
     },
     tracking: {
       label: "追蹤中",
       icon: "📊",
-      className: "bg-gray-100 text-gray-600 border-gray-200",
+      className: "bg-muted text-muted-foreground border-border",
     },
   };
 
@@ -1635,8 +1615,8 @@ function SummaryCard({
 }) {
   const variantStyles = {
     default: "bg-card",
-    warning: "bg-red-50 border-red-200",
-    success: "bg-teal-50 border-teal-200",
+    warning: "bg-destructive/5 border-destructive/20",
+    success: "bg-primary/5 border-primary/20",
   };
 
   if (isLoading) {
@@ -1674,15 +1654,15 @@ function AlertBanner({ alerts, onDismiss }: { alerts: PageAlert[]; onDismiss: (i
   const alertConfig = {
     viral: {
       icon: Flame,
-      className: "bg-red-50 border-red-200 text-red-800",
+      className: "bg-destructive/10 border-destructive/20 text-destructive",
     },
     excellent: {
       icon: Star,
-      className: "bg-amber-50 border-amber-200 text-amber-800",
+      className: "bg-warning/10 border-warning/20 text-warning",
     },
     fast: {
       icon: Zap,
-      className: "bg-teal-50 border-teal-200 text-teal-800",
+      className: "bg-primary/10 border-primary/20 text-primary",
     },
   };
 
@@ -1795,8 +1775,8 @@ function PostsTable({
               <TableRow
                 key={post.id}
                 className={cn(
-                  post.viralityLevel === "viral" && "bg-red-50/50",
-                  post.viralityLevel === "excellent" && "bg-amber-50/50"
+                  post.viralityLevel === "viral" && "bg-destructive/5",
+                  post.viralityLevel === "excellent" && "bg-warning/5"
                 )}
               >
                 <TableCell>
@@ -1821,7 +1801,7 @@ function PostsTable({
                     {!post.hasEarlyData && (
                       <Badge
                         variant="outline"
-                        className="gap-1 text-[10px] bg-slate-50 text-slate-500 border-slate-200"
+                        className="gap-1 text-[10px] bg-muted text-muted-foreground border-border"
                         title={`此貼文在加入追蹤前已超過 3 小時（延遲 ${Math.round(post.trackingDelayMinutes / 60)} 小時），無法追蹤早期點火數據`}
                       >
                         <Clock className="size-2.5" />
@@ -1835,7 +1815,7 @@ function PostsTable({
                 </TableCell>
                 <TableCell className="text-right">
                   {post.views === 0 && (post.likes + post.replies + post.reposts + post.quotes) > 0 ? (
-                    <span className="text-xs text-amber-600" title="Threads API 延遲，曝光數尚未更新">
+                    <span className="text-xs text-warning" title="Threads API 延遲，曝光數尚未更新">
                       <Clock className="inline size-3 mr-0.5" />
                       計算中
                     </span>
@@ -1898,11 +1878,23 @@ export default function RadarPage() {
     }
     return false;
   });
+  // Live timer: 追蹤上次刷新後的秒數
+  const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
 
   // 儲存自動同步狀態到 localStorage
   useEffect(() => {
     localStorage.setItem("radar-auto-refresh", autoRefresh.toString());
   }, [autoRefresh]);
+
+  // Live timer: 每秒更新「上次更新」顯示
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsSinceRefresh(
+        Math.floor((Date.now() - lastRefresh.getTime()) / 1000)
+      );
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lastRefresh]);
 
   // 載入資料（透過 Edge Function API）
   const loadData = useCallback(async () => {
@@ -2028,11 +2020,6 @@ export default function RadarPage() {
     setAlerts((prev) => prev.filter((a) => a.id !== id));
   };
 
-  // 計算上次刷新時間
-  const secondsSinceRefresh = Math.floor(
-    (new Date().getTime() - lastRefresh.getTime()) / 1000
-  );
-
   return (
     <div className="space-y-6">
       {/* 標題區域 */}
@@ -2097,20 +2084,20 @@ export default function RadarPage() {
             <SummaryCard
               title="黃金期貼文"
               value={summary.goldenPosts}
-              icon={<Flame className="size-5 text-red-500" />}
+              icon={<Flame className="size-5 text-destructive" />}
               variant={summary.goldenPosts > 0 ? "warning" : "default"}
               isLoading={isLoading}
             />
             <SummaryCard
               title="早期觀察"
               value={summary.earlyPosts}
-              icon={<Clock className="size-5 text-amber-500" />}
+              icon={<Clock className="size-5 text-warning" />}
               isLoading={isLoading}
             />
             <SummaryCard
               title="爆紅潛力"
               value={summary.viralPotential}
-              icon={<Star className="size-5 text-amber-500" />}
+              icon={<Star className="size-5 text-warning" />}
               variant={summary.viralPotential > 0 ? "success" : "default"}
               isLoading={isLoading}
             />

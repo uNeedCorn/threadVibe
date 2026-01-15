@@ -25,6 +25,7 @@ import {
   getDateRange,
   getHeatmapColor,
 } from "@/lib/insights-utils";
+import { SEMANTIC_COLORS, TEAL, STONE } from "@/lib/design-tokens";
 import { GrowthBadge, KPICard, HeatmapLegend } from "@/components/insights/shared-components";
 
 type ViewMode = "report" | "insights";
@@ -123,10 +124,10 @@ function LifecycleTagCard({ tag }: { tag: TagLifecycleAnalysis }) {
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
               tag.lifecycleType === "viral"
-                ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                ? "bg-warning/10 text-warning"
                 : tag.lifecycleType === "evergreen"
-                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                  : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                  ? "bg-success/10 text-success"
+                  : "bg-muted text-muted-foreground"
             )}
           >
             {tag.lifecycleType === "viral" && <><Zap className="size-3" /> 病毒型</>}
@@ -154,19 +155,19 @@ function LifecycleTagCard({ tag }: { tag: TagLifecycleAnalysis }) {
         </div>
         <div className="flex h-3 overflow-hidden rounded-full">
           <div
-            className="bg-orange-400"
+            className="bg-warning"
             style={{ width: `${(tag.burstEndHour / 168) * 100}%` }}
           />
           <div
-            className="bg-green-400"
+            className="bg-success"
             style={{ width: `${((tag.growthEndHour - tag.burstEndHour) / 168) * 100}%` }}
           />
           <div
-            className="bg-blue-400"
+            className="bg-info"
             style={{ width: `${((tag.stableEndHour - tag.growthEndHour) / 168) * 100}%` }}
           />
           <div
-            className="bg-gray-300 dark:bg-gray-600"
+            className="bg-muted-foreground/30"
             style={{ width: `${((168 - tag.stableEndHour) / 168) * 100}%` }}
           />
         </div>
@@ -192,7 +193,7 @@ function LifecycleTagCard({ tag }: { tag: TagLifecycleAnalysis }) {
           <span className="text-muted-foreground">前 24h：</span>
           <span className={cn(
             "font-medium",
-            tag.first24hRatio > 0.7 ? "text-orange-600" : tag.first24hRatio < 0.4 ? "text-green-600" : ""
+            tag.first24hRatio > 0.7 ? "text-warning" : tag.first24hRatio < 0.4 ? "text-success" : ""
           )}>
             {Math.round(tag.first24hRatio * 100)}%
           </span>
@@ -1140,10 +1141,10 @@ export default function ReachPage() {
                     <span className="text-xs text-muted-foreground">低</span>
                     <div className="flex gap-1">
                       <div className="size-4 rounded-sm bg-muted" />
-                      <div className="size-4 rounded-sm bg-teal-200" />
-                      <div className="size-4 rounded-sm bg-teal-300" />
-                      <div className="size-4 rounded-sm bg-teal-400" />
-                      <div className="size-4 rounded-sm bg-teal-500" />
+                      <div className="size-4 rounded-sm bg-primary/20" />
+                      <div className="size-4 rounded-sm bg-primary/40" />
+                      <div className="size-4 rounded-sm bg-primary/70" />
+                      <div className="size-4 rounded-sm bg-primary" />
                     </div>
                     <span className="text-xs text-muted-foreground">高</span>
                   </div>
@@ -1253,7 +1254,7 @@ export default function ReachPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Trophy className="size-5 text-amber-500" />
+                  <Trophy className="size-5 text-warning" />
                   曝光 Top 5
                 </CardTitle>
                 <CardDescription>
@@ -1278,11 +1279,11 @@ export default function ReachPage() {
                           className={cn(
                             "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                             index === 0
-                              ? "bg-amber-500 text-white"
+                              ? "bg-warning text-warning-foreground"
                               : index === 1
-                                ? "bg-gray-400 text-white"
+                                ? "bg-muted-foreground/60 text-white"
                                 : index === 2
-                                  ? "bg-amber-700 text-white"
+                                  ? "bg-warning/70 text-warning-foreground"
                                   : "bg-muted text-muted-foreground"
                           )}
                         >
@@ -1294,7 +1295,7 @@ export default function ReachPage() {
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <div className="text-sm font-medium text-green-600">
+                          <div className="text-sm font-medium text-success">
                             {formatNumber(post.views)}
                           </div>
                         </div>
@@ -1324,7 +1325,7 @@ export default function ReachPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <TrendingDown className="size-5 text-red-500" />
+                  <TrendingDown className="size-5 text-destructive" />
                   曝光 Flop 5
                 </CardTitle>
                 <CardDescription>
@@ -1354,7 +1355,7 @@ export default function ReachPage() {
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <div className="text-sm font-medium text-red-600">
+                          <div className="text-sm font-medium text-destructive">
                             {formatNumber(post.views)}
                           </div>
                         </div>
@@ -1470,7 +1471,7 @@ function ReachEfficiencyBlock({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Target className="size-5 text-teal-600" />
+            <Target className="size-5 text-primary" />
             曝光效率
           </CardTitle>
           <CardDescription>我的內容觸及效率如何？</CardDescription>
@@ -1489,13 +1490,13 @@ function ReachEfficiencyBlock({
   // 評級
   let rating: { label: string; color: string; description: string };
   if (reachMultiplier >= 5) {
-    rating = { label: "優秀", color: "text-green-600", description: "演算法大力推薦" };
+    rating = { label: "優秀", color: "text-success", description: "演算法大力推薦" };
   } else if (reachMultiplier >= 2) {
-    rating = { label: "良好", color: "text-teal-600", description: "有推薦流量" };
+    rating = { label: "良好", color: "text-primary", description: "有推薦流量" };
   } else if (reachMultiplier >= 1) {
-    rating = { label: "正常", color: "text-amber-600", description: "粉絲基本都能看到" };
+    rating = { label: "正常", color: "text-warning", description: "粉絲基本都能看到" };
   } else {
-    rating = { label: "受限", color: "text-red-600", description: "只有部分粉絲看到" };
+    rating = { label: "受限", color: "text-destructive", description: "只有部分粉絲看到" };
   }
 
   // 建議
@@ -1514,7 +1515,7 @@ function ReachEfficiencyBlock({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Target className="size-5 text-teal-600" />
+          <Target className="size-5 text-primary" />
           曝光效率
         </CardTitle>
         <CardDescription>我的內容觸及效率如何？</CardDescription>
@@ -1570,8 +1571,8 @@ function ReachEfficiencyBlock({
 
         {/* 建議 */}
         {suggestions.length > 0 && (
-          <div className="mt-4 flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 dark:border-teal-800 dark:bg-teal-950/30">
-            <Lightbulb className="mt-0.5 size-4 shrink-0 text-teal-600" />
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3">
+            <Lightbulb className="mt-0.5 size-4 shrink-0 text-primary" />
             <div className="text-sm">
               <p className="font-medium text-foreground">{suggestions[0]}</p>
               {suggestions.length > 1 && (
@@ -1606,7 +1607,7 @@ function ContentStrategyBlock({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Activity className="size-5 text-teal-600" />
+            <Activity className="size-5 text-primary" />
             我應該專注什麼類型的內容？
           </CardTitle>
           <CardDescription>分析你的內容策略效果</CardDescription>
@@ -1654,7 +1655,7 @@ function ContentStrategyBlock({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Activity className="size-5 text-teal-600" />
+          <Activity className="size-5 text-primary" />
           我應該專注什麼類型的內容？
         </CardTitle>
         <CardDescription>分析你的內容策略效果</CardDescription>
@@ -1664,7 +1665,7 @@ function ContentStrategyBlock({
           {/* 病毒型 */}
           <div className="rounded-lg border p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Zap className="size-5 text-orange-500" />
+              <Zap className="size-5 text-warning" />
               <span className="font-medium">病毒型內容</span>
             </div>
             <div className="space-y-2 text-sm">
@@ -1686,7 +1687,7 @@ function ContentStrategyBlock({
           {/* 長青型 */}
           <div className="rounded-lg border p-4">
             <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="size-5 text-green-500" />
+              <TrendingUp className="size-5 text-success" />
               <span className="font-medium">長青型內容</span>
             </div>
             <div className="space-y-2 text-sm">
@@ -1707,8 +1708,8 @@ function ContentStrategyBlock({
         </div>
 
         {/* 建議 */}
-        <div className="mt-4 flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 dark:border-teal-800 dark:bg-teal-950/30">
-          <Lightbulb className="mt-0.5 size-4 shrink-0 text-teal-600" />
+        <div className="mt-4 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3">
+          <Lightbulb className="mt-0.5 size-4 shrink-0 text-primary" />
           <div className="text-sm">
             <p className="text-foreground">{suggestion}</p>
           </div>
@@ -1741,7 +1742,7 @@ function AlgorithmAnalysisBlock({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="size-5 text-teal-600" />
+            <Sparkles className="size-5 text-primary" />
             演算法有在推薦我的內容嗎？
           </CardTitle>
           <CardDescription>分析你的推薦流量比例</CardDescription>
@@ -1781,7 +1782,7 @@ function AlgorithmAnalysisBlock({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="size-5 text-teal-600" />
+          <Sparkles className="size-5 text-primary" />
           演算法有在推薦我的內容嗎？
         </CardTitle>
         <CardDescription>分析你的推薦流量比例</CardDescription>
@@ -1795,13 +1796,13 @@ function AlgorithmAnalysisBlock({
           </div>
           <div className="flex h-6 overflow-hidden rounded-full">
             <div
-              className="bg-teal-300 flex items-center justify-center text-xs font-medium"
+              className="bg-primary/40 flex items-center justify-center text-xs font-medium"
               style={{ width: `${ownRatio}%` }}
             >
               {ownRatio > 20 && `${ownRatio.toFixed(0)}%`}
             </div>
             <div
-              className="bg-teal-600 flex items-center justify-center text-xs font-medium text-white"
+              className="bg-primary flex items-center justify-center text-xs font-medium text-white"
               style={{ width: `${recommendRatio}%` }}
             >
               {recommendRatio > 20 && `${recommendRatio.toFixed(0)}%`}
@@ -1821,8 +1822,8 @@ function AlgorithmAnalysisBlock({
         )}
 
         {/* 建議 */}
-        <div className="flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 dark:border-teal-800 dark:bg-teal-950/30">
-          <Lightbulb className="mt-0.5 size-4 shrink-0 text-teal-600" />
+        <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3">
+          <Lightbulb className="mt-0.5 size-4 shrink-0 text-primary" />
           <div className="text-sm">
             <p className="text-foreground">{suggestion}</p>
           </div>
@@ -1855,7 +1856,7 @@ function PostingStrategyBlock({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="size-5 text-teal-600" />
+            <Clock className="size-5 text-primary" />
             什麼時候發什麼內容最有效？
           </CardTitle>
           <CardDescription>找出你的最佳發文組合</CardDescription>
@@ -1888,7 +1889,7 @@ function PostingStrategyBlock({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Clock className="size-5 text-teal-600" />
+          <Clock className="size-5 text-primary" />
           什麼時候發什麼內容最有效？
         </CardTitle>
         <CardDescription>找出你的最佳發文組合</CardDescription>
@@ -1904,7 +1905,7 @@ function PostingStrategyBlock({
                   <span>
                     {index + 1}. {WEEKDAY_NAMES[slot.dayOfWeek]} {slot.hour}:00
                   </span>
-                  <span className="font-medium text-teal-600">
+                  <span className="font-medium text-primary">
                     平均 {formatNumber(slot.avgViews)} 曝光
                   </span>
                 </div>
@@ -1926,7 +1927,7 @@ function PostingStrategyBlock({
                       />
                       <span>{index + 1}. {tag.name}</span>
                     </div>
-                    <span className="font-medium text-teal-600">
+                    <span className="font-medium text-primary">
                       {formatNumber(tag.avgViewsPerPost)} 曝光
                     </span>
                   </div>
@@ -1940,8 +1941,8 @@ function PostingStrategyBlock({
 
         {/* 最佳組合建議 */}
         {bestSlot && bestTag && (
-          <div className="mt-4 flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 dark:border-teal-800 dark:bg-teal-950/30">
-            <Lightbulb className="mt-0.5 size-4 shrink-0 text-teal-600" />
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3">
+            <Lightbulb className="mt-0.5 size-4 shrink-0 text-primary" />
             <div className="text-sm">
               <p className="font-medium text-foreground">最佳組合</p>
               <p className="mt-1 text-muted-foreground">
@@ -2047,7 +2048,7 @@ function ActionSuggestionsBlock({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CheckCircle2 className="size-5 text-teal-600" />
+          <CheckCircle2 className="size-5 text-primary" />
           行動建議
         </CardTitle>
         <CardDescription>我現在該怎麼提升曝光？</CardDescription>
@@ -2063,17 +2064,17 @@ function ActionSuggestionsBlock({
                     <span className={cn(
                       "rounded-full px-2 py-0.5 text-xs",
                       suggestion.priority === "high"
-                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        ? "bg-destructive/10 text-destructive"
                         : suggestion.priority === "medium"
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                          : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                          ? "bg-warning/10 text-warning"
+                          : "bg-muted text-muted-foreground"
                     )}>
                       {suggestion.priority === "high" ? "高優先" : suggestion.priority === "medium" ? "中優先" : "低優先"}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{suggestion.reason}</p>
                   <p className="mt-2 text-sm">
-                    <span className="text-teal-600">✓</span> {suggestion.action}
+                    <span className="text-primary">✓</span> {suggestion.action}
                   </p>
                 </div>
               </div>

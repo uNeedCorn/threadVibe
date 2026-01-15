@@ -5,17 +5,7 @@ import { Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-
-const PRESET_COLORS = [
-  { name: "灰色", value: "#6B7280" },
-  { name: "紅色", value: "#EF4444" },
-  { name: "橙色", value: "#F97316" },
-  { name: "黃色", value: "#EAB308" },
-  { name: "綠色", value: "#22C55E" },
-  { name: "藍色", value: "#3B82F6" },
-  { name: "紫色", value: "#8B5CF6" },
-  { name: "粉色", value: "#EC4899" },
-];
+import { TAG_PRESET_COLORS } from "@/lib/design-tokens";
 
 interface ColorPickerProps {
   value: string;
@@ -24,7 +14,7 @@ interface ColorPickerProps {
 
 export function ColorPicker({ value, onChange }: ColorPickerProps) {
   const [customColor, setCustomColor] = useState("");
-  const isCustom = !PRESET_COLORS.some((c) => c.value === value);
+  const isCustom = !TAG_PRESET_COLORS.some((c) => c.value === value);
 
   const handleCustomChange = (hex: string) => {
     setCustomColor(hex);
@@ -40,7 +30,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
 
       {/* 預設顏色 */}
       <div className="flex flex-wrap gap-2">
-        {PRESET_COLORS.map((color) => (
+        {TAG_PRESET_COLORS.map((color) => (
           <button
             key={color.value}
             type="button"

@@ -29,7 +29,7 @@ export function GrowthBadge({ value, className, size = "sm" }: GrowthBadgeProps)
       className={cn(
         "inline-flex items-center gap-0.5 font-medium",
         textSize,
-        isPositive ? "text-green-600" : "text-red-600",
+        isPositive ? "text-success" : "text-destructive",
         className
       )}
     >
@@ -139,10 +139,10 @@ export function HeatmapLegend(): ReactNode {
       <span className="text-xs text-muted-foreground">低</span>
       <div className="flex gap-1">
         <div className="size-4 rounded-sm bg-muted" />
-        <div className="size-4 rounded-sm bg-teal-200" />
-        <div className="size-4 rounded-sm bg-teal-300" />
-        <div className="size-4 rounded-sm bg-teal-400" />
-        <div className="size-4 rounded-sm bg-teal-500" />
+        <div className="size-4 rounded-sm bg-primary/20" />
+        <div className="size-4 rounded-sm bg-primary/40" />
+        <div className="size-4 rounded-sm bg-primary/70" />
+        <div className="size-4 rounded-sm bg-primary" />
       </div>
       <span className="text-xs text-muted-foreground">高</span>
     </div>

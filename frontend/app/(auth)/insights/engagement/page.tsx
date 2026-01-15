@@ -65,6 +65,13 @@ import {
   calcGrowth,
   getHeatmapColor,
 } from "@/lib/insights-utils";
+import {
+  INTERACTION_COLORS as DESIGN_INTERACTION_COLORS,
+  CHART_COLORS,
+  TEAL,
+  SEMANTIC_COLORS,
+  STONE,
+} from "@/lib/design-tokens";
 import { GrowthBadge, KPICard, HeatmapLegend } from "@/components/insights/shared-components";
 import { PostDetailPanel } from "@/components/posts/post-detail-panel";
 
@@ -143,19 +150,14 @@ interface CompositionData {
 }
 
 // ============================================================================
-// Constants
+// Constants - 使用 design-tokens
 // ============================================================================
 
-const INTERACTION_COLORS = {
-  likes: "#14B8A6",
-  replies: "#0D9488",
-  reposts: "#2DD4BF",
-  quotes: "#5EEAD4",
-};
+const INTERACTION_COLORS = DESIGN_INTERACTION_COLORS;
 
 const trendChartConfig: ChartConfig = {
-  totalInteractions: { label: "互動數", color: "#14B8A6" },
-  engagementRate: { label: "互動率", color: "#F59E0B" },
+  totalInteractions: { label: "互動數", color: CHART_COLORS.chart1 },
+  engagementRate: { label: "互動率", color: CHART_COLORS.chart2 },
 };
 
 const compositionChartConfig: ChartConfig = {
@@ -187,10 +189,10 @@ function calculateQualityScore(data: EngagementData): number {
 }
 
 function getQualityRating(score: number): { label: string; color: string } {
-  if (score >= 80) return { label: "優秀", color: "text-green-600" };
-  if (score >= 60) return { label: "良好", color: "text-teal-600" };
-  if (score >= 40) return { label: "一般", color: "text-amber-600" };
-  return { label: "需改善", color: "text-red-600" };
+  if (score >= 80) return { label: "優秀", color: "text-success" };
+  if (score >= 60) return { label: "良好", color: "text-primary" };
+  if (score >= 40) return { label: "一般", color: "text-warning" };
+  return { label: "需改善", color: "text-destructive" };
 }
 
 function getEffectRating(replyRate: number, engagementRate: number): { stars: number; label: string } {
@@ -274,11 +276,11 @@ function EngagementTrendChart({
           <div className="space-y-2">
             <div className="flex items-center justify-end gap-4 text-xs">
               <div className="flex items-center gap-1.5">
-                <div className="h-0.5 w-4 rounded bg-teal-500" />
+                <div className="h-0.5 w-4 rounded bg-primary" />
                 <span className="text-muted-foreground">互動數</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="h-0.5 w-4 rounded bg-amber-500" />
+                <div className="h-0.5 w-4 rounded bg-warning" />
                 <span className="text-muted-foreground">互動率</span>
               </div>
             </div>
@@ -286,8 +288,8 @@ function EngagementTrendChart({
               <ComposedChart data={data} margin={{ left: 0, right: 0, top: 10, bottom: 20 }}>
                 <defs>
                   <linearGradient id="interactionsGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#14B8A6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#14B8A6" stopOpacity={0} />
+                    <stop offset="5%" stopColor={TEAL[500]} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={TEAL[500]} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -337,19 +339,19 @@ function EngagementTrendChart({
                           <div className="my-2 border-t" />
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div className="flex items-center gap-1">
-                              <Heart className="size-3 text-teal-500" />
+                              <Heart className="size-3 text-primary" />
                               <span>{formatNumber(point.likes)}</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <MessageSquare className="size-3 text-teal-600" />
+                              <MessageSquare className="size-3 text-primary" />
                               <span>{formatNumber(point.replies)}</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <Repeat2 className="size-3 text-teal-400" />
+                              <Repeat2 className="size-3 text-primary/80" />
                               <span>{formatNumber(point.reposts)}</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <Quote className="size-3 text-teal-300" />
+                              <Quote className="size-3 text-primary/60" />
                               <span>{formatNumber(point.quotes)}</span>
                             </div>
                           </div>
@@ -362,7 +364,7 @@ function EngagementTrendChart({
                   yAxisId="left"
                   type="monotone"
                   dataKey="totalInteractions"
-                  stroke="#14B8A6"
+                  stroke={TEAL[500]}
                   fill="url(#interactionsGradient)"
                   strokeWidth={2}
                 />
@@ -370,7 +372,7 @@ function EngagementTrendChart({
                   yAxisId="right"
                   type="monotone"
                   dataKey="engagementRate"
-                  stroke="#F59E0B"
+                  stroke={SEMANTIC_COLORS.warning}
                   strokeWidth={2}
                   dot={false}
                 />
@@ -485,7 +487,7 @@ function TagEngagementChart({
           </div>
         ) : (
           <ChartContainer
-            config={{ engagementRate: { label: "互動率", color: "#14B8A6" } }}
+            config={{ engagementRate: { label: "互動率", color: TEAL[500] } }}
             className="h-[200px] w-full"
           >
             <BarChart data={sortedData.slice(0, 6)} layout="vertical" margin={{ left: 0, right: 40 }}>
@@ -599,11 +601,11 @@ function TopPostsList({
                   className={cn(
                     "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                     index === 0
-                      ? "bg-amber-500 text-white"
+                      ? "bg-warning text-warning-foreground"
                       : index === 1
-                        ? "bg-gray-400 text-white"
+                        ? "bg-muted-foreground/60 text-white"
                         : index === 2
-                          ? "bg-amber-700 text-white"
+                          ? "bg-warning/70 text-warning-foreground"
                           : "bg-muted text-muted-foreground"
                   )}
                 >
@@ -615,7 +617,7 @@ function TopPostsList({
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="text-sm font-medium text-teal-600">
+                  <div className="text-sm font-medium text-primary">
                     {post.engagementRate.toFixed(2)}%
                   </div>
                 </div>
@@ -667,7 +669,7 @@ function FlopPostsList({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <TrendingDown className="size-5 text-red-500" />
+          <TrendingDown className="size-5 text-destructive" />
           低互動率貼文 Flop 5
         </CardTitle>
         <CardDescription>依互動率排序的最低表現貼文</CardDescription>
@@ -693,7 +695,7 @@ function FlopPostsList({
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="text-sm font-medium text-red-600">
+                  <div className="text-sm font-medium text-destructive">
                     {post.engagementRate.toFixed(2)}%
                   </div>
                 </div>
@@ -741,7 +743,7 @@ function QualityScoreBlock({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Target className="size-5 text-teal-600" />
+            <Target className="size-5 text-primary" />
             互動品質
           </CardTitle>
           <CardDescription>我的互動有價值嗎？</CardDescription>
@@ -783,7 +785,7 @@ function QualityScoreBlock({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Target className="size-5 text-teal-600" />
+          <Target className="size-5 text-primary" />
           互動品質
         </CardTitle>
         <CardDescription>我的互動有價值嗎？</CardDescription>
@@ -793,9 +795,9 @@ function QualityScoreBlock({
           <div className="flex flex-col items-center gap-2">
             <div className="relative flex size-28 items-center justify-center">
               <svg className="absolute size-28 -rotate-90">
-                <circle cx="56" cy="56" r="48" fill="none" stroke="#e5e7eb" strokeWidth="8" />
+                <circle cx="56" cy="56" r="48" fill="none" stroke={STONE[200]} strokeWidth="8" />
                 <circle
-                  cx="56" cy="56" r="48" fill="none" stroke="#14B8A6" strokeWidth="8"
+                  cx="56" cy="56" r="48" fill="none" stroke={TEAL[500]} strokeWidth="8"
                   strokeDasharray={`${(qualityScore / 100) * 301.6} 301.6`}
                   strokeLinecap="round"
                 />
@@ -825,7 +827,7 @@ function QualityScoreBlock({
                   <item.icon className="size-3 text-muted-foreground" />
                   <span className="w-8 text-muted-foreground">{item.label}</span>
                   <div className="flex-1">
-                    <div className="h-1.5 rounded-full bg-teal-500" style={{ width: `${Math.max(item.ratio, 2)}%` }} />
+                    <div className="h-1.5 rounded-full bg-primary" style={{ width: `${Math.max(item.ratio, 2)}%` }} />
                   </div>
                   <span className="w-10 text-right">{item.ratio.toFixed(0)}%</span>
                 </div>
@@ -835,8 +837,8 @@ function QualityScoreBlock({
         </div>
 
         {suggestions.length > 0 && (
-          <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
-            <Lightbulb className="mt-0.5 size-4 shrink-0 text-amber-600" />
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3">
+            <Lightbulb className="mt-0.5 size-4 shrink-0 text-warning" />
             <div className="text-sm">
               <p className="font-medium text-foreground">
                 {composition[0].ratio > 70 ? "你的粉絲傾向「按讚走人」" : "深度互動有提升空間"}
@@ -878,7 +880,7 @@ function ContentEffectBlock({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="size-5 text-teal-600" />
+          <Sparkles className="size-5 text-primary" />
           什麼內容最能引發討論？
         </CardTitle>
         <CardDescription>標籤效果排名（按回覆率排序）</CardDescription>
@@ -909,12 +911,12 @@ function ContentEffectBlock({
                         <td className="py-2"><span className="font-medium">{tag.tagName}</span></td>
                         <td className="py-2 text-right">{tag.postCount} 篇</td>
                         <td className="py-2 text-right">{tag.avgEngagementRate.toFixed(1)}%</td>
-                        <td className="py-2 text-right font-medium text-teal-600">{tag.replyRate.toFixed(2)}%</td>
+                        <td className="py-2 text-right font-medium text-primary">{tag.replyRate.toFixed(2)}%</td>
                         <td className="py-2 text-right">
                           <span className={cn(
                             "inline-flex items-center gap-1",
-                            effect.stars === 3 && "text-teal-600",
-                            effect.stars === 2 && "text-amber-600",
+                            effect.stars === 3 && "text-primary",
+                            effect.stars === 2 && "text-warning",
                             effect.stars <= 1 && "text-muted-foreground"
                           )}>
                             {"★".repeat(effect.stars)}{"☆".repeat(3 - effect.stars)}
@@ -929,14 +931,14 @@ function ContentEffectBlock({
             </div>
 
             {suggestion && (
-              <div className="mt-4 flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 dark:border-teal-800 dark:bg-teal-950/30">
-                <Lightbulb className="mt-0.5 size-4 shrink-0 text-teal-600" />
+              <div className="mt-4 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3">
+                <Lightbulb className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div className="text-sm">
                   <p className="text-foreground">
                     「{suggestion.tagName}」類內容回覆率最高，但只發了 {suggestion.postCount} 篇
                     （佔 {((suggestion.postCount / totalPosts) * 100).toFixed(0)}%）
                   </p>
-                  <p className="mt-1 font-medium text-teal-600">
+                  <p className="mt-1 font-medium text-primary">
                     建議：將「{suggestion.tagName}」類內容比例提高到 30%
                   </p>
                 </div>
@@ -1005,7 +1007,7 @@ function BestTimeBlock({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Clock className="size-5 text-teal-600" />
+          <Clock className="size-5 text-primary" />
           什麼時候發文最好？
         </CardTitle>
         <CardDescription>顏色越深表示該時段互動越多</CardDescription>
@@ -1075,10 +1077,10 @@ function BestTimeBlock({
               <span className="text-xs text-muted-foreground">低</span>
               <div className="flex gap-1">
                 <div className="size-4 rounded-sm bg-muted" />
-                <div className="size-4 rounded-sm bg-teal-200" />
-                <div className="size-4 rounded-sm bg-teal-300" />
-                <div className="size-4 rounded-sm bg-teal-400" />
-                <div className="size-4 rounded-sm bg-teal-500" />
+                <div className="size-4 rounded-sm bg-primary/20" />
+                <div className="size-4 rounded-sm bg-primary/40" />
+                <div className="size-4 rounded-sm bg-primary/70" />
+                <div className="size-4 rounded-sm bg-primary" />
               </div>
               <span className="text-xs text-muted-foreground">高</span>
             </div>
@@ -1095,7 +1097,7 @@ function BestTimeBlock({
                     return (
                       <div key={index} className="flex items-center justify-between text-sm">
                         <span>{index + 1}. {WEEKDAY_NAMES[slot.day]} {slot.hour}:00-{slot.hour + 1}:00</span>
-                        <span className="font-medium text-teal-600">+{improvement.toFixed(0)}%</span>
+                        <span className="font-medium text-primary">+{improvement.toFixed(0)}%</span>
                       </div>
                     );
                   })}
@@ -1105,8 +1107,8 @@ function BestTimeBlock({
 
             {/* 建議提示 */}
             {!isTimeMatching && topSlots.length > 0 && (
-              <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
-                <Lightbulb className="mt-0.5 size-4 shrink-0 text-amber-600" />
+              <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3">
+                <Lightbulb className="mt-0.5 size-4 shrink-0 text-warning" />
                 <div className="text-sm">
                   <p className="font-medium text-foreground">你通常在非活躍時段發文</p>
                   <p className="mt-1 text-muted-foreground">
@@ -1151,7 +1153,7 @@ function TopPostAnalysisBlock({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="size-5 text-orange-500" />
+            <Sparkles className="size-5 text-warning" />
             最佳貼文解剖
           </CardTitle>
           <CardDescription>為什麼這篇表現特別好？</CardDescription>
@@ -1211,7 +1213,7 @@ function TopPostAnalysisBlock({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="size-5 text-orange-500" />
+          <Sparkles className="size-5 text-warning" />
           最佳貼文解剖
         </CardTitle>
         <CardDescription>為什麼這篇表現特別好？</CardDescription>
@@ -1221,12 +1223,12 @@ function TopPostAnalysisBlock({
           <p className="text-sm line-clamp-2">{post.text || "（無文字）"}</p>
           <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
             <span>
-              互動率 <span className="font-medium text-teal-600">{post.engagementRate.toFixed(1)}%</span>
+              互動率 <span className="font-medium text-primary">{post.engagementRate.toFixed(1)}%</span>
               （平均的 {engagementMultiplier.toFixed(1)} 倍）
             </span>
             {replyMultiplier > 1 && (
               <span>
-                回覆率 <span className="font-medium text-orange-500">{post.replyRate.toFixed(2)}%</span>
+                回覆率 <span className="font-medium text-warning">{post.replyRate.toFixed(2)}%</span>
                 （平均的 {replyMultiplier.toFixed(1)} 倍）
               </span>
             )}
@@ -1239,7 +1241,7 @@ function TopPostAnalysisBlock({
             {factors.map((factor, index) => (
               <div key={index} className="flex items-start gap-2 text-sm">
                 {factor.isSuccess ? (
-                  <CheckCircle2 className="mt-0.5 size-4 text-green-500" />
+                  <CheckCircle2 className="mt-0.5 size-4 text-success" />
                 ) : (
                   <AlertCircle className="mt-0.5 size-4 text-muted-foreground" />
                 )}
@@ -1253,8 +1255,8 @@ function TopPostAnalysisBlock({
         </div>
 
         {suggestions.length > 0 && (
-          <div className="mt-4 flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 dark:border-teal-800 dark:bg-teal-950/30">
-            <Lightbulb className="mt-0.5 size-4 shrink-0 text-teal-600" />
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3">
+            <Lightbulb className="mt-0.5 size-4 shrink-0 text-primary" />
             <div className="text-sm">
               <p className="font-medium text-foreground">可複製的做法</p>
               <p className="mt-1 text-muted-foreground">{suggestions.join("，搭配")}</p>
@@ -1286,7 +1288,7 @@ function ActionSuggestionsBlock({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CheckCircle2 className="size-5 text-teal-600" />
+          <CheckCircle2 className="size-5 text-primary" />
           行動建議
         </CardTitle>
         <CardDescription>我現在應該做什麼？</CardDescription>
@@ -1305,9 +1307,9 @@ function ActionSuggestionsBlock({
                   <Badge
                     variant="outline"
                     className={cn(
-                      suggestion.priority === "high" && "border-red-200 bg-red-50 text-red-700",
-                      suggestion.priority === "medium" && "border-amber-200 bg-amber-50 text-amber-700",
-                      suggestion.priority === "low" && "border-gray-200 text-gray-600"
+                      suggestion.priority === "high" && "border-destructive/30 bg-destructive/10 text-destructive",
+                      suggestion.priority === "medium" && "border-warning/30 bg-warning/10 text-warning",
+                      suggestion.priority === "low" && "border-muted text-muted-foreground"
                     )}
                   >
                     優先級 {suggestion.priority === "high" ? "高" : suggestion.priority === "medium" ? "中" : "低"}
@@ -1316,7 +1318,7 @@ function ActionSuggestionsBlock({
                 <p className="mt-2 text-sm text-muted-foreground">{suggestion.reason}</p>
                 <p className="mt-1 text-sm">{suggestion.action}</p>
                 {suggestion.example && (
-                  <p className="mt-2 text-xs text-teal-600">範例：{suggestion.example}</p>
+                  <p className="mt-2 text-xs text-primary">範例：{suggestion.example}</p>
                 )}
               </div>
             ))}
@@ -2056,10 +2058,10 @@ export default function EngagementPage() {
                           <span className="text-xs text-muted-foreground">低</span>
                           <div className="flex gap-1">
                             <div className="size-4 rounded-sm bg-muted" />
-                            <div className="size-4 rounded-sm bg-teal-200" />
-                            <div className="size-4 rounded-sm bg-teal-300" />
-                            <div className="size-4 rounded-sm bg-teal-400" />
-                            <div className="size-4 rounded-sm bg-teal-500" />
+                            <div className="size-4 rounded-sm bg-primary/20" />
+                            <div className="size-4 rounded-sm bg-primary/40" />
+                            <div className="size-4 rounded-sm bg-primary/70" />
+                            <div className="size-4 rounded-sm bg-primary" />
                           </div>
                           <span className="text-xs text-muted-foreground">高</span>
                         </div>

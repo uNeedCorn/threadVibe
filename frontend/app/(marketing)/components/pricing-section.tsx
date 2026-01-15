@@ -41,7 +41,7 @@ export function PricingSection() {
     <section id="pricing" className="py-12 md:py-16 lg:py-24">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-orange-600 text-sm font-medium mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-warning/10 text-warning text-sm font-medium mb-4">
             Beta 測試中
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">

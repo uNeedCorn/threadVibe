@@ -24,7 +24,7 @@ export function Navbar() {
               <BarChart3 className="size-5" />
             </div>
             <span className="text-xl font-bold">Postlyzer</span>
-            <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-600">
+            <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
               BETA
             </span>
           </Link>

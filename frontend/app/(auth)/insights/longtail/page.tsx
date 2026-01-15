@@ -201,15 +201,28 @@ export default function LongtailPage() {
             const postDailyMetrics = metricsMap.get(post.id) || [];
 
             // 計算前 7 天曝光（如果資料庫沒有預計算）
+            // 注意：daily 表存的是累計快照，需取第 7 天的快照值
             let first7dViews = post.first_7d_views || 0;
             if (first7dViews === 0 && postDailyMetrics.length > 0) {
               const publishDate = new Date(post.published_at);
-              const day7 = new Date(publishDate);
-              day7.setDate(day7.getDate() + 7);
+              publishDate.setHours(0, 0, 0, 0);
 
-              first7dViews = postDailyMetrics
-                .filter((m) => new Date(m.date) <= day7)
-                .reduce((sum, m) => sum + m.views, 0);
+              // 找發布後第 7-8 天的快照（最接近 7 天的記錄）
+              const sortedMetrics = [...postDailyMetrics].sort(
+                (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+              );
+
+              for (const m of sortedMetrics) {
+                const metricDate = new Date(m.date);
+                const daysDiff = Math.floor(
+                  (metricDate.getTime() - publishDate.getTime()) / (1000 * 60 * 60 * 24)
+                );
+                // 取第 7 天或之後最近的一筆快照
+                if (daysDiff >= 7) {
+                  first7dViews = m.views;
+                  break;
+                }
+              }
             }
 
             // 計算長尾比例

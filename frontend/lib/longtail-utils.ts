@@ -167,7 +167,8 @@ export function calculateLongtailPotentialScore(
 /**
  * 計算長尾貢獻分佈
  * @param publishedAt 發布時間
- * @param dailyViews 每日曝光數據 { date: string, views: number }[]
+ * @param dailyViews 每日曝光快照數據 { date: string, views: number }[]
+ *                   注意：views 是累計值，需先轉換為增量
  * @returns 各階段曝光分佈
  */
 export function calculateLongtailContribution(
@@ -182,28 +183,41 @@ export function calculateLongtailContribution(
     totalViews: 0,
   };
 
+  if (dailyViews.length === 0) return result;
+
   const publishDate = new Date(publishedAt);
   publishDate.setHours(0, 0, 0, 0);
 
-  for (const { date, views } of dailyViews) {
-    const currentDate = new Date(date);
+  // 按日期排序
+  const sorted = [...dailyViews].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  // 計算每日增量（delta = 當天快照 - 前一天快照）
+  for (let i = 0; i < sorted.length; i++) {
+    const current = sorted[i];
+    const prev = i > 0 ? sorted[i - 1] : null;
+    const currentDate = new Date(current.date);
     const daysDiff = Math.floor(
       (currentDate.getTime() - publishDate.getTime()) / (1000 * 60 * 60 * 24)
     );
 
     if (daysDiff < 0) continue;
 
+    // 計算增量（避免負值）
+    const delta = prev ? Math.max(0, current.views - prev.views) : current.views;
+
     if (daysDiff <= 7) {
-      result.burstViews += views;
+      result.burstViews += delta;
     } else if (daysDiff <= 30) {
-      result.growthViews += views;
+      result.growthViews += delta;
     } else if (daysDiff <= 90) {
-      result.longtailViews += views;
+      result.longtailViews += delta;
     } else {
-      result.deepLongtailViews += views;
+      result.deepLongtailViews += delta;
     }
 
-    result.totalViews += views;
+    result.totalViews += delta;
   }
 
   return result;

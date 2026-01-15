@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { CHART_COLORS_EXTENDED } from "@/lib/design-tokens";
 
 // 動態數字組件
 function AnimatedNumber({
@@ -59,7 +60,7 @@ function AnimatedNumber({
 }
 
 // 迷你折線圖動畫
-function MiniChart({ color = "#14B8A6" }: { color?: string }) {
+function MiniChart({ color = CHART_COLORS_EXTENDED[0] }: { color?: string }) {
   return (
     <svg
       viewBox="0 0 100 40"
@@ -87,67 +88,67 @@ function MiniChart({ color = "#14B8A6" }: { color?: string }) {
   );
 }
 
-// 第一頁：基礎數據分析
+// 第一頁：基礎數據分析 - 使用 design-tokens 顏色
 const page1Features = [
   {
     icon: TrendingUp,
     title: "貼文成效追蹤",
     description: "每篇貼文的觀看、互動數據，完整記錄成長軌跡",
     metric: { value: 156, suffix: " 篇", prefix: "", label: "已追蹤貼文" },
-    color: "#14B8A6",
+    color: CHART_COLORS_EXTENDED[0], // Teal
   },
   {
     icon: Clock,
     title: "發文時間分析",
     description: "根據你的歷史數據，找出互動率最高的時段",
     metric: { value: 21, suffix: ":00", prefix: "", label: "你的黃金時段" },
-    color: "#F59E0B",
+    color: CHART_COLORS_EXTENDED[1], // Amber
   },
   {
     icon: BarChart3,
     title: "互動趨勢洞察",
     description: "觀察長期趨勢變化，了解內容表現起伏",
     metric: { value: 5.8, suffix: "%", prefix: "", label: "平均互動率", decimals: 1 },
-    color: "#8B5CF6",
+    color: CHART_COLORS_EXTENDED[2], // Violet
   },
   {
     icon: History,
     title: "歷史數據保存",
     description: "Threads 不提供的歷史紀錄，我們幫你完整保留",
     metric: { value: 30, suffix: " 天", prefix: "", label: "數據回溯" },
-    color: "#EC4899",
+    color: CHART_COLORS_EXTENDED[3], // Pink
   },
 ];
 
-// 第二頁：進階數據分析
+// 第二頁：進階數據分析 - 使用 design-tokens 顏色
 const page2Features = [
   {
     icon: LineChart,
     title: "粉絲成長曲線",
     description: "追蹤追蹤者數量變化，掌握帳號成長節奏",
     metric: { value: 847, suffix: "", prefix: "+", label: "本月新增追蹤" },
-    color: "#14B8A6",
+    color: CHART_COLORS_EXTENDED[0], // Teal
   },
   {
     icon: PieChart,
     title: "內容表現分析",
     description: "哪類主題最受歡迎？用數據優化你的內容策略",
     metric: { value: 12.3, suffix: "%", prefix: "", label: "最佳類型互動率", decimals: 1 },
-    color: "#F59E0B",
+    color: CHART_COLORS_EXTENDED[1], // Amber
   },
   {
     icon: ArrowLeftRight,
     title: "時段成效比較",
     description: "本週 vs 上週、本月 vs 上月，一目了然的成長對比",
     metric: { value: 23, suffix: "%", prefix: "+", label: "週成長率" },
-    color: "#8B5CF6",
+    color: CHART_COLORS_EXTENDED[2], // Violet
   },
   {
     icon: BarChart3,
     title: "單篇深度分析",
     description: "點擊任一貼文，查看完整的成效變化歷程",
     metric: { value: 48, suffix: " hr", prefix: "", label: "追蹤發布後" },
-    color: "#EC4899",
+    color: CHART_COLORS_EXTENDED[3], // Pink
   },
 ];
 
