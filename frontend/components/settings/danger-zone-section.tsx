@@ -84,16 +84,22 @@ export function DangerZoneSection() {
     }
 
     // Get counts
-    const { count: accountsCount } = await supabase
+    const { data: accounts, count: accountsCount } = await supabase
       .from("workspace_threads_accounts")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact" })
       .eq("workspace_id", workspaceId)
       .eq("is_active", true);
 
-    const { count: postsCount } = await supabase
-      .from("workspace_threads_posts")
-      .select("*", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId);
+    // Get posts count via account IDs (workspace_threads_posts doesn't have workspace_id)
+    const accountIds = accounts?.map((a) => a.id) || [];
+    let postsCount = 0;
+    if (accountIds.length > 0) {
+      const { count } = await supabase
+        .from("workspace_threads_posts")
+        .select("*", { count: "exact", head: true })
+        .in("workspace_threads_account_id", accountIds);
+      postsCount = count || 0;
+    }
 
     const { count: membersCount } = await supabase
       .from("workspace_members")
