@@ -111,7 +111,6 @@ const mainNavItems: NavEntry[] = [
         title: "粉絲趨勢",
         href: "/insights/followers",
         icon: Users,
-        adminOnly: true,
       },
     ],
   },

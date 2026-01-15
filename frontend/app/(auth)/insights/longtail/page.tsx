@@ -200,51 +200,47 @@ export default function LongtailPage() {
             const daysSincePublish = getDaysSincePublish(post.published_at);
             const postDailyMetrics = metricsMap.get(post.id) || [];
 
-            // 計算前 7 天曝光（如果資料庫沒有預計算）
-            // 注意：daily 表存的是累計快照，需取第 7 天的快照值
-            let first7dViews = post.first_7d_views || 0;
-            if (first7dViews === 0 && postDailyMetrics.length > 0) {
-              const publishDate = new Date(post.published_at);
-              publishDate.setHours(0, 0, 0, 0);
+            // 使用 contribution 分佈計算長尾比例（更準確）
+            const contribution = calculateLongtailContribution(
+              new Date(post.published_at),
+              postDailyMetrics
+            );
 
-              // 找發布後第 7-8 天的快照（最接近 7 天的記錄）
-              const sortedMetrics = [...postDailyMetrics].sort(
-                (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-              );
-
-              for (const m of sortedMetrics) {
-                const metricDate = new Date(m.date);
-                const daysDiff = Math.floor(
-                  (metricDate.getTime() - publishDate.getTime()) / (1000 * 60 * 60 * 24)
-                );
-                // 取第 7 天或之後最近的一筆快照
-                if (daysDiff >= 7) {
-                  first7dViews = m.views;
-                  break;
-                }
-              }
+            // 長尾比例：7 天後曝光 / 總曝光
+            // 注意：growth (7-30天) + longtail (30-90天) + deepLongtail (90+天) 都算長尾
+            let longtailRatio = post.longtail_ratio || 0;
+            if (longtailRatio === 0 && contribution.totalViews > 0) {
+              const longtailViews =
+                contribution.growthViews +
+                contribution.longtailViews +
+                contribution.deepLongtailViews;
+              longtailRatio = longtailViews / contribution.totalViews;
             }
 
-            // 計算長尾比例
-            const longtailRatio =
-              post.longtail_ratio ||
-              calculateLongtailRatio(post.current_views, first7dViews) / 100;
+            // 計算前 7 天曝光（用於常青指數計算）
+            const first7dViews = contribution.burstViews;
 
             // 計算常青指數（需要近 30 天數據）
             let evergreenIndex = post.evergreen_index || 0;
-            if (evergreenIndex === 0 && daysSincePublish >= 37) {
+            if (evergreenIndex === 0 && daysSincePublish >= 37 && first7dViews > 0) {
               const now = new Date();
               const recent30dStart = new Date(now);
               recent30dStart.setDate(recent30dStart.getDate() - 30);
 
-              const recent30dViews = postDailyMetrics
-                .filter((m) => new Date(m.date) >= recent30dStart)
-                .reduce((sum, m) => sum + m.views, 0);
-
-              evergreenIndex = calculateEvergreenIndex(
-                recent30dViews,
-                first7dViews
+              // 計算近 30 天增量
+              const sortedMetrics = [...postDailyMetrics].sort(
+                (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
               );
+              let recent30dViews = 0;
+              for (let i = 0; i < sortedMetrics.length; i++) {
+                const m = sortedMetrics[i];
+                if (new Date(m.date) >= recent30dStart) {
+                  const prev = i > 0 ? sortedMetrics[i - 1] : null;
+                  recent30dViews += prev ? Math.max(0, m.views - prev.views) : m.views;
+                }
+              }
+
+              evergreenIndex = calculateEvergreenIndex(recent30dViews, first7dViews);
             }
 
             // 判斷狀態
