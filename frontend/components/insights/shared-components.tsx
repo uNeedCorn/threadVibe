@@ -1,11 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Check, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/insights-utils";
+import {
+  type MidtermStatus,
+  MIDTERM_STATUS_CONFIG,
+} from "@/lib/midterm-utils";
 
 // ============================================================================
 // GrowthBadge Component
@@ -151,5 +156,38 @@ export function HeatmapLegend(): ReactNode {
       </div>
       <span className="text-xs text-muted-foreground">高</span>
     </div>
+  );
+}
+
+// ============================================================================
+// Midterm Status Badge Component
+// ============================================================================
+
+interface MidtermStatusBadgeProps {
+  status: MidtermStatus;
+  className?: string;
+}
+
+export function MidtermStatusBadge({
+  status,
+  className,
+}: MidtermStatusBadgeProps): ReactNode {
+  const config = MIDTERM_STATUS_CONFIG[status];
+  const Icon = config.icon;
+
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "gap-1 text-xs",
+        config.bgColor,
+        config.color,
+        config.borderColor,
+        className
+      )}
+    >
+      <Icon className="size-3" />
+      {config.label}
+    </Badge>
   );
 }
