@@ -464,12 +464,14 @@ Deno.serve(async (req) => {
     const now = new Date();
     const hours72Ago = new Date(now.getTime() - 72 * 60 * 60 * 1000);
 
-    // 查詢 72 小時內的貼文（排除回覆），包含預計算的 R̂_t 和首次同步時間
+    // 查詢 72 小時內的貼文（排除回覆和轉發），包含預計算的 R̂_t 和首次同步時間
+    // 轉發貼文 (REPOST_FACADE) 沒有成效數據，不需要追蹤
     const { data: postsData, error: postsError } = await serviceClient
       .from('workspace_threads_posts')
       .select('id, text, media_type, media_url, published_at, first_synced_at, current_r_hat, current_r_hat_status')
       .eq('workspace_threads_account_id', accountId)
       .eq('is_reply', false)
+      .neq('media_type', 'REPOST_FACADE')
       .gte('published_at', hours72Ago.toISOString())
       .order('published_at', { ascending: false });
 
