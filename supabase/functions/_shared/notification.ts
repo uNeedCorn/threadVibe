@@ -55,7 +55,7 @@ export async function notifyTest(): Promise<TelegramResult> {
     return { success: false, error: 'Telegram credentials not configured' };
   }
 
-  const message = `✅ *ThreadsVibe 通知測試*\n\n` +
+  const message = `✅ *Postlyzer 通知測試*\n\n` +
     `Telegram 通知功能運作正常！\n` +
     `Time: ${new Date().toISOString()}`;
 

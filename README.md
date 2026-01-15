@@ -1,6 +1,8 @@
-# ThreadsVibe
+# Postlyzer
 
 Threads 發文成效儀表板 — 支援多用戶、多工作區、多帳號的團隊協作平台。
+
+**正式網址**: https://postlyzer.metricdesk.io/
 
 ## 功能概述
 
