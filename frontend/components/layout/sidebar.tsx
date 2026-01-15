@@ -14,6 +14,7 @@ import {
   Eye,
   MessageSquare,
   Radar,
+  TreeDeciduous,
   FileSpreadsheet,
   FlaskConical,
   Shield,
@@ -100,6 +101,11 @@ const mainNavItems: NavEntry[] = [
         title: "互動分析",
         href: "/insights/engagement",
         icon: MessageSquare,
+      },
+      {
+        title: "長尾分析",
+        href: "/insights/longtail",
+        icon: TreeDeciduous,
       },
       {
         title: "粉絲趨勢",
