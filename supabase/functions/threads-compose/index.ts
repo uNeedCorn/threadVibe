@@ -435,8 +435,9 @@ Deno.serve(async (req) => {
         return errorResponse(req, 'scheduled_at must be in the future', 400);
       }
 
-      const { data: scheduledPost, error: insertError } = await serviceClient
-        .from('workspace_threads_scheduled_posts')
+      // Step 1: 建立 outbound_post 記錄
+      const { data: outboundPost, error: postError } = await serviceClient
+        .from('workspace_threads_outbound_posts')
         .insert({
           workspace_id: account.workspace_id,
           workspace_threads_account_id: accountId,
@@ -446,21 +447,41 @@ Deno.serve(async (req) => {
           topic_tag: body.topic_tag,
           link_attachment: body.link_attachment,
           reply_control: body.reply_control,
-          scheduled_at: scheduled_at,
-          status: 'scheduled',
+          publish_type: 'scheduled',
+          publish_status: 'scheduled',
+          scheduled_at: scheduled_at, // 保留以便向後相容
           created_by: user.id,
         })
         .select('id')
         .single();
 
-      if (insertError) {
-        console.error('Insert scheduled post error:', insertError);
+      if (postError) {
+        console.error('Insert outbound post error:', postError);
+        return errorResponse(req, 'Failed to create post', 500);
+      }
+
+      // Step 2: 建立 publish_schedule 記錄
+      const { error: scheduleError } = await serviceClient
+        .from('workspace_threads_publish_schedules')
+        .insert({
+          outbound_post_id: outboundPost.id,
+          scheduled_at: scheduled_at,
+          created_by: user.id,
+        });
+
+      if (scheduleError) {
+        console.error('Insert publish schedule error:', scheduleError);
+        // 刪除剛建立的 outbound_post
+        await serviceClient
+          .from('workspace_threads_outbound_posts')
+          .delete()
+          .eq('id', outboundPost.id);
         return errorResponse(req, 'Failed to schedule post', 500);
       }
 
       return jsonResponse(req, {
         success: true,
-        scheduled_id: scheduledPost.id,
+        scheduled_id: outboundPost.id,
         scheduled_at: scheduled_at,
       });
     }
@@ -588,6 +609,30 @@ Deno.serve(async (req) => {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const detailData = await detailResponse.json();
+
+    // 記錄即時發布的貼文到 outbound_posts
+    const { error: recordError } = await serviceClient
+      .from('workspace_threads_outbound_posts')
+      .insert({
+        workspace_id: account.workspace_id,
+        workspace_threads_account_id: accountId,
+        text: body.text,
+        media_type: body.media_type,
+        media_urls: body.media_urls,
+        topic_tag: body.topic_tag,
+        link_attachment: body.link_attachment,
+        reply_control: body.reply_control,
+        publish_type: 'immediate',
+        publish_status: 'published',
+        threads_post_id: postId,
+        published_at: detailData.timestamp || new Date().toISOString(),
+        created_by: user.id,
+      });
+
+    if (recordError) {
+      // 記錄失敗不影響發布結果，只 log 警告
+      console.warn('Failed to record immediate post:', recordError);
+    }
 
     return jsonResponse(req, {
       success: true,

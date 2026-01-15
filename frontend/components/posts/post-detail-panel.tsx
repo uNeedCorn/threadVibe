@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ExternalLink, Loader2, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { ExternalLink, Loader2, ArrowUpRight, CheckCircle2, Copy, Check } from "lucide-react";
+import { useAccountAverage, getComparison, formatNumber as formatNum } from "@/hooks/use-account-average";
+import { PostConclusion } from "./post-conclusion";
 import Link from "next/link";
 import {
   Sheet,
@@ -37,6 +39,46 @@ interface PostDetailPanelProps {
   accountTags?: AccountTag[];
   onTagsChange?: (postId: string, tags: PostTag[]) => void;
   onCreateTag?: (name: string, color: string) => Promise<AccountTag | null>;
+}
+
+// 成效數據卡片（含比較標籤）
+function MetricCard({
+  label,
+  value,
+  average,
+  isPercentage = false,
+}: {
+  label: string;
+  value: number;
+  average: number | null;
+  isPercentage?: boolean;
+}) {
+  const comparison = getComparison(value, average);
+  const displayValue = isPercentage
+    ? `${value.toFixed(2)}%`
+    : formatNum(value);
+
+  return (
+    <div className="rounded-lg border p-3 text-center">
+      <div className="flex items-center justify-center gap-1">
+        <p className="text-lg font-bold">{displayValue}</p>
+        {comparison && (
+          <span
+            className={`text-[10px] font-medium ${
+              comparison.type === "above"
+                ? "text-green-600"
+                : comparison.type === "below"
+                ? "text-orange-600"
+                : "text-gray-400"
+            }`}
+          >
+            {comparison.label}
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
 }
 
 interface PostDetail {
@@ -77,6 +119,36 @@ export function PostDetailPanel({
   const [replyToId, setReplyToId] = useState<string | undefined>(undefined);
   const [replyToUsername, setReplyToUsername] = useState<string | undefined>(undefined);
   const [hasOwnerReply, setHasOwnerReply] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  // 取得帳號平均值
+  const { accountAverage, isLoading: isLoadingAverage } = useAccountAverage({
+    accountId: post?.account.id ?? null,
+  });
+
+  // 複製成效數據
+  const handleCopyMetrics = useCallback(() => {
+    if (!post) return;
+
+    const getComparisonText = (current: number, avg: number | null) => {
+      const comp = getComparison(current, avg);
+      return comp ? ` ${comp.label}` : "";
+    };
+
+    const metricsText = [
+      `觀看 ${formatNum(post.current_views)}${getComparisonText(post.current_views, accountAverage?.avgViews ?? null)}`,
+      `讚 ${formatNum(post.current_likes)}${getComparisonText(post.current_likes, accountAverage?.avgLikes ?? null)}`,
+      `回覆 ${formatNum(post.current_replies)}${getComparisonText(post.current_replies, accountAverage?.avgReplies ?? null)}`,
+      `轉發 ${formatNum(post.current_reposts)}`,
+      `引用 ${formatNum(post.current_quotes)}`,
+      `互動率 ${post.engagement_rate.toFixed(2)}%${getComparisonText(post.engagement_rate, accountAverage?.avgEngagementRate ?? null)}`,
+    ].join(" | ");
+
+    navigator.clipboard.writeText(metricsText).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    });
+  }, [post, accountAverage]);
 
   // 載入貼文詳情
   const fetchPost = useCallback(async () => {
@@ -283,17 +355,17 @@ export function PostDetailPanel({
               <div className="space-y-3">
                 {/* 訊息框 */}
                 <div className="rounded-xl border bg-muted/30 p-4">
-                  {/* 頭像與用戶名 */}
+                  {/* 頭像與用戶名（強化標示） */}
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="size-8">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="size-10 ring-2 ring-primary/20">
                         <AvatarImage src={post.account.profile_pic_url || undefined} />
-                        <AvatarFallback className="text-xs">
+                        <AvatarFallback className="text-sm font-semibold bg-primary/10">
                           {post.account.username.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium">@{post.account.username}</span>
+                        <span className="text-base font-semibold text-foreground">@{post.account.username}</span>
                         <span className="text-xs text-muted-foreground">{formatDate(post.published_at)}</span>
                       </div>
                     </div>
@@ -346,34 +418,69 @@ export function PostDetailPanel({
 
               <Separator />
 
+              {/* 一句話結論 */}
+              <PostConclusion
+                post={post}
+                accountAverage={accountAverage}
+                isLoading={isLoadingAverage}
+              />
+
               {/* 成效數據 */}
               <div className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground">成效數據</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-muted-foreground">成效數據</h3>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-muted-foreground"
+                        onClick={handleCopyMetrics}
+                      >
+                        {isCopied ? (
+                          <Check className="size-3.5 text-green-600" />
+                        ) : (
+                          <Copy className="size-3.5" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {isCopied ? "已複製！" : "複製成效數據"}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg border p-3 text-center">
-                    <p className="text-lg font-bold">{formatNumber(post.current_views)}</p>
-                    <p className="text-xs text-muted-foreground">觀看</p>
-                  </div>
-                  <div className="rounded-lg border p-3 text-center">
-                    <p className="text-lg font-bold">{formatNumber(post.current_likes)}</p>
-                    <p className="text-xs text-muted-foreground">讚</p>
-                  </div>
-                  <div className="rounded-lg border p-3 text-center">
-                    <p className="text-lg font-bold">{formatNumber(post.current_replies)}</p>
-                    <p className="text-xs text-muted-foreground">回覆</p>
-                  </div>
-                  <div className="rounded-lg border p-3 text-center">
-                    <p className="text-lg font-bold">{formatNumber(post.current_reposts)}</p>
-                    <p className="text-xs text-muted-foreground">轉發</p>
-                  </div>
-                  <div className="rounded-lg border p-3 text-center">
-                    <p className="text-lg font-bold">{formatNumber(post.current_quotes)}</p>
-                    <p className="text-xs text-muted-foreground">引用</p>
-                  </div>
-                  <div className="rounded-lg border p-3 text-center">
-                    <p className="text-lg font-bold">{post.engagement_rate.toFixed(2)}%</p>
-                    <p className="text-xs text-muted-foreground">互動率</p>
-                  </div>
+                  <MetricCard
+                    label="觀看"
+                    value={post.current_views}
+                    average={accountAverage?.avgViews ?? null}
+                  />
+                  <MetricCard
+                    label="讚"
+                    value={post.current_likes}
+                    average={accountAverage?.avgLikes ?? null}
+                  />
+                  <MetricCard
+                    label="回覆"
+                    value={post.current_replies}
+                    average={accountAverage?.avgReplies ?? null}
+                  />
+                  <MetricCard
+                    label="轉發"
+                    value={post.current_reposts}
+                    average={accountAverage?.avgReposts ?? null}
+                  />
+                  <MetricCard
+                    label="引用"
+                    value={post.current_quotes}
+                    average={accountAverage?.avgQuotes ?? null}
+                  />
+                  <MetricCard
+                    label="互動率"
+                    value={post.engagement_rate}
+                    average={accountAverage?.avgEngagementRate ?? null}
+                    isPercentage
+                  />
                 </div>
               </div>
 

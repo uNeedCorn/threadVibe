@@ -24,6 +24,7 @@ import {
   ClipboardList,
   LogOut,
   User,
+  CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -124,6 +125,11 @@ const mainNavItems: NavEntry[] = [
     title: "貼文列表",
     href: "/posts",
     icon: FileText,
+  },
+  {
+    title: "排程管理",
+    href: "/scheduled",
+    icon: CalendarClock,
   },
   {
     title: "標籤",

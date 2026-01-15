@@ -157,6 +157,10 @@ Deno.serve(async (req) => {
       });
 
       let enqueueCount = 0;
+      let deletedCount = 0;
+
+      // 建立 Threads API 回傳的貼文 ID 集合
+      const threadsPostIds = new Set(posts.map((p) => p.id));
 
       if (normalizedPosts.length > 0) {
         const { error: upsertError } = await serviceClient
@@ -198,13 +202,54 @@ Deno.serve(async (req) => {
         }
       }
 
+      // 偵測已刪除的排程貼文
+      // 查詢已發布但尚未標記刪除的排程貼文
+      const { data: publishedScheduledPosts } = await serviceClient
+        .from('workspace_threads_outbound_posts')
+        .select('id, threads_post_id')
+        .eq('workspace_threads_account_id', workspace_threads_account_id)
+        .eq('publish_status', 'published')
+        .is('deleted_at', null)
+        .not('threads_post_id', 'is', null);
+
+      if (publishedScheduledPosts && publishedScheduledPosts.length > 0) {
+        // 找出在 Threads 上已不存在的貼文
+        const deletedPosts = publishedScheduledPosts.filter(
+          (sp) => sp.threads_post_id && !threadsPostIds.has(sp.threads_post_id)
+        );
+
+        if (deletedPosts.length > 0) {
+          const deletedIds = deletedPosts.map((p) => p.id);
+
+          // 標記為已刪除
+          const { error: deleteError } = await serviceClient
+            .from('workspace_threads_outbound_posts')
+            .update({
+              deleted_at: new Date().toISOString(),
+              deletion_source: 'sync_detected',
+            })
+            .in('id', deletedIds);
+
+          if (deleteError) {
+            console.error('Failed to mark deleted posts:', deleteError);
+          } else {
+            deletedCount = deletedPosts.length;
+            console.log(`sync-posts: Marked ${deletedCount} posts as deleted (sync_detected)`);
+          }
+        }
+      }
+
       // 更新同步記錄
       await serviceClient
         .from('sync_logs')
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
-          metadata: { synced_count: normalizedPosts.length, enqueue_count: enqueueCount },
+          metadata: {
+            synced_count: normalizedPosts.length,
+            enqueue_count: enqueueCount,
+            deleted_count: deletedCount,
+          },
         })
         .eq('id', syncLog?.id);
 
@@ -212,6 +257,7 @@ Deno.serve(async (req) => {
         success: true,
         synced_count: normalizedPosts.length,
         enqueue_count: enqueueCount,
+        deleted_count: deletedCount,
       });
 
     } catch (syncError) {

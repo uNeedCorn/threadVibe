@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Loader2, MessageCircle, ExternalLink, RefreshCw, Reply, CheckCircle2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { Loader2, MessageCircle, ExternalLink, RefreshCw, Reply, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
@@ -17,6 +17,27 @@ export interface ThreadsReply {
   permalink?: string;
   is_reply_owned_by_me?: boolean;
   has_owner_reply?: boolean;
+}
+
+// 負面情緒檢測關鍵詞
+const NEGATIVE_KEYWORDS = [
+  // 不滿/抱怨
+  "差", "爛", "垃圾", "浪費", "討厭", "失望", "無聊", "騙", "假",
+  // 客訴相關
+  "退費", "退款", "投訴", "客訴", "檢舉", "舉報",
+  // 強烈負面
+  "廢", "噁", "爛透", "超爛", "很差", "太差", "有夠爛",
+  // 質疑
+  "騙人", "詐騙", "黑心", "坑",
+];
+
+/**
+ * 檢測留言是否含有負面情緒
+ */
+function detectNegativeSentiment(text?: string): boolean {
+  if (!text) return false;
+  const lowerText = text.toLowerCase();
+  return NEGATIVE_KEYWORDS.some(keyword => lowerText.includes(keyword));
 }
 
 interface RepliesSectionProps {
@@ -130,6 +151,22 @@ export function RepliesSection({
     return date.toLocaleDateString("zh-TW");
   };
 
+  // 排序留言：負面留言置頂（必須在所有條件式 return 之前）
+  const sortedReplies = useMemo(() => {
+    return [...replies].sort((a, b) => {
+      const aIsNegative = detectNegativeSentiment(a.text);
+      const bIsNegative = detectNegativeSentiment(b.text);
+      if (aIsNegative && !bIsNegative) return -1;
+      if (!aIsNegative && bIsNegative) return 1;
+      return 0;
+    });
+  }, [replies]);
+
+  // 統計負面留言數量
+  const negativeCount = useMemo(() => {
+    return replies.filter(r => detectNegativeSentiment(r.text)).length;
+  }, [replies]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -168,9 +205,17 @@ export function RepliesSection({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          回覆 ({replies.length})
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            回覆 ({replies.length})
+          </h3>
+          {negativeCount > 0 && (
+            <span className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-2 py-0.5 rounded-full">
+              <AlertTriangle className="size-3" />
+              {negativeCount} 則需關注
+            </span>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="sm"
@@ -182,13 +227,16 @@ export function RepliesSection({
       </div>
 
       <div className="space-y-2">
-        {replies.map((reply) => {
+        {sortedReplies.map((reply) => {
           const isActive = activeReplyId === reply.id;
+          const isNegative = detectNegativeSentiment(reply.text);
           return (
             <div key={reply.id} className="space-y-2">
               <div
                 className={`rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50 ${
                   isActive ? "border-primary/50 bg-primary/5" : ""
+                } ${
+                  isNegative ? "border-orange-300 dark:border-orange-700 bg-orange-50/50 dark:bg-orange-950/20" : ""
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -205,6 +253,12 @@ export function RepliesSection({
                       <span className="text-xs text-muted-foreground">
                         · {formatTime(reply.timestamp)}
                       </span>
+                      {isNegative && (
+                        <span className="flex items-center gap-0.5 text-xs text-orange-600">
+                          <AlertTriangle className="size-3" />
+                          需關注
+                        </span>
+                      )}
                       {reply.has_owner_reply && (
                         <span className="flex items-center gap-0.5 text-xs text-green-600">
                           <CheckCircle2 className="size-3" />

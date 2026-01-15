@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Hash, Link2, Loader2, Send, Clock, X, Shield } from "lucide-react";
+import { ArrowLeft, Hash, Link2, Loader2, Send, Clock, X, Tag, Check } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,12 +17,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { createClient } from "@/lib/supabase/client";
+import { useAccountTags } from "@/hooks/use-account-tags";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { MediaTypeSelector, type MediaType } from "@/components/compose/media-type-selector";
 import { ComposeMediaSection } from "@/components/compose/compose-media-section";
 import { ComposeScheduler } from "@/components/compose/compose-scheduler";
-import { useCurrentUser } from "@/hooks/use-current-user";
 
 const TEXT_LIMIT = 500;
 const TOPIC_TAG_LIMIT = 50;
@@ -34,33 +40,20 @@ interface ThreadsAccount {
   profilePicUrl: string | null;
 }
 
+interface ScheduledPost {
+  id: string;
+  text: string | null;
+  scheduled_at: string;
+  publish_status: string;
+}
+
 function ComposePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAdmin, isLoading: isLoadingUser } = useCurrentUser();
 
   // 當前帳號
   const [currentAccount, setCurrentAccount] = useState<ThreadsAccount | null>(null);
   const [isLoadingAccount, setIsLoadingAccount] = useState(true);
-
-  // 非管理員重導向
-  useEffect(() => {
-    if (!isLoadingUser && !isAdmin) {
-      router.push("/posts");
-    }
-  }, [isAdmin, isLoadingUser, router]);
-
-  // 載入中或非管理員時顯示載入畫面
-  if (isLoadingUser || !isAdmin) {
-    return (
-      <div className="container max-w-2xl py-8">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
-          載入中...
-        </div>
-      </div>
-    );
-  }
 
   // 貼文內容
   const [mediaType, setMediaType] = useState<MediaType>("TEXT");
@@ -69,6 +62,14 @@ function ComposePageContent() {
   const [topicTag, setTopicTag] = useState("");
   const [linkAttachment, setLinkAttachment] = useState("");
   const [scheduledAt, setScheduledAt] = useState<string | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
+
+  // 帳號標籤
+  const { tags: accountTags, isLoading: isLoadingTags } = useAccountTags();
+
+  // 當天排程貼文
+  const [todayScheduledPosts, setTodayScheduledPosts] = useState<ScheduledPost[]>([]);
 
   // 狀態
   const [isLoading, setIsLoading] = useState(false);
@@ -77,12 +78,16 @@ function ComposePageContent() {
   useEffect(() => {
     const textParam = searchParams.get("text");
     const topicParam = searchParams.get("topic");
+    const tagsParam = searchParams.get("tags");
 
     if (textParam) {
       setText(textParam);
     }
     if (topicParam) {
       setTopicTag(topicParam);
+    }
+    if (tagsParam) {
+      setSelectedTagIds(tagsParam.split(",").filter(Boolean));
     }
   }, [searchParams]);
 
@@ -119,6 +124,40 @@ function ComposePageContent() {
     fetchCurrentAccount();
   }, []);
 
+  // 載入當天排程貼文
+  useEffect(() => {
+    if (!currentAccount) {
+      setTodayScheduledPosts([]);
+      return;
+    }
+
+    const accountId = currentAccount.id;
+
+    async function fetchTodayScheduled() {
+      const supabase = createClient();
+
+      // 取得今天的開始和結束時間
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+
+      const { data } = await supabase
+        .from("workspace_threads_outbound_posts")
+        .select("id, text, scheduled_at, publish_status")
+        .eq("workspace_threads_account_id", accountId)
+        .gte("scheduled_at", startOfDay)
+        .lt("scheduled_at", endOfDay)
+        .in("publish_status", ["scheduled", "publishing"])
+        .order("scheduled_at", { ascending: true });
+
+      if (data) {
+        setTodayScheduledPosts(data);
+      }
+    }
+
+    fetchTodayScheduled();
+  }, [currentAccount]);
+
   // 切換貼文類型時重置媒體
   const handleMediaTypeChange = useCallback((type: MediaType) => {
     setMediaType(type);
@@ -128,6 +167,16 @@ function ComposePageContent() {
       setLinkAttachment("");
     }
   }, []);
+
+  // 切換標籤
+  const handleToggleTag = (tagId: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  };
+
+  // 取得已選標籤物件
+  const selectedTags = accountTags.filter((t) => selectedTagIds.includes(t.id));
 
   // 驗證表單
   const validateForm = (): string | null => {
@@ -203,6 +252,15 @@ function ComposePageContent() {
         throw new Error(data?.error || "發布失敗");
       }
 
+      // 發文成功後，關聯預選的帳號標籤
+      if (selectedTagIds.length > 0 && data.post_id) {
+        const tagInserts = selectedTagIds.map((tagId) => ({
+          post_id: data.post_id,
+          tag_id: tagId,
+        }));
+        await supabase.from("workspace_threads_post_tags").insert(tagInserts);
+      }
+
       if (scheduledAt) {
         toast.success("貼文已排程！", {
           description: `將於 ${new Date(scheduledAt).toLocaleString("zh-TW")} 發布`,
@@ -241,12 +299,6 @@ function ComposePageContent() {
 
   return (
     <div className="container max-w-2xl py-8">
-      {/* 管理員標示 */}
-      <div className="mb-4 flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300">
-        <Shield className="size-4" />
-        <span>管理員功能：發文功能目前僅限管理員使用</span>
-      </div>
-
       {/* 標題 */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -345,19 +397,24 @@ function ComposePageContent() {
                 <span className="ml-1 text-xs text-muted-foreground">（選填）</span>
               )}
             </Label>
-            <Textarea
-              id="text"
-              placeholder="想說些什麼？"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              className="min-h-[150px] resize-none"
-              disabled={isLoading}
-            />
-            <div className="flex justify-end">
+            <div className="relative">
+              <Textarea
+                id="text"
+                placeholder="想說些什麼？"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="min-h-[150px] resize-none pr-16 pb-6"
+                disabled={isLoading}
+              />
               <span
-                className={`text-xs ${
-                  isOverLimit ? "text-destructive" : "text-muted-foreground"
-                }`}
+                className={cn(
+                  "absolute bottom-2 right-3 text-xs tabular-nums",
+                  isOverLimit
+                    ? "text-destructive font-medium"
+                    : charCount > TEXT_LIMIT * 0.8
+                    ? "text-amber-500"
+                    : "text-muted-foreground"
+                )}
               >
                 {charCount}/{TEXT_LIMIT}
               </span>
@@ -371,6 +428,86 @@ function ComposePageContent() {
             onMediaUrlsChange={setMediaUrls}
             disabled={isLoading}
           />
+
+          <Separator />
+
+          {/* 帳號標籤 */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1">
+              <Tag className="size-3" />
+              帳號標籤
+              <span className="text-xs text-muted-foreground">（選填）</span>
+            </Label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    disabled={isLoading || isLoadingTags}
+                  >
+                    <Tag className="size-3.5" />
+                    選擇標籤
+                    {selectedTags.length > 0 && (
+                      <span className="ml-1 bg-primary/10 text-primary px-1.5 rounded-full text-xs">
+                        {selectedTags.length}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" align="start">
+                  <div className="space-y-1">
+                    {accountTags.length === 0 ? (
+                      <p className="py-2 text-center text-sm text-muted-foreground">
+                        尚無標籤
+                      </p>
+                    ) : (
+                      accountTags.map((tag) => (
+                        <button
+                          key={tag.id}
+                          className={cn(
+                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent",
+                            selectedTagIds.includes(tag.id) && "bg-accent"
+                          )}
+                          onClick={() => handleToggleTag(tag.id)}
+                        >
+                          <div
+                            className="size-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          <span className="flex-1 truncate text-left">{tag.name}</span>
+                          {selectedTagIds.includes(tag.id) && (
+                            <Check className="size-4 text-primary" />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* 已選標籤顯示 */}
+              {selectedTags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-white"
+                  style={{ backgroundColor: tag.color }}
+                >
+                  {tag.name}
+                  <button
+                    onClick={() => handleToggleTag(tag.id)}
+                    className="hover:bg-white/20 rounded-full p-0.5"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              選擇標籤以便日後分類管理貼文
+            </p>
+          </div>
 
           <Separator />
 
@@ -447,6 +584,35 @@ function ComposePageContent() {
             onScheduledAtChange={setScheduledAt}
             disabled={isLoading}
           />
+
+          {/* 當天其他排程貼文 */}
+          {todayScheduledPosts.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-dashed">
+              <p className="text-sm font-medium text-muted-foreground mb-3">
+                今日其他排程（{todayScheduledPosts.length} 篇）
+              </p>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {todayScheduledPosts.map((post) => (
+                  <div
+                    key={post.id}
+                    className="flex items-center gap-3 text-sm text-muted-foreground bg-muted/30 rounded-lg px-3 py-2"
+                  >
+                    <Clock className="size-4 shrink-0" />
+                    <span className="font-medium tabular-nums">
+                      {new Date(post.scheduled_at).toLocaleTimeString("zh-TW", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className="truncate flex-1">
+                      {post.text?.slice(0, 30) || "(無文字)"}
+                      {post.text && post.text.length > 30 ? "..." : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
