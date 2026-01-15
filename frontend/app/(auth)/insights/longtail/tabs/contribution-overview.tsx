@@ -165,6 +165,7 @@ export function ContributionOverviewTab({ data }: Props) {
           icon={<TrendingUp className="size-4" />}
           format="percent"
           periodLabel=""
+          hint="7 天後流量佔總流量比例"
           isLoading={isLoading}
         />
         <KPICard
@@ -174,6 +175,7 @@ export function ContributionOverviewTab({ data }: Props) {
           format="number"
           periodLabel=""
           suffix="篇"
+          hint="常青指數 > 0.3 的貼文"
           isLoading={isLoading}
         />
         <KPICard
@@ -182,6 +184,7 @@ export function ContributionOverviewTab({ data }: Props) {
           icon={<Eye className="size-4" />}
           format="number"
           periodLabel=""
+          hint="所有分析貼文的累計曝光"
           isLoading={isLoading}
         />
         <KPICard
@@ -191,6 +194,7 @@ export function ContributionOverviewTab({ data }: Props) {
           format="number"
           periodLabel=""
           suffix="篇"
+          hint="發布超過 7 天的貼文"
           isLoading={isLoading}
         />
       </div>

@@ -433,7 +433,7 @@ function PostCountChart({
                 width={30}
               />
               <ChartTooltip
-                cursor={{ fill: "#E7E5E4", opacity: 0.5 }}
+                cursor={{ fill: STONE[200], opacity: 0.5 }}
                 content={<ChartTooltipContent />}
               />
               <Bar
@@ -758,11 +758,11 @@ function TrendLineChart({
                       return (
                         <g transform={`translate(${x},${y})`}>
                           {hour === 0 && (
-                            <text x={0} y={0} dy={10} textAnchor="middle" fontSize={9} fill="#a1a1aa">
+                            <text x={0} y={0} dy={10} textAnchor="middle" fontSize={9} fill={STONE[400]}>
                               {`${date.getMonth() + 1}/${date.getDate()}`}
                             </text>
                           )}
-                          <text x={0} y={0} dy={24} textAnchor="middle" fontSize={10} fill="#71717a">
+                          <text x={0} y={0} dy={24} textAnchor="middle" fontSize={10} fill={STONE[500]}>
                             {`${hour}時`}
                           </text>
                         </g>
@@ -772,7 +772,7 @@ function TrendLineChart({
                     const point = data.find((d) => d.timestamp === value);
                     return (
                       <g transform={`translate(${x},${y})`}>
-                        <text x={0} y={0} dy={14} textAnchor="middle" fontSize={10} fill="#71717a">
+                        <text x={0} y={0} dy={14} textAnchor="middle" fontSize={10} fill={STONE[500]}>
                           {point?.label || ""}
                         </text>
                       </g>
@@ -1218,7 +1218,7 @@ export default function InsightsOverviewPage() {
 
         // 如果有未標籤的貼文，加到最後
         if (untaggedViews > 0) {
-          pieData.push({ label: "未分類", views: untaggedViews, fill: "#A8A29E" }); // Stone 400
+          pieData.push({ label: "未分類", views: untaggedViews, fill: STONE[400] });
         }
 
         setTagViewsData(pieData);

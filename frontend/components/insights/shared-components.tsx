@@ -59,6 +59,7 @@ interface KPICardProps {
   format?: KPIFormat;
   periodLabel: string;
   suffix?: string;
+  hint?: string;
 }
 
 function formatKPIValue(value: number, format: KPIFormat): string {
@@ -81,6 +82,7 @@ export function KPICard({
   format = "number",
   periodLabel,
   suffix,
+  hint,
 }: KPICardProps): ReactNode {
   if (isLoading) {
     return (
@@ -106,7 +108,7 @@ export function KPICard({
         <div className="text-muted-foreground">{icon}</div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">
+        <div className="text-2xl font-bold tabular-nums">
           {formatKPIValue(value, format)}
           {suffix && (
             <span className="ml-1 text-base font-normal text-muted-foreground">
@@ -123,6 +125,9 @@ export function KPICard({
               </span>
             )}
           </div>
+        )}
+        {hint && (
+          <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
         )}
       </CardContent>
     </Card>

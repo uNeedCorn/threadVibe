@@ -41,6 +41,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -308,29 +313,53 @@ export function EvergreenContentTab({ data }: Props) {
                     className="cursor-pointer text-right"
                     onClick={() => handleSort("evergreenIndex")}
                   >
-                    <div className="flex items-center justify-end gap-1">
-                      常青指數
-                      {sortKey === "evergreenIndex" &&
-                        (sortDirection === "desc" ? (
-                          <ChevronDown className="size-4" />
-                        ) : (
-                          <ChevronUp className="size-4" />
-                        ))}
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="border-b border-dashed border-muted-foreground/50">
+                            常青指數
+                          </span>
+                          {sortKey === "evergreenIndex" &&
+                            (sortDirection === "desc" ? (
+                              <ChevronDown className="size-4" />
+                            ) : (
+                              <ChevronUp className="size-4" />
+                            ))}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[240px]">
+                        <p>近 30 天日均曝光 ÷ 前 7 天日均曝光</p>
+                        <p className="mt-1 text-muted-foreground">
+                          &gt;0.3 為常青、&gt;1.0 為舊文復活
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
                   </TableHead>
                   <TableHead
                     className="cursor-pointer text-right"
                     onClick={() => handleSort("longtailRatio")}
                   >
-                    <div className="flex items-center justify-end gap-1">
-                      長尾比例
-                      {sortKey === "longtailRatio" &&
-                        (sortDirection === "desc" ? (
-                          <ChevronDown className="size-4" />
-                        ) : (
-                          <ChevronUp className="size-4" />
-                        ))}
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="border-b border-dashed border-muted-foreground/50">
+                            長尾比例
+                          </span>
+                          {sortKey === "longtailRatio" &&
+                            (sortDirection === "desc" ? (
+                              <ChevronDown className="size-4" />
+                            ) : (
+                              <ChevronUp className="size-4" />
+                            ))}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[240px]">
+                        <p>發布 7 天後的流量佔總流量比例</p>
+                        <p className="mt-1 text-muted-foreground">
+                          越高代表長尾效果越好
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
                   </TableHead>
                   <TableHead className="w-24">狀態</TableHead>
                 </TableRow>
@@ -368,20 +397,29 @@ export function EvergreenContentTab({ data }: Props) {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <span
-                            className={cn(
-                              "font-medium",
-                              post.evergreenIndex > 0.3
-                                ? "text-emerald-600"
-                                : post.evergreenIndex > 0.15
-                                  ? "text-primary"
-                                  : "text-muted-foreground"
-                            )}
-                          >
-                            {post.evergreenIndex.toFixed(2)}
-                          </span>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <span
+                                className={cn(
+                                  "font-medium tabular-nums",
+                                  post.evergreenIndex > 1.0
+                                    ? "text-amber-600"
+                                    : post.evergreenIndex > 0.3
+                                      ? "text-emerald-600"
+                                      : post.evergreenIndex > 0.15
+                                        ? "text-primary"
+                                        : "text-muted-foreground"
+                                )}
+                              >
+                                {post.evergreenIndex.toFixed(2)}x
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              近期日均是前 7 天的 {post.evergreenIndex.toFixed(2)} 倍
+                            </TooltipContent>
+                          </Tooltip>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right tabular-nums">
                           {(post.longtailRatio * 100).toFixed(1)}%
                         </TableCell>
                         <TableCell>
