@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { type View } from "react-big-calendar";
 import {
-  Calendar,
+  Calendar as CalendarIcon,
   Clock,
   Edit2,
   Loader2,
@@ -12,6 +13,8 @@ import {
   Send,
   AlertCircle,
   Plus,
+  List,
+  CalendarDays,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -36,13 +39,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useSelectedAccountContext } from "@/contexts/selected-account-context";
+import { ScheduleCalendar, Views, type ScheduleEvent } from "@/components/scheduled/schedule-calendar";
 
 interface ScheduledPost {
   id: string;
@@ -56,7 +69,8 @@ interface ScheduledPost {
   error_message: string | null;
 }
 
-type TabValue = "scheduled" | "published" | "failed";
+type StatusTabValue = "scheduled" | "published" | "failed";
+type ViewMode = "list" | "calendar";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof Clock }> = {
   scheduled: { label: "排程中", variant: "secondary", icon: Clock },
@@ -70,9 +84,19 @@ export default function ScheduledPage() {
   const { selectedAccount, isLoading: isLoadingAccount } = useSelectedAccountContext();
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabValue>("scheduled");
+  const [activeTab, setActiveTab] = useState<StatusTabValue>("scheduled");
+  const [viewMode, setViewMode] = useState<ViewMode>("calendar");
+
+  // 日曆狀態
+  const [calendarView, setCalendarView] = useState<View>(Views.MONTH);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+
+  // Dialog 狀態
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
+  const [rescheduleEvent, setRescheduleEvent] = useState<{ id: string; newStart: Date } | null>(null);
+  const [isRescheduling, setIsRescheduling] = useState(false);
 
   // 載入排程貼文
   useEffect(() => {
@@ -104,6 +128,7 @@ export default function ScheduledPage() {
         .from("workspace_threads_outbound_posts")
         .select("id, text, media_type, scheduled_at, publish_status, created_at, published_at, threads_post_id, error_message")
         .eq("workspace_threads_account_id", selectedAccount!.id)
+        .is("deleted_at", null)
         .in("publish_status", statusFilter)
         .order("scheduled_at", { ascending: activeTab === "scheduled" });
 
@@ -120,14 +145,34 @@ export default function ScheduledPage() {
     fetchPosts();
   }, [selectedAccount, activeTab]);
 
-  // 取消排程
+  // 轉換為日曆事件
+  const calendarEvents: ScheduleEvent[] = useMemo(() => {
+    return posts.map((post) => {
+      const start = new Date(post.scheduled_at);
+      const end = new Date(start.getTime() + 30 * 60 * 1000); // 30 分鐘
+      return {
+        id: post.id,
+        title: post.text?.slice(0, 30) || "(無文字)",
+        start,
+        end,
+        status: post.publish_status,
+        mediaType: post.media_type,
+        text: post.text,
+      };
+    });
+  }, [posts]);
+
+  // 取消排程（軟刪除）
   const handleCancelSchedule = async (postId: string) => {
     setIsDeleting(true);
     try {
       const supabase = createClient();
       const { error } = await supabase
         .from("workspace_threads_outbound_posts")
-        .update({ publish_status: "cancelled" })
+        .update({
+          deleted_at: new Date().toISOString(),
+          deletion_source: "platform_deleted"
+        })
         .eq("id", postId);
 
       if (error) throw error;
@@ -142,6 +187,58 @@ export default function ScheduledPage() {
     }
   };
 
+  // 處理拖曳調整時間
+  const handleEventDrop = useCallback((eventId: string, newStart: Date) => {
+    // 不能調整到過去的時間
+    if (newStart < new Date()) {
+      toast.error("無法排程到過去的時間");
+      return;
+    }
+    setRescheduleEvent({ id: eventId, newStart });
+  }, []);
+
+  // 確認調整時間
+  const handleConfirmReschedule = async () => {
+    if (!rescheduleEvent) return;
+
+    setIsRescheduling(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("workspace_threads_outbound_posts")
+        .update({ scheduled_at: rescheduleEvent.newStart.toISOString() })
+        .eq("id", rescheduleEvent.id);
+
+      if (error) throw error;
+
+      // 同時更新 publish_schedules 表
+      await supabase
+        .from("workspace_threads_publish_schedules")
+        .update({ scheduled_at: rescheduleEvent.newStart.toISOString() })
+        .eq("outbound_post_id", rescheduleEvent.id)
+        .is("executed_at", null);
+
+      toast.success("排程時間已更新");
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === rescheduleEvent.id
+            ? { ...p, scheduled_at: rescheduleEvent.newStart.toISOString() }
+            : p
+        )
+      );
+    } catch {
+      toast.error("調整時間失敗");
+    } finally {
+      setIsRescheduling(false);
+      setRescheduleEvent(null);
+    }
+  };
+
+  // 處理點擊事件
+  const handleEventClick = useCallback((event: ScheduleEvent) => {
+    setSelectedEvent(event);
+  }, []);
+
   // 格式化日期
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -155,6 +252,17 @@ export default function ScheduledPage() {
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleTimeString("zh-TW", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatDateTime = (date: Date) => {
+    return date.toLocaleString("zh-TW", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      weekday: "short",
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -200,21 +308,32 @@ export default function ScheduledPage() {
   );
 
   return (
-    <div className="container max-w-4xl py-8">
+    <div className="container max-w-6xl py-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">排程管理</h1>
           <p className="text-sm text-muted-foreground">
-            管理已排程的貼文
+            管理已排程的貼文，拖曳調整發布時間
           </p>
         </div>
-        <Button asChild>
-          <Link href="/compose">
-            <Plus className="mr-2 size-4" />
-            新增貼文
-          </Link>
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* 視圖切換 */}
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
+            <ToggleGroupItem value="calendar" aria-label="日曆視圖">
+              <CalendarDays className="size-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="list" aria-label="清單視圖">
+              <List className="size-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <Button asChild>
+            <Link href="/compose">
+              <Plus className="mr-2 size-4" />
+              新增貼文
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* 帳號資訊 */}
@@ -253,7 +372,7 @@ export default function ScheduledPage() {
       )}
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as StatusTabValue)}>
         <TabsList className="mb-6">
           <TabsTrigger value="scheduled" className="gap-2">
             <Clock className="size-4" />
@@ -276,10 +395,36 @@ export default function ScheduledPage() {
                 <Loader2 className="size-6 animate-spin text-muted-foreground" />
               </CardContent>
             </Card>
+          ) : viewMode === "calendar" ? (
+            /* 日曆視圖 */
+            <Card>
+              <CardContent className="p-4">
+                {calendarEvents.length === 0 && (
+                  <div className="mb-4 rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    <CalendarIcon className="mx-auto mb-2 size-8 text-muted-foreground/50" />
+                    {activeTab === "scheduled" && "目前沒有排程中的貼文"}
+                    {activeTab === "published" && "目前沒有已發布的排程貼文"}
+                    {activeTab === "failed" && "沒有發布失敗的貼文"}
+                  </div>
+                )}
+                <div className="h-[600px]">
+                  <ScheduleCalendar
+                    events={calendarEvents}
+                    onEventDrop={activeTab === "scheduled" ? handleEventDrop : () => {}}
+                    onEventClick={handleEventClick}
+                    view={calendarView}
+                    onViewChange={setCalendarView}
+                    date={calendarDate}
+                    onDateChange={setCalendarDate}
+                  />
+                </div>
+              </CardContent>
+            </Card>
           ) : posts.length === 0 ? (
+            /* 清單視圖 - 空狀態 */
             <Card>
               <CardContent className="py-12 text-center">
-                <Calendar className="mx-auto mb-4 size-12 text-muted-foreground/50" />
+                <CalendarIcon className="mx-auto mb-4 size-12 text-muted-foreground/50" />
                 <p className="text-muted-foreground">
                   {activeTab === "scheduled" && "目前沒有排程中的貼文"}
                   {activeTab === "published" && "目前沒有已發布的排程貼文"}
@@ -293,11 +438,12 @@ export default function ScheduledPage() {
               </CardContent>
             </Card>
           ) : (
+            /* 清單視圖 */
             <div className="space-y-6">
               {sortedDates.map((date) => (
                 <div key={date}>
                   <div className="mb-3 flex items-center gap-2">
-                    <Calendar className="size-4 text-muted-foreground" />
+                    <CalendarIcon className="size-4 text-muted-foreground" />
                     <h3 className="text-sm font-medium text-muted-foreground">
                       {formatDate(groupedPosts[date][0].scheduled_at)}
                     </h3>
@@ -421,6 +567,76 @@ export default function ScheduledPage() {
                 </>
               ) : (
                 "確定取消"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 事件詳情對話框 */}
+      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>排程貼文</DialogTitle>
+            <DialogDescription>
+              {selectedEvent && formatDateTime(selectedEvent.start)}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEvent && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Badge variant={STATUS_CONFIG[selectedEvent.status]?.variant || "secondary"}>
+                  {STATUS_CONFIG[selectedEvent.status]?.label || selectedEvent.status}
+                </Badge>
+                <Badge variant="outline">{selectedEvent.mediaType}</Badge>
+              </div>
+              <p className="text-sm whitespace-pre-wrap">
+                {selectedEvent.text || "(無文字內容)"}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            {selectedEvent && activeTab === "scheduled" && (
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setDeletePostId(selectedEvent.id);
+                  setSelectedEvent(null);
+                }}
+              >
+                <Trash2 className="mr-2 size-4" />
+                取消排程
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setSelectedEvent(null)}>
+              關閉
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 調整時間確認對話框 */}
+      <AlertDialog open={!!rescheduleEvent} onOpenChange={() => setRescheduleEvent(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>調整排程時間</AlertDialogTitle>
+            <AlertDialogDescription>
+              確定要將排程時間調整為 {rescheduleEvent && formatDateTime(rescheduleEvent.newStart)} 嗎？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmReschedule}
+              disabled={isRescheduling}
+            >
+              {isRescheduling ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  處理中...
+                </>
+              ) : (
+                "確定調整"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

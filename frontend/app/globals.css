@@ -154,3 +154,304 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================
+   Schedule Calendar - react-big-calendar 樣式覆寫
+   使用 shadcn/ui 設計語言
+   ============================================ */
+
+.schedule-calendar {
+  --rbc-border-color: var(--border);
+  --rbc-bg-color: var(--card);
+  --rbc-header-bg: var(--muted);
+  --rbc-today-bg: oklch(0.696 0.137 175.8 / 0.1);
+  --rbc-off-range-bg: oklch(0.97 0.001 106 / 0.5);
+  --rbc-selected-bg: oklch(0.696 0.137 175.8 / 0.2);
+}
+
+.dark .schedule-calendar {
+  --rbc-today-bg: oklch(0.77 0.138 175 / 0.1);
+  --rbc-off-range-bg: oklch(0.268 0.007 34 / 0.5);
+  --rbc-selected-bg: oklch(0.77 0.138 175 / 0.2);
+}
+
+/* 主容器 */
+.schedule-calendar .rbc-calendar {
+  background: var(--rbc-bg-color);
+  border-radius: var(--radius);
+  border: 1px solid var(--rbc-border-color);
+  font-family: inherit;
+}
+
+/* 工具列 */
+.schedule-calendar .rbc-toolbar {
+  padding: 12px 16px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--rbc-border-color);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.schedule-calendar .rbc-toolbar button {
+  color: var(--foreground);
+  background: transparent;
+  border: 1px solid var(--rbc-border-color);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.schedule-calendar .rbc-toolbar button:hover {
+  background: var(--accent);
+}
+
+.schedule-calendar .rbc-toolbar button.rbc-active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.schedule-calendar .rbc-btn-group {
+  display: flex;
+  gap: 0;
+}
+
+.schedule-calendar .rbc-btn-group button {
+  border-radius: 0;
+}
+
+.schedule-calendar .rbc-btn-group button:first-child {
+  border-radius: calc(var(--radius) - 2px) 0 0 calc(var(--radius) - 2px);
+}
+
+.schedule-calendar .rbc-btn-group button:last-child {
+  border-radius: 0 calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0;
+}
+
+.schedule-calendar .rbc-btn-group button + button {
+  margin-left: -1px;
+}
+
+.schedule-calendar .rbc-toolbar-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+/* 月曆標頭 */
+.schedule-calendar .rbc-month-header,
+.schedule-calendar .rbc-time-header {
+  background: var(--rbc-header-bg);
+}
+
+.schedule-calendar .rbc-header {
+  padding: 8px 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--rbc-border-color);
+  border-left: 1px solid var(--rbc-border-color);
+}
+
+.schedule-calendar .rbc-header:first-child {
+  border-left: none;
+}
+
+/* 日期格子 */
+.schedule-calendar .rbc-month-view,
+.schedule-calendar .rbc-time-view {
+  border: none;
+}
+
+.schedule-calendar .rbc-month-row {
+  border-top: 1px solid var(--rbc-border-color);
+}
+
+.schedule-calendar .rbc-day-bg {
+  border-left: 1px solid var(--rbc-border-color);
+}
+
+.schedule-calendar .rbc-day-bg:first-child {
+  border-left: none;
+}
+
+.schedule-calendar .rbc-today {
+  background: var(--rbc-today-bg);
+}
+
+.schedule-calendar .rbc-off-range-bg {
+  background: var(--rbc-off-range-bg);
+}
+
+.schedule-calendar .rbc-date-cell {
+  padding: 4px 8px;
+  text-align: right;
+  font-size: 13px;
+  color: var(--foreground);
+}
+
+.schedule-calendar .rbc-date-cell.rbc-off-range {
+  color: var(--muted-foreground);
+}
+
+.schedule-calendar .rbc-date-cell.rbc-now {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* 事件樣式 */
+.schedule-calendar .rbc-event {
+  border-radius: calc(var(--radius) - 4px);
+  padding: 2px 6px;
+  font-size: 12px;
+  border: none !important;
+  outline: none;
+}
+
+.schedule-calendar .rbc-event:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.schedule-calendar .rbc-event-label {
+  display: none;
+}
+
+.schedule-calendar .rbc-event-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-calendar .rbc-selected {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+/* 更多事件 popup */
+.schedule-calendar .rbc-show-more {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.schedule-calendar .rbc-show-more:hover {
+  text-decoration: underline;
+}
+
+.schedule-calendar .rbc-overlay {
+  background: var(--card);
+  border: 1px solid var(--rbc-border-color);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  padding: 8px;
+  z-index: 50;
+}
+
+.schedule-calendar .rbc-overlay-header {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 8px 8px;
+  border-bottom: 1px solid var(--rbc-border-color);
+  margin-bottom: 8px;
+}
+
+/* 週視圖/日視圖 */
+.schedule-calendar .rbc-time-slot {
+  border-top: 1px solid oklch(0.923 0.003 48 / 0.5);
+}
+
+.schedule-calendar .rbc-time-gutter {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.schedule-calendar .rbc-timeslot-group {
+  border-bottom: 1px solid var(--rbc-border-color);
+  min-height: 50px;
+}
+
+.schedule-calendar .rbc-time-content {
+  border-top: 1px solid var(--rbc-border-color);
+}
+
+.schedule-calendar .rbc-time-column {
+  border-left: 1px solid var(--rbc-border-color);
+}
+
+.schedule-calendar .rbc-time-column:first-child {
+  border-left: none;
+}
+
+.schedule-calendar .rbc-current-time-indicator {
+  background-color: var(--destructive);
+  height: 2px;
+}
+
+.schedule-calendar .rbc-current-time-indicator::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  background-color: var(--destructive);
+  border-radius: 50%;
+}
+
+/* 全天事件區域 */
+.schedule-calendar .rbc-allday-cell {
+  border-bottom: 1px solid var(--rbc-border-color);
+}
+
+/* 拖曳樣式 */
+.schedule-calendar .rbc-addons-dnd .rbc-addons-dnd-row-body {
+  position: relative;
+}
+
+.schedule-calendar .rbc-addons-dnd-drag-preview {
+  opacity: 0.7;
+}
+
+.schedule-calendar .rbc-addons-dnd-dragged-event {
+  opacity: 0.5;
+}
+
+/* 選取樣式 */
+.schedule-calendar .rbc-slot-selection {
+  background: var(--rbc-selected-bg);
+  border-radius: calc(var(--radius) - 4px);
+}
+
+/* 議程視圖 */
+.schedule-calendar .rbc-agenda-view {
+  font-size: 14px;
+}
+
+.schedule-calendar .rbc-agenda-view table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.schedule-calendar .rbc-agenda-view th,
+.schedule-calendar .rbc-agenda-view td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rbc-border-color);
+  text-align: left;
+}
+
+.schedule-calendar .rbc-agenda-view th {
+  background: var(--rbc-header-bg);
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.schedule-calendar .rbc-agenda-empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--muted-foreground);
+}

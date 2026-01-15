@@ -61,6 +61,7 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   adminOnly?: boolean;
+  badge?: string; // 額外標記（如：開發中）
 }
 
 interface NavGroup {
@@ -130,6 +131,8 @@ const mainNavItems: NavEntry[] = [
     title: "排程管理",
     href: "/scheduled",
     icon: CalendarClock,
+    adminOnly: true,
+    badge: "開發中",
   },
   {
     title: "標籤",
@@ -415,6 +418,7 @@ export function Sidebar() {
 
           // 一般導航項目
           const isActive = pathname.startsWith(item.href);
+          const isAdminItem = item.adminOnly;
 
           // 收折模式：只顯示圖示
           if (isCollapsed) {
@@ -426,14 +430,21 @@ export function Sidebar() {
                     className={cn(
                       "flex items-center justify-center rounded-lg p-2 transition-colors",
                       isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        ? isAdminItem
+                          ? "bg-orange-500 text-white"
+                          : "bg-primary text-primary-foreground"
+                        : isAdminItem
+                          ? "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
                     <item.icon className="size-5" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">{item.title}</TooltipContent>
+                <TooltipContent side="right">
+                  {item.title}
+                  {item.badge && <span className="ml-1 text-orange-400">({item.badge})</span>}
+                </TooltipContent>
               </Tooltip>
             );
           }
@@ -445,12 +456,26 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  ? isAdminItem
+                    ? "bg-orange-500 text-white"
+                    : "bg-primary text-primary-foreground"
+                  : isAdminItem
+                    ? "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
               <item.icon className="size-5" />
               {item.title}
+              {item.badge && (
+                <span className={cn(
+                  "ml-auto text-[10px] px-1.5 py-0.5 rounded",
+                  isActive
+                    ? "bg-white/20 text-white"
+                    : "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+                )}>
+                  {item.badge}
+                </span>
+              )}
             </Link>
           );
         })}
