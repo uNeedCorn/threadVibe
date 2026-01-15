@@ -110,7 +110,7 @@ export function EvergreenContentTab({ data }: Props) {
   const scatterData = useMemo(() => {
     return posts.map((post) => ({
       x: post.daysSincePublish,
-      y: post.currentViews * post.longtailRatio * 0.1, // 模擬近期增量
+      y: Math.round(post.currentViews * post.longtailRatio), // 長尾期間曝光（7天後）
       z: post.currentViews,
       postId: post.id,
       text: post.text,
@@ -176,12 +176,12 @@ export function EvergreenContentTab({ data }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* 年齡 vs 活躍度散佈圖 */}
+      {/* 年齡 vs 長尾曝光散佈圖 */}
       <Card>
         <CardHeader>
-          <CardTitle>年齡 vs 活躍度</CardTitle>
+          <CardTitle>貼文年齡 vs 長尾曝光</CardTitle>
           <CardDescription>
-            X軸為發布天數，Y軸為近期增量，氣泡大小為總曝光
+            X 軸為發布天數，Y 軸為 7 天後曝光數，氣泡大小為總曝光
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -214,12 +214,12 @@ export function EvergreenContentTab({ data }: Props) {
                 <YAxis
                   type="number"
                   dataKey="y"
-                  name="近期增量"
+                  name="長尾曝光"
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v) => formatNumber(v)}
                   label={{
-                    value: "近期增量",
+                    value: "長尾曝光",
                     angle: -90,
                     position: "insideLeft",
                     fontSize: 12,
@@ -237,7 +237,7 @@ export function EvergreenContentTab({ data }: Props) {
                       formatter={(value, name) => {
                         if (name === "x") return [`${value} 天`, "發布天數"];
                         if (name === "y")
-                          return [formatNumber(value as number), "近期增量"];
+                          return [formatNumber(value as number), "長尾曝光"];
                         if (name === "z")
                           return [formatNumber(value as number), "總曝光"];
                         return [value, name];
