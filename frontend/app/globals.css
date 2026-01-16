@@ -4,6 +4,12 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Layout - 佈局尺寸 */
+  --header-height: 3.5rem;           /* 56px - Header 高度 */
+  --sidebar-width: 16rem;            /* 256px - Sidebar 展開寬度 */
+  --sidebar-width-collapsed: 4rem;   /* 64px - Sidebar 收折寬度 */
+
+  /* Colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -67,13 +73,6 @@
   --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
   --shadow-glow-primary: 0 0 20px oklch(0.696 0.137 175.8 / 0.25);
   --shadow-glow-primary-strong: 0 0 30px oklch(0.696 0.137 175.8 / 0.4);
-
-  /* ============================================
-     Layout - 佈局尺寸
-     ============================================ */
-  --header-height: 4rem;           /* 64px - Header 高度 */
-  --sidebar-width: 16rem;          /* 256px - Sidebar 展開寬度 */
-  --sidebar-width-collapsed: 4rem; /* 64px - Sidebar 收折寬度 */
 
   /* ============================================
      Spacing - 間距系統（語意變數）

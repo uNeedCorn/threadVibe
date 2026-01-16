@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Postlyzer - 溫暖極簡（深淺模式切換）</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ========================================
+       Design Tokens - Light Mode (Default)
+       ======================================== */
+    :root {
+      /* Primary - 橘色系 */
+      --accent: #E97A3B;
+      --accent-hover: #D66A2B;
+      --accent-light: #FEF3EC;
+      --accent-muted: #FDBA9A;
+
+      /* Neutral */
+      --bg: #FAFAF9;
+      --bg-card: #FFFFFF;
+      --bg-muted: #F5F5F4;
+      --border: #E7E5E4;
+      --border-light: #F5F5F4;
+      --text: #44403C;
+      --text-light: #78716C;
+      --text-muted: #A8A29E;
+      --text-dark: #292524;
+
+      /* Semantic */
+      --success: #22C55E;
+      --success-light: #F0FDF4;
+      --warning: #EAB308;
+      --warning-light: #FEFCE8;
+      --error: #EF4444;
+      --error-light: #FEF2F2;
+      --info: #3B82F6;
+      --info-light: #EFF6FF;
+
+      /* Shadow */
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+
+      /* Transition */
+      --transition: 200ms ease;
+    }
+
+    /* ========================================
+       Design Tokens - Dark Mode
+       ======================================== */
+    [data-theme="dark"] {
+      --accent: #F0955C;
+      --accent-hover: #E97A3B;
+      --accent-light: #3D2A1F;
+      --accent-muted: #7C4A2A;
+
+      --bg: #1C1917;
+      --bg-card: #292524;
+      --bg-muted: #3D3835;
+      --border: #44403C;
+      --border-light: #3D3835;
+      --text: #E7E5E4;
+      --text-light: #A8A29E;
+      --text-muted: #78716C;
+      --text-dark: #FAFAF9;
+
+      --success: #4ADE80;
+      --success-light: #14532D;
+      --warning: #FACC15;
+      --warning-light: #422006;
+      --error: #F87171;
+      --error-light: #450A0A;
+      --info: #60A5FA;
+      --info-light: #1E3A5F;
+
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
+    /* ========================================
+       Base Styles
+       ======================================== */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      transition: background var(--transition), color var(--transition);
+    }
+
+    /* ========================================
+       Theme Toggle Button
+       ======================================== */
+    .theme-toggle {
+      position: fixed;
+      top: 100px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+    }
+
+    .theme-btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      background: transparent;
+      color: var(--text-light);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
+    .theme-btn:hover {
+      color: var(--text);
+    }
+
+    .theme-btn.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    .theme-btn + .theme-btn {
+      border-left: 1px solid var(--border);
+    }
+
+    /* ========================================
+       Style Label
+       ======================================== */
+    .style-label {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      z-index: 1000;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .style-label span {
+      color: var(--accent);
+    }
+
+    /* ========================================
+       Navbar
+       ======================================== */
+    nav {
+      background: var(--bg-card);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-light);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+    }
+
+    .logo-icon {
+      width: 34px;
+      height: 34px;
+      background: var(--accent);
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: var(--text-light);
+      font-weight: 500;
+      transition: color var(--transition);
+    }
+
+    .nav-links a:hover {
+      color: var(--text-dark);
+    }
+
+    /* ========================================
+       Buttons
+       ======================================== */
+    .btn {
+      padding: 0.625rem 1.25rem;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all var(--transition);
+      display: inline-block;
+      font-size: 0.9375rem;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background: var(--bg-muted);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--text-light);
+    }
+
+    /* ========================================
+       Hero Section
+       ======================================== */
+    .hero {
+      padding: 5rem 2rem 4rem;
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 1.25rem;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    .hero h1 span {
+      color: var(--accent);
+    }
+
+    .hero p {
+      font-size: 1.125rem;
+      color: var(--text-light);
+      max-width: 540px;
+      margin: 0 auto 2rem;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+
+    /* ========================================
+       Stats Section
+       ======================================== */
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 3rem;
+      padding: 2.5rem 2rem;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-dark);
+    }
+
+    .stat-label {
+      color: var(--text-light);
+      font-size: 0.875rem;
+    }
+
+    /* ========================================
+       Features Section
+       ======================================== */
+    .features {
+      padding: 4rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .section-title h2 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.01em;
+    }
+
+    .section-title p {
+      color: var(--text-light);
+      font-size: 1rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      padding: 1.75rem;
+      border-radius: 12px;
+      border: 1px solid var(--border-light);
+      transition: all var(--transition);
+    }
+
+    .feature-card:hover {
+      border-color: var(--border);
+      box-shadow: var(--shadow-md);
+    }
+
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--accent-light);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      font-size: 1.25rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1.0625rem;
+      margin-bottom: 0.375rem;
+      color: var(--text-dark);
+      font-weight: 600;
+    }
+
+    .feature-card p {
+      color: var(--text-light);
+      font-size: 0.9375rem;
+      line-height: 1.5;
+    }
+
+    /* ========================================
+       Color Palette Demo
+       ======================================== */
+    .palette-section {
+      padding: 4rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .palette-item {
+      background: var(--bg-card);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-light);
+    }
+
+    .palette-color {
+      height: 80px;
+    }
+
+    .palette-info {
+      padding: 0.75rem;
+    }
+
+    .palette-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 0.25rem;
+    }
+
+    .palette-value {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    /* ========================================
+       Form Elements Demo
+       ======================================== */
+    .form-demo {
+      padding: 4rem 2rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-card);
+      color: var(--text);
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* ========================================
+       Alerts Demo
+       ======================================== */
+    .alerts-demo {
+      padding: 2rem;
+      max-width: 600px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .alert {
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 0.9375rem;
+    }
+
+    .alert-success {
+      background: var(--success-light);
+      color: var(--success);
+      border: 1px solid var(--success);
+    }
+
+    .alert-warning {
+      background: var(--warning-light);
+      color: var(--warning);
+      border: 1px solid var(--warning);
+    }
+
+    .alert-error {
+      background: var(--error-light);
+      color: var(--error);
+      border: 1px solid var(--error);
+    }
+
+    .alert-info {
+      background: var(--info-light);
+      color: var(--info);
+      border: 1px solid var(--info);
+    }
+
+    /* ========================================
+       Social Proof
+       ======================================== */
+    .social-proof {
+      padding: 3rem 2rem;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border-light);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .social-proof-inner {
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .quote {
+      font-size: 1.25rem;
+      color: var(--text);
+      font-style: italic;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .quote-author {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+
+    .quote-avatar {
+      width: 40px;
+      height: 40px;
+      background: var(--accent-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .quote-info {
+      text-align: left;
+    }
+
+    .quote-name {
+      font-weight: 600;
+      color: var(--text-dark);
+      font-size: 0.9375rem;
+    }
+
+    .quote-title {
+      color: var(--text-light);
+      font-size: 0.8125rem;
+    }
+
+    /* ========================================
+       CTA Section
+       ======================================== */
+    .cta {
+      padding: 4rem 2rem;
+      text-align: center;
+      background: var(--bg);
+    }
+
+    .cta-inner {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 3rem;
+      background: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .cta h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      color: var(--text-dark);
+    }
+
+    .cta p {
+      font-size: 1rem;
+      color: var(--text-light);
+      margin-bottom: 1.5rem;
+    }
+
+    .cta .btn-primary {
+      padding: 0.75rem 2rem;
+    }
+
+    /* ========================================
+       Footer
+       ======================================== */
+    footer {
+      background: var(--text-dark);
+      color: var(--bg);
+      padding: 2.5rem 2rem;
+      text-align: center;
+      transition: background var(--transition);
+    }
+
+    footer p {
+      opacity: 0.6;
+      font-size: 0.875rem;
+    }
+
+    /* ========================================
+       Responsive
+       ======================================== */
+    @media (max-width: 768px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      .hero h1 {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="style-label">風格 E：<span>溫暖極簡</span></div>
+
+  <!-- Theme Toggle -->
+  <div class="theme-toggle">
+    <button class="theme-btn active" data-theme="light" onclick="setTheme('light')">
+      ☀️ 淺色
+    </button>
+    <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')">
+      🌙 深色
+    </button>
+  </div>
+
+  <nav>
+    <div class="logo">
+      <div class="logo-icon">P</div>
+      Postlyzer
+    </div>
+    <ul class="nav-links">
+      <li><a href="#">功能</a></li>
+      <li><a href="#">方案</a></li>
+      <li><a href="#">部落格</a></li>
+    </ul>
+    <a href="#" class="btn btn-primary">免費開始</a>
+  </nav>
+
+  <section class="hero">
+    <h1>用數據優化你的<br><span>Threads 策略</span></h1>
+    <p>簡單易用的 Threads 分析工具，幫你了解什麼內容有效，做出更好的創作決策。</p>
+    <div class="hero-buttons">
+      <a href="#" class="btn btn-primary">免費開始使用</a>
+      <a href="#" class="btn btn-secondary">了解更多</a>
+    </div>
+  </section>
+
+  <section class="stats">
+    <div class="stat">
+      <div class="stat-number">10K+</div>
+      <div class="stat-label">追蹤貼文</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number">500+</div>
+      <div class="stat-label">活躍用戶</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number">98%</div>
+      <div class="stat-label">滿意度</div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="section-title">
+      <h2>核心功能</h2>
+      <p>專注於你真正需要的分析工具</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>成效儀表板</h3>
+        <p>即時追蹤曝光、互動、粉絲成長等關鍵指標</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📈</div>
+        <h3>趨勢分析</h3>
+        <p>觀察長期趨勢，找出最佳發文策略</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <h3>最佳時機</h3>
+        <p>AI 分析你的受眾，建議最佳發文時間</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📝</div>
+        <h3>排程發文</h3>
+        <p>提前規劃內容，自動發布到 Threads</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💬</div>
+        <h3>留言管理</h3>
+        <p>快速回覆、標記負面留言、提升互動</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📄</div>
+        <h3>報告匯出</h3>
+        <p>一鍵產生專業報告，輕鬆分享成果</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Color Palette Demo -->
+  <section class="palette-section">
+    <div class="section-title">
+      <h2>色彩系統</h2>
+      <p>Design Tokens 預覽</p>
+    </div>
+    <div class="palette-grid">
+      <div class="palette-item">
+        <div class="palette-color" style="background: var(--accent);"></div>
+        <div class="palette-info">
+          <div class="palette-name">Accent</div>
+          <div class="palette-value">--accent</div>
+        </div>
+      </div>
+      <div class="palette-item">
+        <div class="palette-color" style="background: var(--accent-light);"></div>
+        <div class="palette-info">
+          <div class="palette-name">Accent Light</div>
+          <div class="palette-value">--accent-light</div>
+        </div>
+      </div>
+      <div class="palette-item">
+        <div class="palette-color" style="background: var(--bg);"></div>
+        <div class="palette-info">
+          <div class="palette-name">Background</div>
+          <div class="palette-value">--bg</div>
+        </div>
+      </div>
+      <div class="palette-item">
+        <div class="palette-color" style="background: var(--bg-card);"></div>
+        <div class="palette-info">
+          <div class="palette-name">Card</div>
+          <div class="palette-value">--bg-card</div>
+        </div>
+      </div>
+      <div class="palette-item">
+        <div class="palette-color" style="background: var(--text-dark);"></div>
+        <div class="palette-info">
+          <div class="palette-name">Text Dark</div>
+          <div class="palette-value">--text-dark</div>
+        </div>
+      </div>
+      <div class="palette-item">
+        <div class="palette-color" style="background: var(--text-light);"></div>
+        <div class="palette-info">
+          <div class="palette-name">Text Light</div>
+          <div class="palette-value">--text-light</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Form Elements Demo -->
+  <section class="form-demo">
+    <div class="section-title">
+      <h2>表單元素</h2>
+      <p>輸入框樣式預覽</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-input" placeholder="your@email.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">密碼</label>
+      <input type="password" class="form-input" placeholder="輸入密碼">
+    </div>
+    <button class="btn btn-primary" style="width: 100%;">登入</button>
+  </section>
+
+  <!-- Alerts Demo -->
+  <section class="alerts-demo">
+    <div class="alert alert-success">✓ 成功：你的設定已儲存</div>
+    <div class="alert alert-warning">⚠ 警告：Token 將於 7 天後過期</div>
+    <div class="alert alert-error">✕ 錯誤：無法連接到伺服器</div>
+    <div class="alert alert-info">ℹ 資訊：新功能已上線</div>
+  </section>
+
+  <section class="social-proof">
+    <div class="social-proof-inner">
+      <p class="quote">「終於有一個簡單好用的 Threads 分析工具了。介面清楚，數據一目瞭然。」</p>
+      <div class="quote-author">
+        <div class="quote-avatar">W</div>
+        <div class="quote-info">
+          <div class="quote-name">王小明</div>
+          <div class="quote-title">社群行銷經理</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="cta-inner">
+      <h2>準備好開始了嗎？</h2>
+      <p>免費註冊，開始追蹤你的 Threads 成效</p>
+      <a href="#" class="btn btn-primary">免費開始使用</a>
+    </div>
+  </section>
+
+  <footer>
+    <p>&copy; 2026 Postlyzer. All rights reserved.</p>
+  </footer>
+
+  <script>
+    function setTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+
+      // Update button states
+      document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('data-theme') === theme) {
+          btn.classList.add('active');
+        }
+      });
+
+      // Save preference
+      localStorage.setItem('theme', theme);
+    }
+
+    // Load saved theme on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      setTheme(savedTheme);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Postlyzer 品牌風格樣板</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #F8FAFC;
+      min-height: 100vh;
+      padding: 3rem 2rem;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1E293B;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      color: #64748B;
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .styles-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    .style-card {
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #E2E8F0;
+      transition: all 0.3s;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .style-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .style-preview {
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .style-preview .logo {
+      font-size: 2rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .style-preview .logo-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 1.25rem;
+    }
+
+    /* Style A - Insight Blue */
+    .style-a .style-preview {
+      background: linear-gradient(180deg, white 0%, #F0F9FF 100%);
+    }
+    .style-a .logo { color: #2563EB; }
+    .style-a .logo-icon { background: linear-gradient(135deg, #2563EB, #0EA5E9); }
+
+    /* Style B - Social Gradient */
+    .style-b .style-preview {
+      background: linear-gradient(180deg, #FAF5FF 0%, #FDF4FF 100%);
+    }
+    .style-b .logo {
+      background: linear-gradient(135deg, #8B5CF6, #EC4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .style-b .logo-icon {
+      background: linear-gradient(135deg, #8B5CF6, #EC4899);
+      border-radius: 50%;
+    }
+
+    /* Style C - Minimal Dark */
+    .style-c .style-preview {
+      background: #18181B;
+    }
+    .style-c .logo { color: #FAFAFA; }
+    .style-c .logo-icon {
+      background: transparent;
+      border: 2px solid #22D3EE;
+      color: #22D3EE;
+    }
+
+    /* Style D - Insight Orange */
+    .style-d .style-preview {
+      background: linear-gradient(180deg, #FFFBEB 0%, white 100%);
+    }
+    .style-d .logo { color: #1C1917; }
+    .style-d .logo-icon {
+      background: #F97316;
+      transform: rotate(-3deg);
+    }
+
+    /* Style E - Warm Minimal */
+    .style-e .style-preview {
+      background: #FAFAF9;
+    }
+    .style-e .logo { color: #292524; }
+    .style-e .logo-icon {
+      background: #E97A3B;
+      border-radius: 9px;
+    }
+    .style-e {
+      border: 2px solid #E97A3B !important;
+    }
+
+    .style-info {
+      padding: 1.5rem;
+      border-top: 1px solid #E2E8F0;
+    }
+
+    .style-info h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #1E293B;
+    }
+
+    .style-info p {
+      color: #64748B;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+
+    .color-dots {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .color-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .view-btn {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      background: #F1F5F9;
+      color: #475569;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+
+    .view-btn:hover {
+      background: #E2E8F0;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      color: #94A3B8;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Postlyzer 品牌風格樣板</h1>
+    <p class="subtitle">點擊卡片查看完整頁面</p>
+
+    <div class="styles-grid">
+      <!-- Style A -->
+      <a href="style-a-insight-blue.html" class="style-card style-a">
+        <div class="style-preview">
+          <div class="logo">
+            <div class="logo-icon">P</div>
+            Postlyzer
+          </div>
+        </div>
+        <div class="style-info">
+          <h3>風格 A：洞察藍</h3>
+          <p>專業、信任、數據導向。像 Linear、Stripe 的風格。</p>
+          <div class="color-dots">
+            <div class="color-dot" style="background: #2563EB;"></div>
+            <div class="color-dot" style="background: #0EA5E9;"></div>
+            <div class="color-dot" style="background: #F59E0B;"></div>
+            <div class="color-dot" style="background: #1E293B;"></div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Style B -->
+      <a href="style-b-social-gradient.html" class="style-card style-b">
+        <div class="style-preview">
+          <div class="logo">
+            <div class="logo-icon">P</div>
+            Postlyzer
+          </div>
+        </div>
+        <div class="style-info">
+          <h3>風格 B：社群漸層</h3>
+          <p>活潑、現代、年輕。貼近 Threads/Instagram 生態。</p>
+          <div class="color-dots">
+            <div class="color-dot" style="background: #8B5CF6;"></div>
+            <div class="color-dot" style="background: #EC4899;"></div>
+            <div class="color-dot" style="background: #06B6D4;"></div>
+            <div class="color-dot" style="background: #FBBF24;"></div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Style C -->
+      <a href="style-c-minimal-dark.html" class="style-card style-c">
+        <div class="style-preview">
+          <div class="logo">
+            <div class="logo-icon">P</div>
+            Postlyzer
+          </div>
+        </div>
+        <div class="style-info">
+          <h3>風格 C：極簡暗黑</h3>
+          <p>高端、現代、專業。像 Notion、Vercel 的風格。</p>
+          <div class="color-dots">
+            <div class="color-dot" style="background: #18181B;"></div>
+            <div class="color-dot" style="background: #27272A;"></div>
+            <div class="color-dot" style="background: #22D3EE;"></div>
+            <div class="color-dot" style="background: #FAFAFA;"></div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Style D -->
+      <a href="style-d-insight-orange.html" class="style-card style-d">
+        <div class="style-preview">
+          <div class="logo">
+            <div class="logo-icon">P</div>
+            Postlyzer
+          </div>
+        </div>
+        <div class="style-info">
+          <h3>風格 D：洞察橘</h3>
+          <p>溫暖、親和、成長導向。像 Hubspot、Buffer 的風格。</p>
+          <div class="color-dots">
+            <div class="color-dot" style="background: #F97316;"></div>
+            <div class="color-dot" style="background: #FBBF24;"></div>
+            <div class="color-dot" style="background: #6366F1;"></div>
+            <div class="color-dot" style="background: #1C1917;"></div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Style E - 推薦 -->
+      <a href="style-e-warm-minimal.html" class="style-card style-e">
+        <div class="style-preview">
+          <div class="logo">
+            <div class="logo-icon">P</div>
+            Postlyzer
+          </div>
+        </div>
+        <div class="style-info">
+          <h3>⭐ 風格 E：溫暖極簡（推薦）</h3>
+          <p>溫暖但不刺眼。橘色點綴，米白主體，簡潔有溫度。</p>
+          <div class="color-dots">
+            <div class="color-dot" style="background: #E97A3B;"></div>
+            <div class="color-dot" style="background: #FAFAF9;"></div>
+            <div class="color-dot" style="background: #44403C;"></div>
+            <div class="color-dot" style="background: #292524;"></div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <footer>
+      <p>選擇你喜歡的風格，或告訴我想要混搭的元素</p>
+    </footer>
+  </div>
+</body>
+</html>
