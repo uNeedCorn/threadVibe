@@ -38,7 +38,7 @@ export function HeroSection() {
 
           {/* Value Proposition */}
           <p className="text-base font-medium text-foreground">
-            不用再手動截圖抄數據，一個平台搞定成效追蹤與分析
+            不用再手動截圖、抄數據、做圖表，成效一目了然
           </p>
 
           {/* CTA Buttons */}
