@@ -5,6 +5,7 @@ const footerLinks = [
   { label: "登入", href: "/login" },
   { label: "服務條款", href: "/terms" },
   { label: "隱私政策", href: "/privacy" },
+  { label: "資料刪除", href: "/data-deletion" },
 ];
 
 export function Footer() {

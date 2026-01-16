@@ -248,8 +248,8 @@ export default function TermsPage() {
                 If you have any questions about these Terms of Service, please contact us at:
               </p>
               <p className="text-foreground">
-                <a href="mailto:support@postlyzer.com" className="text-primary hover:underline">
-                  support@postlyzer.com
+                <a href="mailto:support@metricdesk.io" className="text-primary hover:underline">
+                  support@metricdesk.io
                 </a>
               </p>
             </section>

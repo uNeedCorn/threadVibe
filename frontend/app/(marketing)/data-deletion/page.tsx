@@ -98,8 +98,8 @@ export default function DataDeletionPage() {
               如果您無法登入帳號或需要其他協助，請聯繫我們：
             </p>
             <p className="text-foreground">
-              <a href="mailto:support@postlyzer.com" className="text-primary hover:underline">
-                support@postlyzer.com
+              <a href="mailto:support@metricdesk.io" className="text-primary hover:underline">
+                support@metricdesk.io
               </a>
             </p>
             <p className="text-sm text-muted-foreground mt-2">
