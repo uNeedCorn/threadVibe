@@ -36,9 +36,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ valid: false, error: "INVALID_CODE" });
     }
 
-    if (invitation.is_used) {
-      return NextResponse.json({ valid: false, error: "ALREADY_USED" });
-    }
+    // 不再檢查 is_used，因為邀請碼綁定 email 後可重複登入
+    // email 綁定檢查在 OAuth callback 中進行
 
     if (invitation.expires_at && new Date(invitation.expires_at) < new Date()) {
       return NextResponse.json({ valid: false, error: "EXPIRED" });

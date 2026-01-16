@@ -45,6 +45,7 @@ import {
 interface InvitationCode {
   id: string;
   code: string;
+  email: string | null;
   is_used: boolean;
   used_by: string | null;
   used_at: string | null;
@@ -61,6 +62,7 @@ export default function InvitationsPage() {
 
   // 產生邀請碼對話框
   const [isGenerating, setIsGenerating] = useState(false);
+  const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -102,6 +104,7 @@ export default function InvitationsPage() {
       const { data, error: genError } = await supabase.rpc(
         "generate_invitation_code",
         {
+          p_email: email.trim().toLowerCase() || null,
           p_note: note.trim() || null,
           p_expires_at: null,
         }
@@ -147,6 +150,7 @@ export default function InvitationsPage() {
 
   const handleDialogClose = () => {
     setDialogOpen(false);
+    setEmail("");
     setNote("");
     setGeneratedCode(null);
     setCopied(false);
@@ -179,8 +183,8 @@ export default function InvitationsPage() {
     });
   };
 
-  const unusedCount = codes.filter((c) => !c.is_used).length;
-  const usedCount = codes.filter((c) => c.is_used).length;
+  const unboundCount = codes.filter((c) => !c.email).length;
+  const boundCount = codes.filter((c) => c.email).length;
 
   return (
     <div className="space-y-6">
@@ -204,7 +208,7 @@ export default function InvitationsPage() {
             <DialogHeader>
               <DialogTitle>產生新邀請碼</DialogTitle>
               <DialogDescription>
-                產生一組新的一次性邀請碼，可選擇添加備註
+                產生一組新的邀請碼。可指定 Email 限制特定用戶使用，或留空讓第一個使用者自動綁定。
               </DialogDescription>
             </DialogHeader>
 
@@ -217,6 +221,11 @@ export default function InvitationsPage() {
                   <p className="text-2xl font-mono font-bold tracking-widest">
                     {generatedCode}
                   </p>
+                  {email && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      已綁定：{email}
+                    </p>
+                  )}
                 </div>
                 <Button
                   onClick={handleCopy}
@@ -238,6 +247,20 @@ export default function InvitationsPage() {
               </div>
             ) : (
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email（選填）</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="user@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isGenerating}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    指定後只有此 Email 可使用。留空則由第一個使用者自動綁定。
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="note">備註（選填）</Label>
                   <Input
@@ -286,17 +309,17 @@ export default function InvitationsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>未使用</CardDescription>
+            <CardDescription>未綁定</CardDescription>
             <CardTitle className="text-3xl text-green-600">
-              {unusedCount}
+              {unboundCount}
             </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>已使用</CardDescription>
+            <CardDescription>已綁定</CardDescription>
             <CardTitle className="text-3xl text-muted-foreground">
-              {usedCount}
+              {boundCount}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -333,6 +356,7 @@ export default function InvitationsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>邀請碼</TableHead>
+                    <TableHead>綁定 Email</TableHead>
                     <TableHead>狀態</TableHead>
                     <TableHead>備註</TableHead>
                     <TableHead>建立時間</TableHead>
@@ -346,9 +370,14 @@ export default function InvitationsPage() {
                       <TableCell className="font-mono font-medium">
                         {code.code}
                       </TableCell>
+                      <TableCell className="text-sm">
+                        {code.email || (
+                          <span className="text-muted-foreground">未綁定</span>
+                        )}
+                      </TableCell>
                       <TableCell>
-                        {code.is_used ? (
-                          <Badge variant="secondary">已使用</Badge>
+                        {code.email ? (
+                          <Badge variant="outline">已綁定</Badge>
                         ) : (
                           <Badge variant="default">可用</Badge>
                         )}
@@ -363,7 +392,7 @@ export default function InvitationsPage() {
                         {code.used_at ? formatDate(code.used_at) : "-"}
                       </TableCell>
                       <TableCell>
-                        {!code.is_used && (
+                        {!code.email && (
                           <Button
                             variant="ghost"
                             size="icon"

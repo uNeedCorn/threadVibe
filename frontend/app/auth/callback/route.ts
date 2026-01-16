@@ -18,6 +18,7 @@ export async function GET(request: Request) {
 
     if (!error && sessionData.user) {
       const user = sessionData.user;
+      const userEmail = user.email?.toLowerCase();
 
       // 使用 service role client 繞過 RLS 進行 workspace 操作
       const serviceClient = createServiceClient();
@@ -42,15 +43,15 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${origin}/login?error=no_invitation`);
         }
 
-        // 驗證並使用邀請碼
+        // 驗證邀請碼
         const { data: invitation, error: invError } = await serviceClient
           .from("invitation_codes")
-          .select("id, code, is_used, expires_at")
+          .select("id, code, is_used, expires_at, email, used_by")
           .eq("code", invitationCode.toUpperCase())
           .maybeSingle();
 
-        if (invError || !invitation || invitation.is_used) {
-          // 邀請碼無效或已使用
+        if (invError || !invitation) {
+          // 邀請碼無效
           const response = NextResponse.redirect(`${origin}/login?error=invalid_invitation`);
           response.cookies.delete("invitation_code");
           return response;
@@ -61,6 +62,18 @@ export async function GET(request: Request) {
           const response = NextResponse.redirect(`${origin}/login?error=expired_invitation`);
           response.cookies.delete("invitation_code");
           return response;
+        }
+
+        // 檢查 email 綁定狀態
+        if (invitation.email) {
+          // 邀請碼已綁定 email，檢查是否匹配
+          if (invitation.email.toLowerCase() !== userEmail) {
+            // email 不匹配，此邀請碼已被其他人使用
+            const response = NextResponse.redirect(`${origin}/login?error=email_already_bound`);
+            response.cookies.delete("invitation_code");
+            return response;
+          }
+          // email 匹配，允許登入（重複登入的情況）
         }
 
         // 建立 workspace
@@ -99,20 +112,23 @@ export async function GET(request: Request) {
             console.error("Failed to create workspace member:", memberError);
           }
 
-          // 標記邀請碼為已使用
-          await serviceClient
-            .from("invitation_codes")
-            .update({
-              is_used: true,
-              used_by_user_id: user.id,
-              used_at: new Date().toISOString(),
-            })
-            .eq("id", invitation.id);
+          // 綁定 email 到邀請碼（首次使用時）
+          if (!invitation.email) {
+            await serviceClient
+              .from("invitation_codes")
+              .update({
+                email: userEmail,
+                is_used: true,
+                used_by: user.id,
+                used_at: new Date().toISOString(),
+              })
+              .eq("id", invitation.id);
+          }
 
           workspaceId = newWorkspace.id;
         }
 
-        // 清除邀請碼 cookie
+        // 清除邀請碼 cookie，導向設定頁
         const response = NextResponse.redirect(
           `${origin}/settings?workspace_id=${workspaceId}`
         );

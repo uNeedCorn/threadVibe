@@ -11,10 +11,11 @@ import { Loader2, AlertCircle, KeyRound } from "lucide-react";
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 const ERROR_MESSAGES: Record<string, string> = {
-  auth_failed: "登入失敗，請稍後再試",
+  auth_failed: "登入失敗，請稀後再試",
   no_invitation: "需要邀請碼才能註冊",
-  invalid_invitation: "邀請碼無效或已被使用",
+  invalid_invitation: "邀請碼無效",
   expired_invitation: "邀請碼已過期",
+  email_already_bound: "此邀請碼已被其他帳號使用",
   workspace_failed: "建立工作區失敗，請稍後再試",
 };
 
@@ -62,12 +63,12 @@ function LoginPageContent() {
         if (result.valid) {
           setIsCodeValid(true);
           // 將邀請碼存入 cookie，供 OAuth callback 使用
-          document.cookie = `invitation_code=${inviteCode.trim().toUpperCase()}; path=/; max-age=3600; SameSite=Lax`;
+          document.cookie = `invitation_code=${inviteCode.trim().toUpperCase()}; path=/; max-age=3600; SameSite=Lax; Secure`;
         } else {
           setIsCodeValid(false);
-          setCodeError(result.error === "ALREADY_USED" ? "此邀請碼已被使用" :
-                       result.error === "EXPIRED" ? "此邀請碼已過期" :
-                       "邀請碼無效");
+          setCodeError(
+            result.error === "EXPIRED" ? "此邀請碼已過期" : "邀請碼無效"
+          );
         }
       } catch (err) {
         console.error("Failed to validate code:", err);
@@ -178,7 +179,7 @@ function LoginPageContent() {
         {/* 邀請碼確認 */}
         <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
           <p className="text-sm text-green-800">
-            邀請碼有效，請使用 Google 帳號登入完成註冊
+            邀請碼有效，請使用 Google 帳號登入
           </p>
         </div>
 
@@ -212,7 +213,7 @@ function LoginPageContent() {
           </p>
         </div>
 
-        {/* Turnstile Widget - 放在服務條款下方 */}
+        {/* Turnstile Widget */}
         {TURNSTILE_SITE_KEY && (
           <div className="flex justify-center">
             <Turnstile
