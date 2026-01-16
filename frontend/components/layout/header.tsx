@@ -71,7 +71,7 @@ export function Header() {
               variant="ghost"
               size="icon"
               onClick={() => setIsComposeOpen(true)}
-              className="size-9 text-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
+              className="size-9 text-primary hover:text-primary/80 hover:bg-primary/10"
             >
               <PenSquare className="size-5" />
             </Button>

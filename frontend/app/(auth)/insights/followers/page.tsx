@@ -26,7 +26,7 @@ import {
   getDateRange,
   calcGrowth,
 } from "@/lib/insights-utils";
-import { TEAL } from "@/lib/design-tokens";
+import { ACCENT } from "@/lib/design-tokens";
 
 // ============================================================================
 // Types
@@ -105,7 +105,7 @@ function formatMilestone(value: number): string {
 const chartConfig: ChartConfig = {
   followers: {
     label: "粉絲數",
-    color: TEAL[500],
+    color: ACCENT.DEFAULT,
   },
 };
 
@@ -478,10 +478,10 @@ export default function FollowersPage() {
                     <Line
                       type="monotone"
                       dataKey="followers"
-                      stroke={TEAL[500]}
+                      stroke={ACCENT.DEFAULT}
                       strokeWidth={2}
-                      dot={{ fill: TEAL[500], strokeWidth: 0, r: 3 }}
-                      activeDot={{ fill: TEAL[500], strokeWidth: 0, r: 5 }}
+                      dot={{ fill: ACCENT.DEFAULT, strokeWidth: 0, r: 3 }}
+                      activeDot={{ fill: ACCENT.DEFAULT, strokeWidth: 0, r: 5 }}
                     />
                   </LineChart>
                 </ChartContainer>

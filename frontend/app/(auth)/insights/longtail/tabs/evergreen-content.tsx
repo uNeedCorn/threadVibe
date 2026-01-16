@@ -56,7 +56,7 @@ import {
   getEvergreenColor,
   type LongtailStatus,
 } from "@/lib/longtail-utils";
-import { TEAL } from "@/lib/design-tokens";
+import { ACCENT } from "@/lib/design-tokens";
 import type { LongtailPageData, PostWithMetrics } from "../page";
 
 interface Props {
@@ -193,7 +193,7 @@ export function EvergreenContentTab({ data }: Props) {
           ) : (
             <ChartContainer
               config={{
-                scatter: { label: "貼文", color: TEAL[500] },
+                scatter: { label: "貼文", color: ACCENT.DEFAULT },
               }}
               className="h-[350px] w-full"
             >
@@ -246,7 +246,7 @@ export function EvergreenContentTab({ data }: Props) {
                     />
                   }
                 />
-                <Scatter data={scatterData} fill={TEAL[500]}>
+                <Scatter data={scatterData} fill={ACCENT.DEFAULT}>
                   {scatterData.map((entry, index) => (
                     <Cell
                       key={index}
@@ -270,7 +270,7 @@ export function EvergreenContentTab({ data }: Props) {
               <span className="text-muted-foreground">常青</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="size-3 rounded-full bg-teal-500" />
+              <div className="size-3 rounded-full bg-primary" />
               <span className="text-muted-foreground">成長中</span>
             </div>
             <div className="flex items-center gap-2">

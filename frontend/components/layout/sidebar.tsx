@@ -158,6 +158,12 @@ const adminNavGroup: NavGroup = {
   adminOnly: true,
   children: [
     {
+      title: "帳號觀測",
+      href: "/admin/watchlist",
+      icon: Eye,
+      badge: "開發中",
+    },
+    {
       title: "API 測試",
       href: "/admin/api-test",
       icon: FlaskConical,
@@ -540,8 +546,8 @@ export function Sidebar() {
                       className={cn(
                         "flex items-center justify-center rounded-lg p-2 transition-colors",
                         isGroupActive
-                          ? "bg-orange-500 text-white"
-                          : "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
+                          ? "bg-teal-500 text-white"
+                          : "text-teal-500 hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-teal-950"
                       )}
                     >
                       <adminNavGroup.icon className="size-5" />
@@ -559,8 +565,8 @@ export function Sidebar() {
                   className={cn(
                     "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                     isGroupActive
-                      ? "text-orange-600"
-                      : "text-orange-500"
+                      ? "text-teal-600"
+                      : "text-teal-500"
                   )}
                 >
                   <adminNavGroup.icon className="size-5" />
@@ -579,8 +585,8 @@ export function Sidebar() {
                   className={cn(
                     "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                     isGroupActive
-                      ? "text-orange-600"
-                      : "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
+                      ? "text-teal-600"
+                      : "text-teal-500 hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-teal-950"
                   )}
                 >
                   <adminNavGroup.icon className="size-5" />
@@ -602,12 +608,22 @@ export function Sidebar() {
                         className={cn(
                           "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                           isChildActive
-                            ? "bg-orange-500 text-white"
-                            : "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
+                            ? "bg-teal-500 text-white"
+                            : "text-teal-500 hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-teal-950"
                         )}
                       >
                         <child.icon className="size-4" />
                         {child.title}
+                        {child.badge && (
+                          <span className={cn(
+                            "ml-auto text-[10px] px-1.5 py-0.5 rounded",
+                            isChildActive
+                              ? "bg-white/20 text-white"
+                              : "bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400"
+                          )}>
+                            {child.badge}
+                          </span>
+                        )}
                       </Link>
                     );
                   })}

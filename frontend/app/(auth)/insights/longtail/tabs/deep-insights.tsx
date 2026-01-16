@@ -35,7 +35,7 @@ import {
   getLongtailRating,
   LONGTAIL_RATING_CONFIG,
 } from "@/lib/longtail-utils";
-import { TEAL } from "@/lib/design-tokens";
+import { ACCENT } from "@/lib/design-tokens";
 import type { LongtailPageData } from "../page";
 
 interface Props {
@@ -51,10 +51,10 @@ interface Suggestion {
 }
 
 const INTERACTION_COLORS = {
-  likes: TEAL[500],
-  replies: TEAL[600],
-  reposts: TEAL[400],
-  quotes: TEAL[300],
+  likes: ACCENT.DEFAULT,
+  replies: ACCENT.hover,
+  reposts: ACCENT.muted,
+  quotes: ACCENT.light,
 };
 
 export function DeepInsightsTab({ data }: Props) {

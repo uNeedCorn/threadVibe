@@ -4,9 +4,8 @@
  */
 
 import {
-  TEAL_SHADES as DESIGN_TEAL_SHADES,
   TAG_COLORS as DESIGN_TAG_COLORS,
-  TEAL,
+  ACCENT,
   STONE,
 } from "./design-tokens";
 
@@ -30,14 +29,14 @@ export const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
 export const WEEKDAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 export const HOUR_LABELS_24 = Array.from({ length: 24 }, (_, i) => i);
 
-// 從 design-tokens 導入色彩，保持向後兼容
+// 橘色色階（用於熱力圖等需要漸層的場景）
 export const TEAL_SHADES = [
-  TEAL[700],
-  TEAL[600],
-  TEAL[500],
-  TEAL[400],
-  TEAL[300],
-  TEAL[200],
+  "#C2410C", // Orange 700 (最深)
+  ACCENT.hover, // #D66A2B
+  ACCENT.DEFAULT, // #E97A3B
+  "#FB923C", // Orange 400
+  ACCENT.muted, // #FDBA9A
+  ACCENT.light, // #FEF3EC (最淺)
 ];
 
 export const TAG_COLORS = DESIGN_TAG_COLORS;

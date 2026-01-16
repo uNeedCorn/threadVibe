@@ -66,7 +66,7 @@ import {
   formatAgeText,
   toLifecycleChartData,
 } from "@/lib/midterm-utils";
-import { TEAL, STONE, CHART_COLORS_EXTENDED } from "@/lib/design-tokens";
+import { ACCENT, STONE, CHART_COLORS_EXTENDED } from "@/lib/design-tokens";
 
 // ============================================================================
 // Types
@@ -426,8 +426,8 @@ function LifecycleChart({
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={TEAL[500]} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={TEAL[500]} stopOpacity={0} />
+                  <stop offset="5%" stopColor={ACCENT.DEFAULT} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={ACCENT.DEFAULT} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -488,7 +488,7 @@ function LifecycleChart({
               <Area
                 type="monotone"
                 dataKey="views"
-                stroke={TEAL[500]}
+                stroke={ACCENT.DEFAULT}
                 strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#colorViews)"
@@ -1205,8 +1205,8 @@ function LifecycleTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: b
                     <stop offset="95%" stopColor={STONE[400]} stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorSelected" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={TEAL[500]} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={TEAL[500]} stopOpacity={0} />
+                    <stop offset="5%" stopColor={ACCENT.DEFAULT} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={ACCENT.DEFAULT} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -1234,7 +1234,7 @@ function LifecycleTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: b
                           平均曝光：<span className="font-mono font-medium">{formatNumber(data.avgViews)}</span>
                         </p>
                         {data.selectedViews !== null && (
-                          <p className="text-sm text-teal-600">
+                          <p className="text-sm text-primary">
                             選中貼文：<span className="font-mono font-medium">{formatNumber(data.selectedViews)}</span>
                           </p>
                         )}
@@ -1256,7 +1256,7 @@ function LifecycleTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: b
                   <Area
                     type="monotone"
                     dataKey="selectedViews"
-                    stroke={TEAL[500]}
+                    stroke={ACCENT.DEFAULT}
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorSelected)"
@@ -1273,7 +1273,7 @@ function LifecycleTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: b
             </div>
             {selectedPost && (
               <div className="flex items-center gap-2">
-                <div className="h-0.5 w-6 bg-teal-500" />
+                <div className="h-0.5 w-6 bg-primary" />
                 <span className="text-muted-foreground">選中貼文</span>
               </div>
             )}

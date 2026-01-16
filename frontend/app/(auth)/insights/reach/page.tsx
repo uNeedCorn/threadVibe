@@ -25,7 +25,7 @@ import {
   getDateRange,
   getHeatmapColor,
 } from "@/lib/insights-utils";
-import { SEMANTIC_COLORS, TEAL, STONE } from "@/lib/design-tokens";
+import { SEMANTIC_COLORS, ACCENT, STONE } from "@/lib/design-tokens";
 import { GrowthBadge, KPICard, HeatmapLegend } from "@/components/insights/shared-components";
 
 type ViewMode = "report" | "insights";
@@ -94,7 +94,7 @@ interface AnomalyAlert {
 const chartConfig: ChartConfig = {
   views: {
     label: "新增曝光",
-    color: TEAL[500],
+    color: ACCENT.DEFAULT,
   },
 };
 
@@ -984,8 +984,8 @@ export default function ReachPage() {
                   <AreaChart data={viewsStats.dailyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="viewsGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={TEAL[500]} stopOpacity={0.3} />
-                        <stop offset="95%" stopColor={TEAL[500]} stopOpacity={0} />
+                        <stop offset="5%" stopColor={ACCENT.DEFAULT} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={ACCENT.DEFAULT} stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -1012,7 +1012,7 @@ export default function ReachPage() {
                     <Area
                       type="monotone"
                       dataKey="views"
-                      stroke={TEAL[500]}
+                      stroke={ACCENT.DEFAULT}
                       strokeWidth={2}
                       fill="url(#viewsGradient)"
                     />
@@ -1171,7 +1171,7 @@ export default function ReachPage() {
                 <Skeleton className="h-[200px] w-full" />
               ) : lifecycleAnalysis.length > 0 ? (
                 <ChartContainer
-                  config={{ avgViews: { label: "平均曝光", color: TEAL[500] } }}
+                  config={{ avgViews: { label: "平均曝光", color: ACCENT.DEFAULT } }}
                   className="h-[200px] w-full"
                 >
                   <BarChart

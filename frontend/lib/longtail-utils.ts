@@ -318,10 +318,10 @@ export function getLongtailRating(
  * 長尾貢獻圓餅圖顏色
  */
 export const LONGTAIL_CONTRIBUTION_COLORS = {
-  burst: "#0D9488", // teal-600
-  growth: "#14B8A6", // teal-500
-  longtail: "#5EEAD4", // teal-300
-  deepLongtail: "#99F6E4", // teal-200
+  burst: "#D66A2B", // orange-hover
+  growth: "#E97A3B", // primary
+  longtail: "#FDBA9A", // orange-muted
+  deepLongtail: "#FEF3EC", // orange-light
 } as const;
 
 /**
@@ -330,7 +330,7 @@ export const LONGTAIL_CONTRIBUTION_COLORS = {
 export function getEvergreenColor(index: number): string {
   if (index > 1.0) return "#F59E0B"; // amber - 復活
   if (index > 0.3) return "#10B981"; // emerald - 常青
-  if (index >= 0.15) return "#14B8A6"; // teal - 成長中
+  if (index >= 0.15) return "#E97A3B"; // primary - 成長中
   if (index >= 0.05) return "#94A3B8"; // slate - 一般
   return "#CBD5E1"; // slate-300 - 休眠
 }

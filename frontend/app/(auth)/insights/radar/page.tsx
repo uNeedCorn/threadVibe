@@ -63,7 +63,7 @@ import {
   CHART_COLORS_EXTENDED,
   SEMANTIC_COLORS,
   STONE,
-  TEAL,
+  ACCENT,
   VIRALITY_COLORS,
   getChartColor,
   getHeatmapIntensityColor,
@@ -306,7 +306,7 @@ function MiniTrendChart({ data }: { data: TrendPoint[] }) {
           <Line
             type="monotone"
             dataKey="views"
-            stroke={TEAL[500]}
+            stroke={ACCENT.DEFAULT}
             strokeWidth={1.5}
             dot={false}
           />
@@ -869,7 +869,7 @@ function IgnitionCurveChart({
                       <Line
                         type="monotone"
                         dataKey="viewsPct"
-                        stroke={TEAL[500]}
+                        stroke={ACCENT.DEFAULT}
                         strokeWidth={2}
                         dot={false}
                       />
@@ -1334,7 +1334,7 @@ function QuadrantChart({
                   );
                 }}
               />
-              <Scatter data={data} fill={TEAL[500]}>
+              <Scatter data={data} fill={ACCENT.DEFAULT}>
                 {data.map((entry) => (
                   <Cell
                     key={entry.postId}
@@ -1564,7 +1564,7 @@ function ViewsRHatQuadrantChart({
                   );
                 }}
               />
-              <Scatter data={data} fill={TEAL[500]}>
+              <Scatter data={data} fill={ACCENT.DEFAULT}>
                 {data.map((entry) => (
                   <Cell
                     key={entry.postId}

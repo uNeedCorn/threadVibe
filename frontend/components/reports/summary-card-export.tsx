@@ -20,8 +20,8 @@ export interface ReportThemeColors {
 
 const THEME_PRESETS: Record<Exclude<ReportTheme, "custom">, ReportThemeColors> = {
   default: {
-    primary: "#14B8A6",
-    primaryLight: "#CCFBF1",
+    primary: "#E97A3B",
+    primaryLight: "#FEF3EC",
     background: "#F8FAFC",
     cardBackground: "#FFFFFF",
     text: "#0F172A",
@@ -31,8 +31,8 @@ const THEME_PRESETS: Record<Exclude<ReportTheme, "custom">, ReportThemeColors> =
     negative: "#EF4444",
   },
   dark: {
-    primary: "#14B8A6",
-    primaryLight: "#134E4A",
+    primary: "#F0955C",
+    primaryLight: "#7C3A18",
     background: "#0F172A",
     cardBackground: "#1E293B",
     text: "#F8FAFC",

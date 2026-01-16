@@ -35,7 +35,7 @@ const CARD_STYLE: React.CSSProperties = {
   border: "1px solid #E2E8F0",
 };
 
-const PRIMARY_COLOR = "#14B8A6";
+const PRIMARY_COLOR = "#E97A3B";
 const TEXT_COLOR = "#0F172A";
 const MUTED_COLOR = "#64748B";
 const POSITIVE_COLOR = "#10B981";

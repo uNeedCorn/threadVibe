@@ -54,8 +54,8 @@
 
 /* ============================================
    Postlyzer 品牌色彩
-   基於 Zenivy 設計規範
-   主色：Teal | 中性色：Stone
+   基於「溫暖極簡」設計規範
+   主色：Warm Orange | 中性色：Stone
    ============================================ */
 
 :root {
@@ -71,8 +71,8 @@
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
   --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
   --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
-  --shadow-glow-primary: 0 0 20px oklch(0.696 0.137 175.8 / 0.25);
-  --shadow-glow-primary-strong: 0 0 30px oklch(0.696 0.137 175.8 / 0.4);
+  --shadow-glow-primary: 0 0 20px oklch(0.65 0.17 45 / 0.25);
+  --shadow-glow-primary-strong: 0 0 30px oklch(0.65 0.17 45 / 0.4);
 
   /* ============================================
      Spacing - 間距系統（語意變數）
@@ -93,8 +93,8 @@
   --transition-bounce: 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
   --transition-spring: 400ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
-  /* 品牌主色 - Teal */
-  --primary: oklch(0.696 0.137 175.8);           /* Teal 500 #14B8A6 */
+  /* 品牌主色 - Warm Orange */
+  --primary: oklch(0.65 0.17 45);                /* #E97A3B */
   --primary-foreground: oklch(1 0 0);            /* White */
 
   /* 中性色 - Stone */
@@ -112,7 +112,7 @@
   --accent-foreground: oklch(0.216 0.006 56);    /* Stone 900 */
   --border: oklch(0.923 0.003 48);               /* Stone 200 #E7E5E4 */
   --input: oklch(0.923 0.003 48);                /* Stone 200 */
-  --ring: oklch(0.696 0.137 175.8);              /* Teal 500 - Focus ring */
+  --ring: oklch(0.65 0.17 45);                   /* #E97A3B - Focus ring */
 
   /* 語意色 */
   --destructive: oklch(0.637 0.237 25);          /* Red #EF4444 */
@@ -121,8 +121,8 @@
   --info: oklch(0.623 0.214 259);                /* Blue #3B82F6 */
 
   /* 圖表色 - 協調的資料視覺化配色 */
-  --chart-1: oklch(0.696 0.137 175.8);           /* Teal 500 - 主要 */
-  --chart-2: oklch(0.768 0.165 75);              /* Amber - 次要 */
+  --chart-1: oklch(0.65 0.17 45);                /* #E97A3B - 主要 */
+  --chart-2: oklch(0.696 0.137 175.8);           /* Teal - 次要 */
   --chart-3: oklch(0.585 0.233 292);             /* Violet #8B5CF6 */
   --chart-4: oklch(0.638 0.238 350);             /* Pink #EC4899 */
   --chart-5: oklch(0.715 0.143 211);             /* Cyan #06B6D4 */
@@ -130,12 +130,12 @@
   /* 側邊欄 */
   --sidebar: oklch(1 0 0);                       /* White */
   --sidebar-foreground: oklch(0.216 0.006 56);   /* Stone 900 */
-  --sidebar-primary: oklch(0.696 0.137 175.8);   /* Teal 500 */
+  --sidebar-primary: oklch(0.65 0.17 45);        /* #E97A3B */
   --sidebar-primary-foreground: oklch(1 0 0);    /* White */
   --sidebar-accent: oklch(0.97 0.001 106);       /* Stone 100 */
   --sidebar-accent-foreground: oklch(0.216 0.006 56); /* Stone 900 */
   --sidebar-border: oklch(0.923 0.003 48);       /* Stone 200 */
-  --sidebar-ring: oklch(0.696 0.137 175.8);      /* Teal 500 */
+  --sidebar-ring: oklch(0.65 0.17 45);           /* #E97A3B */
 }
 
 .dark {
@@ -144,11 +144,11 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.4);
-  --shadow-glow-primary: 0 0 20px oklch(0.77 0.138 175 / 0.3);
-  --shadow-glow-primary-strong: 0 0 30px oklch(0.77 0.138 175 / 0.5);
+  --shadow-glow-primary: 0 0 20px oklch(0.72 0.15 45 / 0.3);
+  --shadow-glow-primary-strong: 0 0 30px oklch(0.72 0.15 45 / 0.5);
 
-  /* 品牌主色 - Teal（深色模式較亮） */
-  --primary: oklch(0.77 0.138 175);              /* Teal 400 #2DD4BF */
+  /* 品牌主色 - Warm Orange（深色模式較亮） */
+  --primary: oklch(0.72 0.15 45);                /* #F0955C */
   --primary-foreground: oklch(0.147 0.004 49);   /* Stone 950 #0C0A09 */
 
   /* 中性色 - Stone（深色模式） */
@@ -166,7 +166,7 @@
   --accent-foreground: oklch(0.97 0.001 106);    /* Stone 100 */
   --border: oklch(0.268 0.007 34);               /* Stone 800 */
   --input: oklch(0.268 0.007 34);                /* Stone 800 */
-  --ring: oklch(0.77 0.138 175);                 /* Teal 400 */
+  --ring: oklch(0.72 0.15 45);                   /* #F0955C */
 
   /* 語意色（深色模式稍亮） */
   --destructive: oklch(0.704 0.191 22.216);      /* Lighter Red */
@@ -175,8 +175,8 @@
   --info: oklch(0.7 0.18 259);                   /* Lighter Blue */
 
   /* 圖表色（深色模式調整） */
-  --chart-1: oklch(0.77 0.138 175);              /* Teal 400 */
-  --chart-2: oklch(0.8 0.16 75);                 /* Lighter Amber */
+  --chart-1: oklch(0.72 0.15 45);                /* #F0955C - 主要 */
+  --chart-2: oklch(0.77 0.138 175);              /* Teal - 次要 */
   --chart-3: oklch(0.65 0.22 292);               /* Lighter Violet */
   --chart-4: oklch(0.7 0.22 350);                /* Lighter Pink */
   --chart-5: oklch(0.76 0.14 211);               /* Lighter Cyan */
@@ -184,12 +184,12 @@
   /* 側邊欄（深色模式） */
   --sidebar: oklch(0.216 0.006 56);              /* Stone 900 */
   --sidebar-foreground: oklch(0.97 0.001 106);   /* Stone 100 */
-  --sidebar-primary: oklch(0.77 0.138 175);      /* Teal 400 */
+  --sidebar-primary: oklch(0.72 0.15 45);        /* #F0955C */
   --sidebar-primary-foreground: oklch(0.97 0.001 106); /* Stone 100 */
   --sidebar-accent: oklch(0.268 0.007 34);       /* Stone 800 */
   --sidebar-accent-foreground: oklch(0.97 0.001 106); /* Stone 100 */
   --sidebar-border: oklch(0.268 0.007 34);       /* Stone 800 */
-  --sidebar-ring: oklch(0.77 0.138 175);         /* Teal 400 */
+  --sidebar-ring: oklch(0.72 0.15 45);           /* #F0955C */
 }
 
 @layer base {
@@ -210,15 +210,15 @@
   --rbc-border-color: var(--border);
   --rbc-bg-color: var(--card);
   --rbc-header-bg: var(--muted);
-  --rbc-today-bg: oklch(0.696 0.137 175.8 / 0.1);
+  --rbc-today-bg: oklch(0.65 0.17 45 / 0.1);
   --rbc-off-range-bg: oklch(0.97 0.001 106 / 0.5);
-  --rbc-selected-bg: oklch(0.696 0.137 175.8 / 0.2);
+  --rbc-selected-bg: oklch(0.65 0.17 45 / 0.2);
 }
 
 .dark .schedule-calendar {
-  --rbc-today-bg: oklch(0.77 0.138 175 / 0.1);
+  --rbc-today-bg: oklch(0.72 0.15 45 / 0.1);
   --rbc-off-range-bg: oklch(0.268 0.007 34 / 0.5);
-  --rbc-selected-bg: oklch(0.77 0.138 175 / 0.2);
+  --rbc-selected-bg: oklch(0.72 0.15 45 / 0.2);
 }
 
 /* 主容器 */
@@ -740,11 +740,11 @@
 }
 
 .focus-ring:focus-visible {
-  box-shadow: 0 0 0 3px oklch(0.696 0.137 175.8 / 0.3);
+  box-shadow: 0 0 0 3px oklch(0.65 0.17 45 / 0.3);
 }
 
 .dark .focus-ring:focus-visible {
-  box-shadow: 0 0 0 3px oklch(0.77 0.138 175 / 0.3);
+  box-shadow: 0 0 0 3px oklch(0.72 0.15 45 / 0.3);
 }
 
 /* ============================================

@@ -20,14 +20,14 @@ interface ThemeSelectorProps {
 }
 
 const THEME_OPTIONS: { value: Exclude<ReportTheme, "custom">; label: string; color: string }[] = [
-  { value: "default", label: "預設 (綠)", color: "#14B8A6" },
+  { value: "default", label: "預設 (橘)", color: "#E97A3B" },
   { value: "dark", label: "深色", color: "#1E293B" },
   { value: "blue", label: "商務藍", color: "#3B82F6" },
 ];
 
 export function ThemeSelector({ value, customColor, onChange }: ThemeSelectorProps) {
   const [open, setOpen] = useState(false);
-  const [tempCustomColor, setTempCustomColor] = useState(customColor || "#14B8A6");
+  const [tempCustomColor, setTempCustomColor] = useState(customColor || "#E97A3B");
 
   const selectedTheme = THEME_OPTIONS.find((t) => t.value === value);
   const displayColor = value === "custom" ? customColor : selectedTheme?.color;
@@ -91,7 +91,7 @@ export function ThemeSelector({ value, customColor, onChange }: ThemeSelectorPro
                 <Input
                   value={tempCustomColor}
                   onChange={(e) => setTempCustomColor(e.target.value)}
-                  placeholder="#14B8A6"
+                  placeholder="#E97A3B"
                   className="pl-8 font-mono text-sm"
                 />
               </div>

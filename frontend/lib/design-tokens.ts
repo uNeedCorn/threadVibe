@@ -1,6 +1,6 @@
 /**
  * Design Tokens - Postlyzer 統一設計規範
- * 基於 Zenivy 設計規範，所有色彩和樣式的 Single Source of Truth
+ * 基於「溫暖極簡」設計規範，所有色彩和樣式的 Single Source of Truth
  *
  * 使用方式：
  * - 在 TypeScript 中 import { COLORS, SEMANTIC_COLORS } from "@/lib/design-tokens"
@@ -12,8 +12,19 @@
 // ============================================================================
 
 /**
- * 主色系 - Teal
+ * 主色系 - Warm Orange
  * 用於品牌識別、主要 CTA、重點元素
+ */
+export const ACCENT = {
+  DEFAULT: "#E97A3B",  // 主色
+  hover: "#D66A2B",    // Hover 狀態
+  light: "#FEF3EC",    // 淺底色、Icon 背景
+  muted: "#FDBA9A",    // 進度條、標籤
+} as const;
+
+/**
+ * @deprecated 請改用 ACCENT，此常數僅供圖表色彩使用
+ * 原 Teal 色系 - 現僅作為圖表輔助色
  */
 export const TEAL = {
   50: "#F0FDFA",
@@ -21,7 +32,7 @@ export const TEAL = {
   200: "#99F6E4",
   300: "#5EEAD4",
   400: "#2DD4BF",
-  500: "#14B8A6", // 主色
+  500: "#14B8A6",
   600: "#0D9488",
   700: "#0F766E",
   800: "#115E59",
@@ -56,10 +67,10 @@ export const STONE = {
  * 對應 globals.css 中的 CSS 變數
  */
 export const SEMANTIC_COLORS = {
-  // 主色 (Teal)
-  primary: TEAL[500],
-  primaryLight: TEAL[400],
-  primaryDark: TEAL[600],
+  // 主色 (Warm Orange)
+  primary: ACCENT.DEFAULT,
+  primaryLight: ACCENT.muted,
+  primaryDark: ACCENT.hover,
 
   // 成功 (Green)
   success: "#22C55E",
@@ -96,8 +107,8 @@ export const SEMANTIC_COLORS = {
  */
 export const CHART_COLORS = {
   // 對應 CSS 變數 --chart-1 ~ --chart-5
-  chart1: TEAL[500], // 主要 - Teal
-  chart2: "#F59E0B", // 次要 - Amber
+  chart1: ACCENT.DEFAULT, // 主要 - Orange
+  chart2: TEAL[500], // 次要 - Teal
   chart3: "#8B5CF6", // Violet
   chart4: "#EC4899", // Pink
   chart5: "#06B6D4", // Cyan
@@ -108,8 +119,8 @@ export const CHART_COLORS = {
  * 用於需要更多顏色區分的場景（如多線圖、多系列資料）
  */
 export const CHART_COLORS_EXTENDED = [
+  ACCENT.DEFAULT, // Orange (Primary)
   TEAL[500], // Teal
-  "#F59E0B", // Amber
   "#8B5CF6", // Violet
   "#EC4899", // Pink
   "#3B82F6", // Blue
@@ -123,18 +134,19 @@ export const CHART_COLORS_EXTENDED = [
 ] as const;
 
 /**
- * Teal 色階 - 用於熱力圖、漸層等
+ * 橘色色階 - 用於熱力圖、漸層等
  * 從深到淺排列
+ * @deprecated 命名保留向後兼容，實際為橘色系
  */
 export const TEAL_SHADES = [
-  TEAL[700], // 最深
-  TEAL[600],
-  TEAL[500], // 主色
-  TEAL[400],
-  TEAL[300],
-  TEAL[200],
-  TEAL[100],
-  TEAL[50], // 最淺
+  "#9A3412", // Orange 800 (最深)
+  "#C2410C", // Orange 700
+  ACCENT.hover, // #D66A2B
+  ACCENT.DEFAULT, // #E97A3B
+  "#FB923C", // Orange 400
+  ACCENT.muted, // #FDBA9A
+  "#FFEDD5", // Orange 100
+  ACCENT.light, // #FEF3EC (最淺)
 ] as const;
 
 /**
@@ -142,10 +154,10 @@ export const TEAL_SHADES = [
  * 用於讚、回覆、轉發、引用的區分
  */
 export const INTERACTION_COLORS = {
-  likes: TEAL[500], // 讚
-  replies: TEAL[600], // 回覆
-  reposts: TEAL[400], // 轉發
-  quotes: TEAL[300], // 引用
+  likes: ACCENT.DEFAULT, // 讚
+  replies: ACCENT.hover, // 回覆
+  reposts: ACCENT.muted, // 轉發
+  quotes: ACCENT.light, // 引用
 } as const;
 
 // ============================================================================
@@ -172,7 +184,7 @@ export const TAG_PRESET_COLORS = [
  * 用於自動分配標籤顏色
  */
 export const TAG_COLORS = [
-  TEAL[500],
+  ACCENT.DEFAULT,
   "#8B5CF6",
   "#F59E0B",
   "#EF4444",
@@ -211,7 +223,7 @@ export const BENCHMARK_COLORS = {
 export const VIRALITY_COLORS = {
   viral: SEMANTIC_COLORS.destructive, // 爆紅中
   excellent: SEMANTIC_COLORS.warning, // 表現優異
-  good: TEAL[500], // 表現良好
+  good: ACCENT.DEFAULT, // 表現良好
   normal: STONE[400], // 一般
 } as const;
 
@@ -257,7 +269,8 @@ export function getHeatmapIntensityColor(intensity: number): string {
 }
 
 /**
- * 根據數值和最大值取得 Teal 色階顏色
+ * 根據數值和最大值取得橘色色階顏色
+ * @deprecated 函數名保留向後兼容，實際返回橘色系
  */
 export function getTealShadeColor(value: number, max: number): string {
   if (value === 0 || max === 0) return STONE[100];
@@ -396,8 +409,8 @@ export const SHADOWS = {
 
   // Glow 效果（品牌強調）
   glow: {
-    primary: `0 0 20px ${TEAL[500]}40`,
-    primaryStrong: `0 0 30px ${TEAL[500]}60`,
+    primary: `0 0 20px ${ACCENT.DEFAULT}40`,
+    primaryStrong: `0 0 30px ${ACCENT.DEFAULT}60`,
     success: "0 0 20px #22C55E40",
     warning: "0 0 20px #F59E0B40",
     destructive: "0 0 20px #EF444440",

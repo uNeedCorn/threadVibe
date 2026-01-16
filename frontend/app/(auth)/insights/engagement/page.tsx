@@ -68,7 +68,7 @@ import {
 import {
   INTERACTION_COLORS as DESIGN_INTERACTION_COLORS,
   CHART_COLORS,
-  TEAL,
+  ACCENT,
   SEMANTIC_COLORS,
   STONE,
 } from "@/lib/design-tokens";
@@ -288,8 +288,8 @@ function EngagementTrendChart({
               <ComposedChart data={data} margin={{ left: 0, right: 0, top: 10, bottom: 20 }}>
                 <defs>
                   <linearGradient id="interactionsGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={TEAL[500]} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={TEAL[500]} stopOpacity={0} />
+                    <stop offset="5%" stopColor={ACCENT.DEFAULT} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={ACCENT.DEFAULT} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -364,7 +364,7 @@ function EngagementTrendChart({
                   yAxisId="left"
                   type="monotone"
                   dataKey="totalInteractions"
-                  stroke={TEAL[500]}
+                  stroke={ACCENT.DEFAULT}
                   fill="url(#interactionsGradient)"
                   strokeWidth={2}
                 />
@@ -487,7 +487,7 @@ function TagEngagementChart({
           </div>
         ) : (
           <ChartContainer
-            config={{ engagementRate: { label: "互動率", color: TEAL[500] } }}
+            config={{ engagementRate: { label: "互動率", color: ACCENT.DEFAULT } }}
             className="h-[200px] w-full"
           >
             <BarChart data={sortedData.slice(0, 6)} layout="vertical" margin={{ left: 0, right: 40 }}>
@@ -797,7 +797,7 @@ function QualityScoreBlock({
               <svg className="absolute size-28 -rotate-90">
                 <circle cx="56" cy="56" r="48" fill="none" stroke={STONE[200]} strokeWidth="8" />
                 <circle
-                  cx="56" cy="56" r="48" fill="none" stroke={TEAL[500]} strokeWidth="8"
+                  cx="56" cy="56" r="48" fill="none" stroke={ACCENT.DEFAULT} strokeWidth="8"
                   strokeDasharray={`${(qualityScore / 100) * 301.6} 301.6`}
                   strokeLinecap="round"
                 />

@@ -27,7 +27,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { WEEKDAY_NAMES, getHeatmapColor } from "@/lib/insights-utils";
-import { TEAL } from "@/lib/design-tokens";
+import { ACCENT } from "@/lib/design-tokens";
 import { HeatmapLegend } from "@/components/insights/shared-components";
 import type { LongtailPageData } from "../page";
 
@@ -56,7 +56,7 @@ interface MediaTypeLongtailStats {
 const chartConfig: ChartConfig = {
   longtailRatio: {
     label: "長尾比例",
-    color: TEAL[500],
+    color: ACCENT.DEFAULT,
   },
 };
 
@@ -214,7 +214,7 @@ export function FeatureAnalysisTab({ data }: Props) {
     return mediaTypeStats.map((item) => ({
       name: item.label,
       value: item.avgLongtailRatio * 100,
-      fill: TEAL[500],
+      fill: ACCENT.DEFAULT,
       postCount: item.postCount,
     }));
   }, [mediaTypeStats]);
@@ -355,7 +355,7 @@ export function FeatureAnalysisTab({ data }: Props) {
                       />
                     }
                   />
-                  <Bar dataKey="value" fill={TEAL[500]} radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="value" fill={ACCENT.DEFAULT} radius={[4, 4, 0, 0]}>
                     <LabelList
                       dataKey="value"
                       position="top"
