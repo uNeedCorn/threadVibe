@@ -4,6 +4,7 @@ import {
   StatsSection,
   PainPointsSection,
   FeaturesSection,
+  AudienceSection,
   StepsSection,
   ScreenshotSection,
   PricingSection,
@@ -20,6 +21,7 @@ export default function LandingPage() {
       <ScreenshotSection />
       <PainPointsSection />
       <FeaturesSection />
+      <AudienceSection />
       <StepsSection />
       <PricingSection />
       <CtaSection />

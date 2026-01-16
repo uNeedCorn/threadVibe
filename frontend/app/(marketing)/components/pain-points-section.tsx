@@ -1,23 +1,23 @@
-import { HelpCircle, Users, LineChart } from "lucide-react";
+import { Camera, Clock, Layers } from "lucide-react";
 
 const painPoints = [
   {
-    icon: HelpCircle,
-    title: "發文後不知道成效？",
+    icon: Camera,
+    title: "還在截圖記錄數據？",
     description:
-      "Threads 內建的分析功能有限，很難追蹤每篇貼文的表現和趨勢變化。",
+      "每次都要手動截圖、開試算表抄數字，花時間又容易出錯。",
   },
   {
-    icon: Users,
-    title: "團隊協作管理多帳號很麻煩？",
+    icon: Clock,
+    title: "不知道什麼時候發文最好？",
     description:
-      "多人共同管理品牌帳號時，缺乏統一的工作區和權限管理機制。",
+      "憑感覺發文，不確定粉絲什麼時候最活躍，錯過黃金曝光時段。",
   },
   {
-    icon: LineChart,
-    title: "缺乏數據支撐內容決策？",
+    icon: Layers,
+    title: "管理多帳號要一直切換？",
     description:
-      "沒有歷史數據對比，無法分析什麼類型的內容最受歡迎、什麼時間發文效果最好。",
+      "經營多個品牌或客戶帳號，每次都要登出登入，效率超低。",
   },
 ];
 
@@ -27,10 +27,10 @@ export function PainPointsSection() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">
-            你也遇到這些問題嗎？
+            經營 Threads 的日常困擾
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            經營 Threads 帳號時，這些常見痛點可能正在阻礙你的成長
+            這些事情是不是也讓你很頭痛？
           </p>
         </div>
 

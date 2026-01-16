@@ -8,10 +8,10 @@ export function CtaSection() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center space-y-6">
           <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
-            準備好提升你的 Threads 成效了嗎？
+            免費試用，看看你的貼文數據
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            用數據驅動你的內容策略，幾分鐘內即可開始追蹤。
+            3 分鐘完成設定，馬上開始追蹤成效
           </p>
           <div className="flex justify-center">
             <WaitlistModal

@@ -20,27 +20,25 @@ export function HeroSection() {
               Beta 測試中
             </span>
             <span className="text-sm text-muted-foreground">
-              專為 Threads 創作者打造
+              免費申請試用
             </span>
           </div>
 
           {/* Headline */}
           <div className="max-w-3xl space-y-4">
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground">
-              專注創作
-              <br />
-              <span className="text-primary">成效分析交給我們</span>
+              Threads 發了，然後呢？
             </h1>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-              觀看數、互動率、粉絲成長
+              自動追蹤每篇貼文成效，找出最佳發文時間
               <br className="hidden sm:block" />
-              一個平台，搞定所有 Threads 成效追蹤
+              讓數據告訴你，哪篇貼文表現最好
             </p>
           </div>
 
           {/* Value Proposition */}
           <p className="text-base font-medium text-foreground">
-            自動同步、完整紀錄，專為 Threads 創作者打造
+            不用再手動截圖抄數據，一個平台搞定成效追蹤與分析
           </p>
 
           {/* CTA Buttons */}
