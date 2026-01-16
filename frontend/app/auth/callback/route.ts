@@ -37,7 +37,7 @@ export async function GET(request: Request) {
         name: error.name,
         isSafari,
       });
-      return NextResponse.redirect(`${origin}/login?error=auth_failed&reason=${encodeURIComponent(error.message)}`);
+      return NextResponse.redirect(`${origin}/login_2026Q1?error=auth_failed&reason=${encodeURIComponent(error.message)}`);
     }
 
     if (sessionData?.user) {
@@ -48,5 +48,5 @@ export async function GET(request: Request) {
   }
 
   console.log("[OAuth Callback] No code provided");
-  return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+  return NextResponse.redirect(`${origin}/login_2026Q1?error=auth_failed`);
 }

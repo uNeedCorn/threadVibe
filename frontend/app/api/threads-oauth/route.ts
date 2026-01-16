@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 導向登入頁，帶上原始目標 URL
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL("/login_2026Q1", request.url);
     loginUrl.searchParams.set("error", "session_expired");
     return NextResponse.redirect(loginUrl);
   }
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
   if (!session?.access_token) {
     console.error("[threads-oauth] No access token in session");
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL("/login_2026Q1", request.url);
     return NextResponse.redirect(loginUrl);
   }
 

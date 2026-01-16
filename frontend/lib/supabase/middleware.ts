@@ -47,7 +47,7 @@ export async function updateSession(request: NextRequest) {
   // 如果 JWT 無效，清除 cookies 中的 session
   if (authError?.message?.includes("Invalid JWT") || authError?.code === "bad_jwt") {
     // 清除 auth cookies
-    const response = NextResponse.redirect(new URL("/login", request.url));
+    const response = NextResponse.redirect(new URL("/login_2026Q1", request.url));
     request.cookies.getAll().forEach((cookie) => {
       if (cookie.name.includes("auth-token")) {
         response.cookies.delete(cookie.name);
@@ -61,7 +61,7 @@ export async function updateSession(request: NextRequest) {
   // 公開頁面清單
   const publicPages = [
     "/",
-    "/login",
+    "/login_2026Q1",
     "/terms",
     "/privacy",
     "/data-deletion",
@@ -77,12 +77,12 @@ export async function updateSession(request: NextRequest) {
                        pathname === "/sitemap.xml" ||
                        pathname === "/favicon.ico";
   const isPublicPath = isPublicPage || isAuthCallback || isPublicApiRoute || isStaticFile;
-  const isLoginPage = pathname === "/login";
+  const isLoginPage = pathname === "/login_2026Q1";
 
   // 未登入且不在公開頁面 → 導向登入頁
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/login_2026Q1";
     return NextResponse.redirect(url);
   }
 
