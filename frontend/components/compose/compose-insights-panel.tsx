@@ -7,7 +7,6 @@ import {
   BarChart3,
   Zap,
   PanelRightClose,
-  PanelRightOpen,
   Sparkles,
   Loader2,
 } from "lucide-react";
@@ -161,28 +160,17 @@ export function ComposeInsightsPanel({
   // 收合狀態
   if (isCollapsed) {
     return (
-      <div className="flex h-full w-12 flex-col border-l bg-muted/30">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="mx-auto mt-3 size-8"
-              onClick={onToggleCollapse}
-            >
-              <PanelRightOpen className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">展開決策輔助</TooltipContent>
-        </Tooltip>
-
-        <div className="flex-1 flex flex-col items-center justify-center gap-2">
-          <Sparkles className="size-4 text-primary" />
-          <span className="text-[10px] font-medium text-muted-foreground [writing-mode:vertical-lr] rotate-180">
-            決策輔助
-          </span>
-        </div>
-      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={onToggleCollapse}
+            className="flex h-full w-10 items-center justify-center border-l bg-muted/30 hover:bg-muted/50 transition-colors"
+          >
+            <Sparkles className="size-4 text-primary" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="left">展開決策輔助</TooltipContent>
+      </Tooltip>
     );
   }
 
