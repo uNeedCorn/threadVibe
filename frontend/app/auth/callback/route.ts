@@ -5,6 +5,15 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
+  const userAgent = request.headers.get("user-agent") || "unknown";
+  const isSafari = userAgent.includes("Safari") && !userAgent.includes("Chrome");
+
+  console.log("[OAuth Callback]", {
+    hasCode: !!code,
+    codeLength: code?.length,
+    isSafari,
+    userAgent: userAgent.substring(0, 100),
+  });
 
   // 驗證 next 參數為站內路徑，防止 Open Redirect 攻擊
   const rawNext = searchParams.get("next") ?? "/dashboard";
@@ -15,6 +24,15 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await createClient();
     const { error, data: sessionData } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (error) {
+      console.error("[OAuth Callback] Exchange failed:", {
+        message: error.message,
+        status: error.status,
+        name: error.name,
+        isSafari,
+      });
+    }
 
     if (!error && sessionData.user) {
       const user = sessionData.user;
