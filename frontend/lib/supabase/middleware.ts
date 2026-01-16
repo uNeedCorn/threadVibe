@@ -56,14 +56,28 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
-  const isLoginPage = request.nextUrl.pathname === "/login";
-  const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
-  const isPublicApiRoute = request.nextUrl.pathname.startsWith("/api/turnstile") ||
-                           request.nextUrl.pathname.startsWith("/api/waitlist") ||
-                           request.nextUrl.pathname.startsWith("/api/invitation");
-  const isMarketingPage = request.nextUrl.pathname === "/" ||
-                          request.nextUrl.pathname.startsWith("/#");
-  const isPublicPath = isLoginPage || isAuthCallback || isPublicApiRoute || isMarketingPage;
+  const pathname = request.nextUrl.pathname;
+
+  // 公開頁面清單
+  const publicPages = [
+    "/",
+    "/login",
+    "/terms",
+    "/privacy",
+    "/data-deletion",
+  ];
+
+  const isPublicPage = publicPages.includes(pathname) || pathname.startsWith("/#");
+  const isAuthCallback = pathname.startsWith("/auth/callback");
+  const isPublicApiRoute = pathname.startsWith("/api/turnstile") ||
+                           pathname.startsWith("/api/waitlist") ||
+                           pathname.startsWith("/api/invitation");
+  const isStaticFile = pathname.startsWith("/_next") ||
+                       pathname === "/robots.txt" ||
+                       pathname === "/sitemap.xml" ||
+                       pathname === "/favicon.ico";
+  const isPublicPath = isPublicPage || isAuthCallback || isPublicApiRoute || isStaticFile;
+  const isLoginPage = pathname === "/login";
 
   // 未登入且不在公開頁面 → 導向登入頁
   if (!user && !isPublicPath) {
