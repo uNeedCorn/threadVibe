@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import Script from "next/script";
+
+const GA_MEASUREMENT_ID = "G-ZKZNXPN3Y8";
 
 export const metadata: Metadata = {
   title: "Postlyzer - 追蹤、分析你的 Threads 貼文成效",
@@ -19,6 +22,19 @@ export default function MarketingLayout({
 }) {
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* Google Analytics - 僅追蹤公開行銷頁面 */}
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${GA_MEASUREMENT_ID}');
+        `}
+      </Script>
       {children}
     </div>
   );
