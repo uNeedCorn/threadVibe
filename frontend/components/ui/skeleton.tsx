@@ -1,10 +1,19 @@
 import { cn } from "@/lib/utils"
 
-function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
+interface SkeletonProps extends React.ComponentProps<"div"> {
+  /** 是否使用 shimmer 動畫效果（預設為 true） */
+  shimmer?: boolean
+}
+
+function Skeleton({ className, shimmer = true, ...props }: SkeletonProps) {
   return (
     <div
       data-slot="skeleton"
-      className={cn("bg-accent animate-pulse rounded-md", className)}
+      className={cn(
+        "relative overflow-hidden rounded-md bg-muted",
+        shimmer ? "skeleton-shimmer" : "animate-pulse",
+        className
+      )}
       {...props}
     />
   )

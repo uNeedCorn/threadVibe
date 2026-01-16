@@ -38,6 +38,9 @@ export interface ScheduleEvent extends Event {
   status: string;
   mediaType: string;
   text: string | null;
+  createdAt: Date;
+  creatorName: string | null;
+  topicTag: string | null;
 }
 
 // 加入拖曳功能的 Calendar
@@ -55,31 +58,50 @@ interface ScheduleCalendarProps {
   className?: string;
 }
 
-// 事件顏色對應 (使用 Tailwind CSS 顏色)
-const STATUS_COLORS = {
-  scheduled: { bg: "rgb(20, 184, 166)", text: "white" },      // Teal 500
-  publishing: { bg: "rgb(245, 158, 11)", text: "white" },     // Amber 500
-  published: { bg: "rgb(34, 197, 94)", text: "white" },       // Green 500
-  failed: { bg: "rgb(239, 68, 68)", text: "white" },          // Red 500
-  cancelled: { bg: "rgb(120, 113, 108)", text: "white" },     // Stone 500
+// 狀態設定（顏色與標籤）
+const STATUS_CONFIG = {
+  scheduled: { bg: "rgb(14, 116, 144)", text: "white", label: "排程中" },      // Cyan 700
+  publishing: { bg: "rgb(217, 119, 6)", text: "white", label: "發布中" },      // Amber 600
+  published: { bg: "rgb(22, 163, 74)", text: "white", label: "已發布" },       // Green 600
+  failed: { bg: "rgb(220, 38, 38)", text: "white", label: "失敗" },            // Red 600
+  cancelled: { bg: "rgb(87, 83, 78)", text: "white", label: "已取消" },        // Stone 600
 } as const;
 
 // 自訂事件樣式
 const eventStyleGetter: EventPropGetter<ScheduleEvent> = (event) => {
-  const colors = STATUS_COLORS[event.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.scheduled;
+  const config = STATUS_CONFIG[event.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.scheduled;
 
   return {
     style: {
-      backgroundColor: colors.bg,
-      color: colors.text,
+      backgroundColor: config.bg,
+      color: config.text,
       borderRadius: "6px",
       opacity: event.status === "cancelled" ? 0.5 : 1,
       border: "none",
-      fontSize: "12px",
-      padding: "2px 6px",
+      fontSize: "11px",
+      padding: "1px 4px",
     },
   };
 };
+
+// 自訂事件內容元件
+function EventContent({ event }: { event: ScheduleEvent }) {
+  const config = STATUS_CONFIG[event.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.scheduled;
+
+  return (
+    <div className="flex items-center gap-1 overflow-hidden">
+      <span
+        className="shrink-0 rounded px-1 text-[10px] font-medium"
+        style={{
+          backgroundColor: "rgba(255,255,255,0.25)",
+        }}
+      >
+        {config.label}
+      </span>
+      <span className="truncate">{event.title}</span>
+    </div>
+  );
+}
 
 // 中文化訊息
 const messages = {
@@ -151,6 +173,14 @@ export function ScheduleCalendar({
     []
   );
 
+  // 自訂元件
+  const components = useMemo(
+    () => ({
+      event: ({ event }: { event: ScheduleEvent }) => <EventContent event={event} />,
+    }),
+    []
+  );
+
   return (
     <div className={cn("schedule-calendar h-full", className)}>
       <DnDCalendar
@@ -167,6 +197,7 @@ export function ScheduleCalendar({
         resizable={false}
         draggableAccessor={() => true}
         eventPropGetter={eventStyleGetter}
+        components={components}
         messages={messages}
         formats={formats}
         views={[Views.MONTH, Views.WEEK, Views.DAY]}
@@ -176,6 +207,7 @@ export function ScheduleCalendar({
         max={new Date(2020, 0, 1, 23, 59, 59)}
         style={{ height: "100%" }}
         popup
+        dayLayoutAlgorithm="no-overlap"
         tooltipAccessor={(event) => event.text || event.title}
       />
     </div>

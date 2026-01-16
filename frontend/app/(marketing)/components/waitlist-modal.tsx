@@ -148,7 +148,7 @@ export function WaitlistModal({
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
     if (!newOpen) {
-      // 關閉時重置表單（但保留成功狀態讓用戶看到）
+      // 關閉時重置表單（但保留成功狀態讓使用者看到）
       if (status !== "success" && status !== "already_exists") {
         setStatus("idle");
         setErrorMessage("");

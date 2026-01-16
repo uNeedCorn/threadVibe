@@ -6,7 +6,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 /**
  * POST /api/waitlist
- * 加入 Beta 等待名單（支援登入/未登入用戶）
+ * 加入 Beta 等待名單（支援登入/未登入使用者）
  */
 export async function POST(request: Request) {
   try {
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 使用 service client 來繞過 RLS（未登入用戶無法直接寫入）
+    // 使用 service client 來繞過 RLS（未登入使用者無法直接寫入）
     const serviceClient = createServiceClient();
 
     // 檢查是否已在 waitlist（用 email 檢查）
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
 
 /**
  * GET /api/waitlist
- * 取得目前用戶的 waitlist 狀態
+ * 取得目前使用者的 waitlist 狀態
  */
 export async function GET() {
   try {

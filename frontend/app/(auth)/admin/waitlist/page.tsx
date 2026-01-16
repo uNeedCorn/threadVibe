@@ -478,7 +478,7 @@ export default function WaitlistPage() {
             </DialogTitle>
             <DialogDescription>
               {reviewAction === "approve"
-                ? "確認通過此申請後，您需要另外發送邀請碼給用戶"
+                ? "確認通過此申請後，您需要另外發送邀請碼給使用者"
                 : "確認拒絕此申請"}
             </DialogDescription>
           </DialogHeader>

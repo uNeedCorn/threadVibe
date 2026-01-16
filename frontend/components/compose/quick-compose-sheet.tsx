@@ -1012,10 +1012,10 @@ export function QuickComposeSheet({ open, onOpenChange }: QuickComposeSheetProps
                 {isLoading ? (
                   <>
                     <Loader2 className="size-4 mr-1.5 animate-spin" />
-                    {scheduleOption === "now" ? "發佈中" : "排程中"}
+                    {scheduleOption === "now" ? "發布中" : "排程中"}
                   </>
                 ) : scheduleOption === "now" ? (
-                  "發佈"
+                  "發布"
                 ) : (
                   <>
                     <Clock className="size-4 mr-1.5" />

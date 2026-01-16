@@ -355,7 +355,7 @@ export function PostDetailPanel({
               <div className="space-y-3">
                 {/* 訊息框 */}
                 <div className="rounded-xl border bg-muted/30 p-4">
-                  {/* 頭像與用戶名（強化標示） */}
+                  {/* 頭像與使用者名（強化標示） */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <Avatar className="size-10 ring-2 ring-primary/20">

@@ -25,8 +25,8 @@ export function ThreadsAccountSwitcher() {
 
   if (isLoading) {
     return (
-      <div className="border-b p-4">
-        <div className="h-14 animate-pulse rounded-lg bg-muted" />
+      <div className="border-b px-3 py-2">
+        <div className="h-10 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
@@ -38,18 +38,18 @@ export function ThreadsAccountSwitcher() {
 
   // 帳號資訊顯示區塊
   const AccountInfo = () => (
-    <div className="flex items-center gap-3">
-      <Avatar className="size-10">
+    <div className="flex items-center gap-2.5">
+      <Avatar className="size-8">
         <AvatarImage src={selectedAccount?.profilePicUrl || undefined} />
-        <AvatarFallback className="text-sm">
+        <AvatarFallback className="text-xs">
           {selectedAccount?.username.charAt(0).toUpperCase()}
         </AvatarFallback>
       </Avatar>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">
+        <p className="text-sm font-medium truncate leading-tight">
           {selectedAccount?.username}
         </p>
-        <p className="text-xs text-muted-foreground truncate">
+        <p className="text-[11px] text-muted-foreground truncate leading-tight">
           @{selectedAccount?.username}
         </p>
       </div>
@@ -59,7 +59,7 @@ export function ThreadsAccountSwitcher() {
   // 單一帳號：只顯示帳號資訊，不需要下拉選單
   if (!hasMultipleAccounts) {
     return (
-      <div className="border-b p-4">
+      <div className="border-b px-3 py-2">
         <AccountInfo />
       </div>
     );
@@ -67,12 +67,12 @@ export function ThreadsAccountSwitcher() {
 
   // 多帳號：顯示可切換的下拉選單
   return (
-    <div className="border-b p-4">
+    <div className="border-b px-3 py-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="w-full h-auto p-2 justify-between hover:bg-accent"
+            className="w-full h-auto p-1.5 justify-between hover:bg-accent"
           >
             <AccountInfo />
             <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />

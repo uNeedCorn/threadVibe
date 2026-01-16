@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 /**
- * 確保用戶有 workspace 的補救機制
- * 如果用戶已登入但沒有 workspace，自動建立一個
+ * 確保使用者有 workspace 的補救機制
+ * 如果使用者已登入但沒有 workspace，自動建立一個
  */
 export async function POST() {
   const supabase = await createClient();

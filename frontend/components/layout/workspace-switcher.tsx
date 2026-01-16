@@ -45,7 +45,7 @@ export function WorkspaceSwitcher({ isAdmin = false }: WorkspaceSwitcherProps) {
           ws = allWorkspaces;
         }
       } else {
-        // 一般用戶：只查詢自己有成員權限的 workspace
+        // 一般使用者：只查詢自己有成員權限的 workspace
         const { data: memberships } = await supabase
           .from("workspace_members")
           .select("workspace_id, workspaces(id, name)")
@@ -130,7 +130,7 @@ export function WorkspaceSwitcher({ isAdmin = false }: WorkspaceSwitcherProps) {
               )}
             </DropdownMenuItem>
           ))}
-          {/* 一般用戶才顯示建立新工作區（管理員不可建立） */}
+          {/* 一般使用者才顯示建立新工作區（管理員不可建立） */}
           {!isAdmin && (
             <>
               <DropdownMenuSeparator />

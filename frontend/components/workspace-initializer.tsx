@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 /**
- * 確保用戶有 workspace 的初始化元件
+ * 確保使用者有 workspace 的初始化元件
  * 1. 從 URL 參數讀取 workspace_id 並儲存到 localStorage
  * 2. 如果沒有 workspace，呼叫 API 建立一個（補救機制）
  */

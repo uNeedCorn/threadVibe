@@ -16,7 +16,7 @@ interface UseCurrentUserResult {
 }
 
 /**
- * 取得當前登入用戶的資料（包含管理員狀態）
+ * 取得當前登入使用者的資料（包含管理員狀態）
  *
  * 管理員狀態從 system_admins 表查詢
  */

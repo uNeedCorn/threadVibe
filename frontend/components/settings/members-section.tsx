@@ -77,7 +77,7 @@ export function MembersSection() {
     const supabase = createClient();
     const workspaceId = localStorage.getItem("currentWorkspaceId");
 
-    // 取得當前用戶
+    // 取得當前使用者
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setCurrentUserId(user.id);
@@ -101,11 +101,11 @@ export function MembersSection() {
       .order("joined_at", { ascending: true });
 
     if (data) {
-      // 檢查當前用戶是否為 owner
+      // 檢查當前使用者是否為 owner
       const currentMember = data.find(m => m.user_id === user?.id);
       setIsOwner(currentMember?.role === "owner");
 
-      // 模擬用戶資料（實際應該 join users 表或從 auth 取得）
+      // 模擬使用者資料（實際應該 join users 表或從 auth 取得）
       const membersWithUser = data.map(m => ({
         ...m,
         user: {

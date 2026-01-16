@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       // 使用 service role client 繞過 RLS 進行 workspace 操作
       const serviceClient = createServiceClient();
 
-      // 檢查是否有 Workspace（判斷是否為新用戶）
+      // 檢查是否有 Workspace（判斷是否為新使用者）
       const { data: memberships } = await serviceClient
         .from("workspace_members")
         .select("workspace_id, workspaces(id, name)")
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       const isNewUser = !memberships || memberships.length === 0;
 
       if (isNewUser) {
-        // 新用戶：從 cookie 讀取邀請碼
+        // 新使用者：從 cookie 讀取邀請碼
         const cookieStore = await cookies();
         const invitationCode = cookieStore.get("invitation_code")?.value;
 
@@ -119,7 +119,7 @@ export async function GET(request: Request) {
         response.cookies.delete("invitation_code");
         return response;
       } else {
-        // 已有 Workspace（舊用戶）
+        // 已有 Workspace（舊使用者）
         const workspace = memberships[0].workspaces as unknown as { id: string; name: string } | null;
         workspaceId = workspace?.id || null;
       }

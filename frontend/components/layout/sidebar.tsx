@@ -177,6 +177,7 @@ const adminNavGroup: NavGroup = {
 };
 
 const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
+const SIDEBAR_OPEN_GROUPS_KEY = "sidebarOpenGroups";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -191,6 +192,11 @@ export function Sidebar() {
 
   // 登入者資訊
   const [user, setUser] = useState<UserProfile | null>(null);
+
+  // 展開狀態：從 localStorage 讀取，預設成效洞察展開
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    "/insights": true, // 預設成效洞察展開
+  });
 
   // 確保客戶端掛載後才渲染動態內容
   useEffect(() => {
@@ -229,11 +235,23 @@ export function Sidebar() {
       .slice(0, 2);
   };
 
-  // 從 localStorage 讀取收折狀態，並監聽 Header 的變更
+  // 從 localStorage 讀取收折狀態和群組展開狀態
   useEffect(() => {
-    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-    if (saved === "true") {
+    // 讀取 sidebar 收折狀態
+    const savedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (savedCollapsed === "true") {
       setIsCollapsed(true);
+    }
+
+    // 讀取群組展開狀態
+    const savedGroups = localStorage.getItem(SIDEBAR_OPEN_GROUPS_KEY);
+    if (savedGroups) {
+      try {
+        const parsed = JSON.parse(savedGroups);
+        setOpenGroups(parsed);
+      } catch {
+        // 解析失敗時使用預設值
+      }
     }
 
     // 監聽 storage 事件（與 Header 同步）
@@ -245,27 +263,46 @@ export function Sidebar() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  // 展開狀態：成效洞察固定展開，其他群組根據路徑匹配展開
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    "/insights": true, // 成效洞察固定展開
-  });
-
-  // 根據當前路徑自動展開對應的群組（成效洞察除外，保持固定展開）
+  // 根據當前路徑自動展開對應的群組（僅在首次進入該路徑時）
   useEffect(() => {
+    let shouldUpdate = false;
+    const updates: Record<string, boolean> = {};
+
     // 檢查主要導航項目
     mainNavItems.forEach((item) => {
-      if (isNavGroup(item) && pathname.startsWith(item.basePath) && item.basePath !== "/insights") {
-        setOpenGroups((prev) => ({ ...prev, [item.basePath]: true }));
+      if (isNavGroup(item) && pathname.startsWith(item.basePath)) {
+        // 如果該群組尚未在 openGroups 中明確設定過，則自動展開
+        if (openGroups[item.basePath] === undefined) {
+          updates[item.basePath] = true;
+          shouldUpdate = true;
+        }
       }
     });
+
     // 檢查管理員群組
     if (pathname.startsWith(adminNavGroup.basePath)) {
-      setOpenGroups((prev) => ({ ...prev, [adminNavGroup.basePath]: true }));
+      if (openGroups[adminNavGroup.basePath] === undefined) {
+        updates[adminNavGroup.basePath] = true;
+        shouldUpdate = true;
+      }
     }
-  }, [pathname]);
 
+    if (shouldUpdate) {
+      setOpenGroups((prev) => {
+        const newState = { ...prev, ...updates };
+        localStorage.setItem(SIDEBAR_OPEN_GROUPS_KEY, JSON.stringify(newState));
+        return newState;
+      });
+    }
+  }, [pathname, openGroups]);
+
+  // 切換群組展開狀態並保存到 localStorage
   const toggleGroup = (basePath: string) => {
-    setOpenGroups((prev) => ({ ...prev, [basePath]: !prev[basePath] }));
+    setOpenGroups((prev) => {
+      const newState = { ...prev, [basePath]: !prev[basePath] };
+      localStorage.setItem(SIDEBAR_OPEN_GROUPS_KEY, JSON.stringify(newState));
+      return newState;
+    });
   };
 
   return (
@@ -278,11 +315,11 @@ export function Sidebar() {
       {/* Logo */}
       <div
         className={cn(
-          "flex h-16 items-center gap-2 border-b",
-          isCollapsed ? "justify-center px-2" : "px-6"
+          "flex h-12 items-center gap-2 border-b",
+          isCollapsed ? "justify-center px-2" : "px-4"
         )}
       >
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -301,14 +338,14 @@ export function Sidebar() {
             <path d="M7 14v.01" />
           </svg>
         </div>
-        {!isCollapsed && <span className="text-lg font-semibold">Postlyzer</span>}
+        {!isCollapsed && <span className="text-base font-semibold">Postlyzer</span>}
       </div>
 
       {/* Threads Account Switcher - 固定顯示，收折時隱藏 */}
       {!isCollapsed && <ThreadsAccountSwitcher />}
 
       {/* Navigation */}
-      <nav className={cn("flex-1 space-y-1 overflow-y-auto", isCollapsed ? "p-2" : "p-4")}>
+      <nav className={cn("flex-1 space-y-0.5 overflow-y-auto", isCollapsed ? "p-2" : "px-3 py-2")}>
         {mainNavItems
           .filter((item) => !item.adminOnly || isAdmin)
           .map((item) => {
@@ -348,7 +385,7 @@ export function Sidebar() {
                 <div key={item.basePath}>
                   <div
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                       isGroupActive
                         ? "text-primary"
                         : "text-muted-foreground"
@@ -370,7 +407,7 @@ export function Sidebar() {
               >
                 <CollapsibleTrigger
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                     isGroupActive
                       ? "text-primary"
                       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -385,7 +422,7 @@ export function Sidebar() {
                     )}
                   />
                 </CollapsibleTrigger>
-                <CollapsibleContent className="mt-1 space-y-1 pl-4">
+                <CollapsibleContent className="mt-0.5 space-y-0.5 pl-3">
                   {item.children
                     .filter((child) => !child.adminOnly || isAdmin)
                     .map((child) => {
@@ -396,7 +433,7 @@ export function Sidebar() {
                         key={child.href}
                         href={child.href}
                         className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                           isChildActive
                             ? isAdminOnly
                               ? "bg-orange-500 text-white"
@@ -454,7 +491,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                 isActive
                   ? isAdminItem
                     ? "bg-orange-500 text-white"
@@ -483,7 +520,7 @@ export function Sidebar() {
 
       {/* Admin Navigation - 固定在底部 */}
       {isAdmin && (
-        <div className={cn("border-t", isCollapsed ? "p-2" : "p-4")}>
+        <div className={cn("border-t", isCollapsed ? "p-2" : "px-3 py-2")}>
           {(() => {
             const isGroupActive = pathname.startsWith(adminNavGroup.basePath);
             const isOpen = openGroups[adminNavGroup.basePath] ?? isGroupActive;
@@ -516,7 +553,7 @@ export function Sidebar() {
               return (
                 <div
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                     isGroupActive
                       ? "text-orange-600"
                       : "text-orange-500"
@@ -536,7 +573,7 @@ export function Sidebar() {
               >
                 <CollapsibleTrigger
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                     isGroupActive
                       ? "text-orange-600"
                       : "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
@@ -551,7 +588,7 @@ export function Sidebar() {
                     )}
                   />
                 </CollapsibleTrigger>
-                <CollapsibleContent className="mt-1 space-y-1 pl-4">
+                <CollapsibleContent className="mt-0.5 space-y-0.5 pl-3">
                   {adminNavGroup.children.map((child) => {
                     const isChildActive = pathname === child.href;
                     return (
@@ -559,7 +596,7 @@ export function Sidebar() {
                         key={child.href}
                         href={child.href}
                         className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                           isChildActive
                             ? "bg-orange-500 text-white"
                             : "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
@@ -578,11 +615,11 @@ export function Sidebar() {
       )}
 
       {/* Bottom: User + Settings */}
-      <div className={cn("border-t flex items-center justify-between", isCollapsed ? "p-2" : "p-4")}>
+      <div className={cn("border-t flex items-center justify-between", isCollapsed ? "p-2" : "px-3 py-2")}>
         {/* User Menu - 左側 */}
         {!mounted ? (
           // 客戶端掛載前顯示靜態 Avatar
-          <Avatar className={cn("cursor-pointer", isCollapsed ? "size-8" : "size-9")}>
+          <Avatar className={cn("cursor-pointer", isCollapsed ? "size-7" : "size-8")}>
             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
               U
             </AvatarFallback>
@@ -590,7 +627,7 @@ export function Sidebar() {
         ) : (
           <DropdownMenu>
             <DropdownMenuTrigger className="outline-none">
-              <Avatar className={cn("cursor-pointer", isCollapsed ? "size-8" : "size-9")}>
+              <Avatar className={cn("cursor-pointer", isCollapsed ? "size-7" : "size-8")}>
                 <AvatarImage src={user?.avatarUrl} alt={user?.name} />
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                   {user ? getInitials(user.name) : "U"}

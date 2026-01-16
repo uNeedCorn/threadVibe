@@ -189,7 +189,7 @@ export default function InvitationsPage() {
         <div>
           <h1 className="text-2xl font-bold">邀請碼管理</h1>
           <p className="text-muted-foreground">
-            管理 Beta 測試邀請碼，控制新用戶註冊
+            管理 Beta 測試邀請碼，控制新使用者註冊
           </p>
         </div>
 

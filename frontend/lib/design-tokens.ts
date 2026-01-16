@@ -265,6 +265,181 @@ export function getChartColor(index: number): string {
 }
 
 // ============================================================================
+// Typography (字型規範)
+// ============================================================================
+
+/**
+ * 字型設定
+ * - display: 用於 Landing Page 大標題
+ * - heading: 用於 Dashboard 標題
+ * - body: 內文
+ * - mono: 數據顯示
+ */
+export const TYPOGRAPHY = {
+  fontFamily: {
+    display: "'Plus Jakarta Sans', var(--font-geist-sans), system-ui, sans-serif",
+    heading: "var(--font-geist-sans), system-ui, sans-serif",
+    body: "var(--font-geist-sans), system-ui, sans-serif",
+    mono: "'JetBrains Mono', var(--font-geist-mono), monospace",
+  },
+  fontWeight: {
+    regular: 400,
+    medium: 500,
+    semibold: 600,
+    bold: 700,
+    extrabold: 800,
+  },
+  fontSize: {
+    xs: "0.75rem",     // 12px
+    sm: "0.875rem",    // 14px
+    base: "1rem",      // 16px
+    lg: "1.125rem",    // 18px
+    xl: "1.25rem",     // 20px
+    "2xl": "1.5rem",   // 24px
+    "3xl": "1.875rem", // 30px
+    "4xl": "2.25rem",  // 36px
+    "5xl": "3rem",     // 48px
+    "6xl": "3.75rem",  // 60px
+  },
+  lineHeight: {
+    tight: 1.1,
+    snug: 1.25,
+    normal: 1.5,
+    relaxed: 1.625,
+    loose: 2,
+  },
+} as const;
+
+// ============================================================================
+// Spacing (間距規範)
+// ============================================================================
+
+/**
+ * 間距設定
+ * 用於元件內距和元件間距
+ */
+export const SPACING = {
+  // 內距 (padding)
+  padding: {
+    xs: "0.25rem",   // 4px
+    sm: "0.5rem",    // 8px
+    md: "0.75rem",   // 12px
+    lg: "1rem",      // 16px
+    xl: "1.5rem",    // 24px
+    "2xl": "2rem",   // 32px
+    "3xl": "3rem",   // 48px
+  },
+  // 間距 (gap)
+  gap: {
+    xs: "0.25rem",   // 4px
+    sm: "0.5rem",    // 8px
+    md: "1rem",      // 16px
+    lg: "1.5rem",    // 24px
+    xl: "2rem",      // 32px
+    "2xl": "3rem",   // 48px
+    "3xl": "4rem",   // 64px
+  },
+} as const;
+
+// ============================================================================
+// Radius (圓角規範)
+// ============================================================================
+
+/**
+ * 圓角設定
+ */
+export const RADIUS = {
+  none: "0",
+  sm: "0.375rem",    // 6px - 小按鈕、Badge
+  md: "0.5rem",      // 8px - 按鈕、輸入框
+  lg: "0.625rem",    // 10px - Card (當前預設)
+  xl: "0.75rem",     // 12px - Modal、大 Card
+  "2xl": "1rem",     // 16px - 特殊強調元件
+  "3xl": "1.5rem",   // 24px - 大型卡片
+  full: "9999px",    // 圓形
+} as const;
+
+// ============================================================================
+// Shadows (陰影規範)
+// ============================================================================
+
+/**
+ * 陰影設定
+ * - 基礎陰影用於靜態元件
+ * - 強調陰影用於 hover/focus 狀態
+ * - glow 效果用於品牌強調
+ */
+export const SHADOWS = {
+  // 基礎陰影
+  none: "none",
+  xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+  sm: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+  md: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+  lg: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+  xl: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+  "2xl": "0 25px 50px -12px rgb(0 0 0 / 0.25)",
+
+  // 內陰影
+  inner: "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)",
+
+  // Glow 效果（品牌強調）
+  glow: {
+    primary: `0 0 20px ${TEAL[500]}40`,
+    primaryStrong: `0 0 30px ${TEAL[500]}60`,
+    success: "0 0 20px #22C55E40",
+    warning: "0 0 20px #F59E0B40",
+    destructive: "0 0 20px #EF444440",
+    info: "0 0 20px #3B82F640",
+  },
+
+  // 深色模式陰影（較深）
+  dark: {
+    sm: "0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3)",
+    md: "0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3)",
+    lg: "0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4)",
+  },
+} as const;
+
+// ============================================================================
+// Animations (動畫規範)
+// ============================================================================
+
+/**
+ * 動畫設定
+ */
+export const ANIMATIONS = {
+  // 持續時間
+  duration: {
+    instant: "50ms",
+    fast: "100ms",
+    normal: "200ms",
+    slow: "300ms",
+    slower: "500ms",
+    slowest: "700ms",
+  },
+
+  // 緩動函數
+  easing: {
+    linear: "linear",
+    easeIn: "cubic-bezier(0.4, 0, 1, 1)",
+    easeOut: "cubic-bezier(0, 0, 0.2, 1)",
+    easeInOut: "cubic-bezier(0.4, 0, 0.2, 1)",
+    bounce: "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+    spring: "cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+    smooth: "cubic-bezier(0.25, 0.1, 0.25, 1)",
+  },
+
+  // 預設組合
+  transition: {
+    fast: "100ms cubic-bezier(0.4, 0, 0.2, 1)",
+    normal: "200ms cubic-bezier(0.4, 0, 0.2, 1)",
+    slow: "300ms cubic-bezier(0.4, 0, 0.2, 1)",
+    bounce: "300ms cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+    spring: "400ms cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+  },
+} as const;
+
+// ============================================================================
 // Tailwind CSS 類別映射
 // ============================================================================
 

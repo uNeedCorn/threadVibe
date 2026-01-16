@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createClient();
 
-  // 先用 getUser() 驗證用戶身份（這會驗證 JWT）
+  // 先用 getUser() 驗證使用者身份（這會驗證 JWT）
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   console.log("[threads-oauth] getUser result:", { userId: user?.id, error: userError?.message });

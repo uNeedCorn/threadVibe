@@ -37,7 +37,7 @@ export async function createClient() {
 
 /**
  * Service Role Client - 繞過 RLS，僅用於伺服器端的管理操作
- * 注意：只在已驗證用戶身份後才能使用
+ * 注意：只在已驗證使用者身份後才能使用
  */
 export function createServiceClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

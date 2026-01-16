@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 確認用戶已登入
+    // 確認使用者已登入
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 

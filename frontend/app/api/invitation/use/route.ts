@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 確認用戶已登入
+    // 確認使用者已登入
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     const serviceClient = createServiceClient();
 
-    // 檢查用戶是否已有 workspace（已註冊）
+    // 檢查使用者是否已有 workspace（已註冊）
     const { data: existingMemberships } = await serviceClient
       .from("workspace_members")
       .select("workspace_id")

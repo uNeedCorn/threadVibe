@@ -12,11 +12,9 @@ import {
   Eye,
   Send,
   AlertCircle,
-  Plus,
   List,
   CalendarDays,
 } from "lucide-react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -48,7 +46,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { createClient } from "@/lib/supabase/client";
@@ -67,22 +64,35 @@ interface ScheduledPost {
   published_at: string | null;
   threads_post_id: string | null;
   error_message: string | null;
+  created_by: string;
+  topic_tag: string | null;
+}
+
+interface Profile {
+  id: string;
+  display_name: string | null;
+}
+
+// 合併後的貼文資料
+interface ScheduledPostWithCreator extends ScheduledPost {
+  creatorName: string | null;
 }
 
 type StatusTabValue = "scheduled" | "published" | "failed";
 type ViewMode = "list" | "calendar";
 
-const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof Clock }> = {
-  scheduled: { label: "排程中", variant: "secondary", icon: Clock },
-  publishing: { label: "發布中", variant: "default", icon: Loader2 },
-  published: { label: "已發布", variant: "outline", icon: Send },
-  failed: { label: "發布失敗", variant: "destructive", icon: AlertCircle },
-  cancelled: { label: "已取消", variant: "outline", icon: Trash2 },
+const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof Clock; color: string }> = {
+  scheduled: { label: "排程中", variant: "secondary", icon: Clock, color: "rgb(14, 116, 144)" },       // Cyan 700
+  publishing: { label: "發布中", variant: "default", icon: Loader2, color: "rgb(217, 119, 6)" },       // Amber 600
+  published: { label: "已發布", variant: "outline", icon: Send, color: "rgb(22, 163, 74)" },           // Green 600
+  failed: { label: "發布失敗", variant: "destructive", icon: AlertCircle, color: "rgb(220, 38, 38)" }, // Red 600
+  cancelled: { label: "已取消", variant: "outline", icon: Trash2, color: "rgb(87, 83, 78)" },          // Stone 600
 };
 
 export default function ScheduledPage() {
   const { selectedAccount, isLoading: isLoadingAccount } = useSelectedAccountContext();
-  const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [posts, setPosts] = useState<ScheduledPostWithCreator[]>([]);
+  const [allPosts, setAllPosts] = useState<ScheduledPostWithCreator[]>([]); // 日曆用：所有狀態
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [activeTab, setActiveTab] = useState<StatusTabValue>("scheduled");
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
@@ -98,10 +108,61 @@ export default function ScheduledPage() {
   const [rescheduleEvent, setRescheduleEvent] = useState<{ id: string; newStart: Date } | null>(null);
   const [isRescheduling, setIsRescheduling] = useState(false);
 
-  // 載入排程貼文
+  // 查詢 profiles 並合併到貼文資料
+  const fetchPostsWithProfiles = useCallback(async (
+    postsData: ScheduledPost[]
+  ): Promise<ScheduledPostWithCreator[]> => {
+    if (postsData.length === 0) return [];
+
+    const supabase = createClient();
+    const userIds = [...new Set(postsData.map(p => p.created_by))];
+
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .in("id", userIds);
+
+    const profileMap = new Map<string, string | null>();
+    (profiles || []).forEach((p: Profile) => {
+      profileMap.set(p.id, p.display_name);
+    });
+
+    return postsData.map(post => ({
+      ...post,
+      creatorName: profileMap.get(post.created_by) || null,
+    }));
+  }, []);
+
+  // 載入所有排程貼文（日曆視圖用）
   useEffect(() => {
     if (!selectedAccount) {
-      setPosts([]);
+      setAllPosts([]);
+      return;
+    }
+
+    async function fetchAllPosts() {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("workspace_threads_outbound_posts")
+        .select("id, text, media_type, scheduled_at, publish_status, created_at, published_at, threads_post_id, error_message, created_by, topic_tag")
+        .eq("workspace_threads_account_id", selectedAccount!.id)
+        .is("deleted_at", null)
+        .order("scheduled_at", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching all posts:", error);
+      } else {
+        const postsWithCreators = await fetchPostsWithProfiles(data || []);
+        setAllPosts(postsWithCreators);
+      }
+    }
+
+    fetchAllPosts();
+  }, [selectedAccount, fetchPostsWithProfiles]);
+
+  // 載入篩選後的排程貼文（清單視圖用）
+  useEffect(() => {
+    if (!selectedAccount || viewMode === "calendar") {
       return;
     }
 
@@ -126,7 +187,7 @@ export default function ScheduledPage() {
 
       const { data, error } = await supabase
         .from("workspace_threads_outbound_posts")
-        .select("id, text, media_type, scheduled_at, publish_status, created_at, published_at, threads_post_id, error_message")
+        .select("id, text, media_type, scheduled_at, publish_status, created_at, published_at, threads_post_id, error_message, created_by, topic_tag")
         .eq("workspace_threads_account_id", selectedAccount!.id)
         .is("deleted_at", null)
         .in("publish_status", statusFilter)
@@ -136,31 +197,36 @@ export default function ScheduledPage() {
         console.error("Error fetching posts:", error);
         toast.error("載入排程貼文失敗");
       } else {
-        setPosts(data || []);
+        const postsWithCreators = await fetchPostsWithProfiles(data || []);
+        setPosts(postsWithCreators);
       }
 
       setIsLoadingPosts(false);
     }
 
     fetchPosts();
-  }, [selectedAccount, activeTab]);
+  }, [selectedAccount, activeTab, viewMode, fetchPostsWithProfiles]);
 
-  // 轉換為日曆事件
+  // 轉換為日曆事件（使用 allPosts）
   const calendarEvents: ScheduleEvent[] = useMemo(() => {
-    return posts.map((post) => {
+    return allPosts.map((post) => {
       const start = new Date(post.scheduled_at);
       const end = new Date(start.getTime() + 30 * 60 * 1000); // 30 分鐘
+      const text = post.text?.trim() || "(無文字)";
       return {
         id: post.id,
-        title: post.text?.slice(0, 30) || "(無文字)",
+        title: text.length > 10 ? text.slice(0, 10) + "…" : text,
         start,
         end,
         status: post.publish_status,
         mediaType: post.media_type,
         text: post.text,
+        createdAt: new Date(post.created_at),
+        creatorName: post.creatorName,
+        topicTag: post.topic_tag,
       };
     });
-  }, [posts]);
+  }, [allPosts]);
 
   // 取消排程（軟刪除）
   const handleCancelSchedule = async (postId: string) => {
@@ -179,6 +245,7 @@ export default function ScheduledPage() {
 
       toast.success("已取消排程");
       setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setAllPosts((prev) => prev.filter((p) => p.id !== postId));
     } catch {
       toast.error("取消排程失敗");
     } finally {
@@ -189,13 +256,19 @@ export default function ScheduledPage() {
 
   // 處理拖曳調整時間
   const handleEventDrop = useCallback((eventId: string, newStart: Date) => {
+    // 檢查事件狀態，只有 scheduled 才能調整
+    const event = allPosts.find(p => p.id === eventId);
+    if (!event || event.publish_status !== "scheduled") {
+      toast.error("只有排程中的貼文可以調整時間");
+      return;
+    }
     // 不能調整到過去的時間
     if (newStart < new Date()) {
       toast.error("無法排程到過去的時間");
       return;
     }
     setRescheduleEvent({ id: eventId, newStart });
-  }, []);
+  }, [allPosts]);
 
   // 確認調整時間
   const handleConfirmReschedule = async () => {
@@ -219,13 +292,12 @@ export default function ScheduledPage() {
         .is("executed_at", null);
 
       toast.success("排程時間已更新");
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === rescheduleEvent.id
-            ? { ...p, scheduled_at: rescheduleEvent.newStart.toISOString() }
-            : p
-        )
-      );
+      const updatePost = (p: ScheduledPostWithCreator): ScheduledPostWithCreator =>
+        p.id === rescheduleEvent.id
+          ? { ...p, scheduled_at: rescheduleEvent.newStart.toISOString() }
+          : p;
+      setPosts((prev) => prev.map(updatePost));
+      setAllPosts((prev) => prev.map(updatePost));
     } catch {
       toast.error("調整時間失敗");
     } finally {
@@ -317,232 +389,213 @@ export default function ScheduledPage() {
             管理已排程的貼文，拖曳調整發布時間
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {/* 視圖切換 */}
-          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
-            <ToggleGroupItem value="calendar" aria-label="日曆視圖">
-              <CalendarDays className="size-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="list" aria-label="清單視圖">
-              <List className="size-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-          <Button asChild>
-            <Link href="/compose">
-              <Plus className="mr-2 size-4" />
-              新增貼文
-            </Link>
-          </Button>
-        </div>
+        {/* 視圖切換 */}
+        <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
+          <ToggleGroupItem value="calendar" aria-label="日曆視圖">
+            <CalendarDays className="size-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" aria-label="清單視圖">
+            <List className="size-4" />
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
-      {/* 帳號資訊 */}
-      {isLoadingAccount ? (
-        <Card className="mb-6">
-          <CardContent className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            載入帳號中...
-          </CardContent>
-        </Card>
-      ) : !selectedAccount ? (
-        <Card className="mb-6">
-          <CardContent className="py-4">
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-              <p className="text-sm text-destructive">
-                尚未選擇 Threads 帳號，請先在側邊欄選擇帳號
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="mb-6">
-          <CardContent className="flex items-center gap-3 py-4">
-            <Avatar className="size-10">
-              <AvatarImage src={selectedAccount.profilePicUrl || undefined} />
-              <AvatarFallback>
-                {selectedAccount.username.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium">@{selectedAccount.username}</p>
-              <p className="text-sm text-muted-foreground">排程貼文帳號</p>
+      {/* 未選擇帳號提示 */}
+      {!isLoadingAccount && !selectedAccount && (
+        <div className="mb-6 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">
+            尚未選擇 Threads 帳號，請先在側邊欄選擇帳號
+          </p>
+        </div>
+      )}
+
+      {/* 日曆視圖 */}
+      {viewMode === "calendar" && (
+        <Card>
+          <CardContent className="p-4">
+            {calendarEvents.length === 0 && (
+              <div className="mb-4 rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                <CalendarIcon className="mx-auto mb-2 size-8 text-muted-foreground/50" />
+                目前沒有排程貼文
+              </div>
+            )}
+            <div className="h-[600px]">
+              <ScheduleCalendar
+                events={calendarEvents}
+                onEventDrop={handleEventDrop}
+                onEventClick={handleEventClick}
+                view={calendarView}
+                onViewChange={setCalendarView}
+                date={calendarDate}
+                onDateChange={setCalendarDate}
+              />
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as StatusTabValue)}>
-        <TabsList className="mb-6">
-          <TabsTrigger value="scheduled" className="gap-2">
-            <Clock className="size-4" />
-            排程中
-          </TabsTrigger>
-          <TabsTrigger value="published" className="gap-2">
-            <Send className="size-4" />
-            已發布
-          </TabsTrigger>
-          <TabsTrigger value="failed" className="gap-2">
-            <AlertCircle className="size-4" />
-            失敗
-          </TabsTrigger>
-        </TabsList>
+      {/* 清單視圖 - 使用 Tabs */}
+      {viewMode === "list" && (
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as StatusTabValue)}>
+          <TabsList className="mb-6">
+            <TabsTrigger value="scheduled" className="gap-2">
+              <Clock className="size-4" />
+              排程中
+            </TabsTrigger>
+            <TabsTrigger value="published" className="gap-2">
+              <Send className="size-4" />
+              已發布
+            </TabsTrigger>
+            <TabsTrigger value="failed" className="gap-2">
+              <AlertCircle className="size-4" />
+              失敗
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value={activeTab}>
-          {isLoadingPosts ? (
-            <Card>
-              <CardContent className="flex items-center justify-center py-12">
-                <Loader2 className="size-6 animate-spin text-muted-foreground" />
-              </CardContent>
-            </Card>
-          ) : viewMode === "calendar" ? (
-            /* 日曆視圖 */
-            <Card>
-              <CardContent className="p-4">
-                {calendarEvents.length === 0 && (
-                  <div className="mb-4 rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                    <CalendarIcon className="mx-auto mb-2 size-8 text-muted-foreground/50" />
+          <TabsContent value={activeTab}>
+            {isLoadingPosts ? (
+              <Card>
+                <CardContent className="flex items-center justify-center py-12">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                </CardContent>
+              </Card>
+            ) : posts.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <CalendarIcon className="mx-auto mb-4 size-12 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">
                     {activeTab === "scheduled" && "目前沒有排程中的貼文"}
                     {activeTab === "published" && "目前沒有已發布的排程貼文"}
                     {activeTab === "failed" && "沒有發布失敗的貼文"}
-                  </div>
-                )}
-                <div className="h-[600px]">
-                  <ScheduleCalendar
-                    events={calendarEvents}
-                    onEventDrop={activeTab === "scheduled" ? handleEventDrop : () => {}}
-                    onEventClick={handleEventClick}
-                    view={calendarView}
-                    onViewChange={setCalendarView}
-                    date={calendarDate}
-                    onDateChange={setCalendarDate}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          ) : posts.length === 0 ? (
-            /* 清單視圖 - 空狀態 */
-            <Card>
-              <CardContent className="py-12 text-center">
-                <CalendarIcon className="mx-auto mb-4 size-12 text-muted-foreground/50" />
-                <p className="text-muted-foreground">
-                  {activeTab === "scheduled" && "目前沒有排程中的貼文"}
-                  {activeTab === "published" && "目前沒有已發布的排程貼文"}
-                  {activeTab === "failed" && "沒有發布失敗的貼文"}
-                </p>
-                {activeTab === "scheduled" && (
-                  <Button asChild variant="outline" className="mt-4">
-                    <Link href="/compose">建立新貼文</Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            /* 清單視圖 */
-            <div className="space-y-6">
-              {sortedDates.map((date) => (
-                <div key={date}>
-                  <div className="mb-3 flex items-center gap-2">
-                    <CalendarIcon className="size-4 text-muted-foreground" />
-                    <h3 className="text-sm font-medium text-muted-foreground">
-                      {formatDate(groupedPosts[date][0].scheduled_at)}
-                    </h3>
-                    <span className="text-xs text-muted-foreground">
-                      ({groupedPosts[date].length} 篇)
-                    </span>
-                  </div>
-                  <div className="space-y-3">
-                    {groupedPosts[date].map((post) => {
-                      const statusConfig = STATUS_CONFIG[post.publish_status] || STATUS_CONFIG.scheduled;
-                      const StatusIcon = statusConfig.icon;
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                {sortedDates.map((date) => (
+                  <div key={date}>
+                    <div className="mb-3 flex items-center gap-2">
+                      <CalendarIcon className="size-4 text-muted-foreground" />
+                      <h3 className="text-sm font-medium text-muted-foreground">
+                        {formatDate(groupedPosts[date][0].scheduled_at)}
+                      </h3>
+                      <span className="text-xs text-muted-foreground">
+                        ({groupedPosts[date].length} 篇)
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {groupedPosts[date].map((post) => {
+                        const statusConfig = STATUS_CONFIG[post.publish_status] || STATUS_CONFIG.scheduled;
+                        const StatusIcon = statusConfig.icon;
 
-                      return (
-                        <Card key={post.id}>
-                          <CardContent className="flex items-start gap-4 py-4">
-                            {/* 時間 */}
-                            <div className="flex flex-col items-center text-center min-w-[60px]">
-                              <span className="text-lg font-semibold tabular-nums">
-                                {formatTime(post.scheduled_at)}
-                              </span>
-                              {activeTab === "scheduled" && (
-                                <span className="text-xs text-muted-foreground">
-                                  {getTimeUntil(post.scheduled_at)}
-                                </span>
-                              )}
-                            </div>
+                        return (
+                          <Card key={post.id}>
+                            <CardContent className="relative pt-4 pb-8">
+                              <div className="flex items-start gap-4 pr-10">
+                                {/* 時間 */}
+                                <div className="flex flex-col items-center text-center min-w-[60px]">
+                                  <span className="text-lg font-semibold tabular-nums">
+                                    {formatTime(post.scheduled_at)}
+                                  </span>
+                                  {activeTab === "scheduled" && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {getTimeUntil(post.scheduled_at)}
+                                    </span>
+                                  )}
+                                </div>
 
-                            {/* 內容 */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge variant={statusConfig.variant} className="gap-1">
-                                  <StatusIcon className={cn("size-3", post.publish_status === "publishing" && "animate-spin")} />
-                                  {statusConfig.label}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {post.media_type}
-                                </Badge>
-                              </div>
-                              <p className="text-sm line-clamp-2">
-                                {post.text || "(無文字內容)"}
-                              </p>
-                              {post.error_message && (
-                                <p className="mt-1 text-xs text-destructive">
-                                  錯誤：{post.error_message}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* 操作 */}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="size-8">
-                                  <MoreHorizontal className="size-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {post.threads_post_id && (
-                                  <DropdownMenuItem
-                                    onClick={() => window.open(`https://www.threads.net/@${selectedAccount?.username}/post/${post.threads_post_id}`, "_blank")}
-                                  >
-                                    <Eye className="mr-2 size-4" />
-                                    查看貼文
-                                  </DropdownMenuItem>
-                                )}
-                                {activeTab === "scheduled" && (
-                                  <>
-                                    <DropdownMenuItem disabled>
-                                      <Edit2 className="mr-2 size-4" />
-                                      編輯（開發中）
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-destructive focus:text-destructive"
-                                      onClick={() => setDeletePostId(post.id)}
+                                {/* 內容 */}
+                                <div className="flex-1 min-w-0 space-y-2">
+                                  {/* 狀態、媒體類型與主題標籤 */}
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-white"
+                                      style={{ backgroundColor: statusConfig.color }}
                                     >
-                                      <Trash2 className="mr-2 size-4" />
-                                      取消排程
+                                      <StatusIcon className={cn("size-3", post.publish_status === "publishing" && "animate-spin")} />
+                                      {statusConfig.label}
+                                    </span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {post.media_type}
+                                    </Badge>
+                                    {post.topic_tag && (
+                                      <Badge variant="secondary">#{post.topic_tag}</Badge>
+                                    )}
+                                  </div>
+
+                                  {/* 貼文內容（卡片形式） */}
+                                  <div className="rounded-lg border bg-muted/30 p-3">
+                                    <p className="text-sm whitespace-pre-wrap line-clamp-3">
+                                      {post.text || "(無文字內容)"}
+                                    </p>
+                                  </div>
+
+                                  {/* 錯誤訊息 */}
+                                  {post.error_message && (
+                                    <p className="text-xs text-destructive">
+                                      錯誤：{post.error_message}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* 操作按鈕 */}
+                                <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="size-8">
+                                    <MoreHorizontal className="size-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {post.threads_post_id && (
+                                    <DropdownMenuItem
+                                      onClick={() => window.open(`https://www.threads.net/@${selectedAccount?.username}/post/${post.threads_post_id}`, "_blank")}
+                                    >
+                                      <Eye className="mr-2 size-4" />
+                                      查看貼文
                                     </DropdownMenuItem>
-                                  </>
-                                )}
-                                {activeTab === "failed" && (
-                                  <DropdownMenuItem disabled>
-                                    <Send className="mr-2 size-4" />
-                                    重新發布（開發中）
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                                  )}
+                                  {activeTab === "scheduled" && (
+                                    <>
+                                      <DropdownMenuItem disabled>
+                                        <Edit2 className="mr-2 size-4" />
+                                        編輯（開發中）
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-destructive focus:text-destructive"
+                                        onClick={() => setDeletePostId(post.id)}
+                                      >
+                                        <Trash2 className="mr-2 size-4" />
+                                        取消排程
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  {activeTab === "failed" && (
+                                    <DropdownMenuItem disabled>
+                                      <Send className="mr-2 size-4" />
+                                      重新發布（開發中）
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                              </div>
+
+                              {/* 發布人與建立時間（右下角） */}
+                              <p className="absolute bottom-3 right-4 text-xs text-muted-foreground">
+                                由 {(post as ScheduledPostWithCreator).creatorName || "未知"} 建立於 {formatDateTime(new Date(post.created_at))}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
 
       {/* 刪除確認對話框 */}
       <AlertDialog open={!!deletePostId} onOpenChange={() => setDeletePostId(null)}>
@@ -579,26 +632,43 @@ export default function ScheduledPage() {
           <DialogHeader>
             <DialogTitle>排程貼文</DialogTitle>
             <DialogDescription>
-              {selectedEvent && formatDateTime(selectedEvent.start)}
+              排程時間：{selectedEvent && formatDateTime(selectedEvent.start)}
             </DialogDescription>
           </DialogHeader>
           {selectedEvent && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Badge variant={STATUS_CONFIG[selectedEvent.status]?.variant || "secondary"}>
+            <div className="space-y-3">
+              {/* 狀態、媒體類型與主題標籤 */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-white"
+                  style={{ backgroundColor: STATUS_CONFIG[selectedEvent.status]?.color || "rgb(87, 83, 78)" }}
+                >
                   {STATUS_CONFIG[selectedEvent.status]?.label || selectedEvent.status}
-                </Badge>
+                </span>
                 <Badge variant="outline">{selectedEvent.mediaType}</Badge>
+                {selectedEvent.topicTag && (
+                  <Badge variant="secondary">#{selectedEvent.topicTag}</Badge>
+                )}
               </div>
-              <p className="text-sm whitespace-pre-wrap">
-                {selectedEvent.text || "(無文字內容)"}
+
+              {/* 貼文內容 */}
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-sm whitespace-pre-wrap">
+                  {selectedEvent.text || "(無文字內容)"}
+                </p>
+              </div>
+
+              {/* 發布人與建立時間 */}
+              <p className="text-xs text-muted-foreground">
+                由 {selectedEvent.creatorName || "未知"} 建立於 {formatDateTime(selectedEvent.createdAt)}
               </p>
             </div>
           )}
           <DialogFooter>
-            {selectedEvent && activeTab === "scheduled" && (
+            {selectedEvent && (
               <Button
                 variant="destructive"
+                disabled={selectedEvent.status !== "scheduled" && selectedEvent.status !== "publishing"}
                 onClick={() => {
                   setDeletePostId(selectedEvent.id);
                   setSelectedEvent(null);
