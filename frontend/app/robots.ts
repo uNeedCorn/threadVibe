@@ -3,11 +3,25 @@ import type { MetadataRoute } from 'next';
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
+      // 允許搜尋引擎爬蟲，但阻擋登入後頁面
       {
         userAgent: '*',
-        disallow: '/',
+        allow: '/',
+        disallow: [
+          '/dashboard',
+          '/insights',
+          '/posts',
+          '/compose',
+          '/scheduled',
+          '/tags',
+          '/reports',
+          '/settings',
+          '/admin',
+          '/api',
+          '/auth',
+        ],
       },
-      // 明確阻擋 AI 爬蟲
+      // 阻擋 AI 訓練爬蟲
       {
         userAgent: 'GPTBot',
         disallow: '/',
@@ -41,5 +55,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: '/',
       },
     ],
+    sitemap: 'https://postlyzer.metricdesk.io/sitemap.xml',
   };
 }
