@@ -309,13 +309,13 @@ export function Sidebar() {
     <aside
       className={cn(
         "flex h-screen flex-col border-r bg-card transition-all duration-300",
-        isCollapsed ? "w-16" : "w-64"
+        isCollapsed ? "w-[var(--sidebar-width-collapsed)]" : "w-[var(--sidebar-width)]"
       )}
     >
-      {/* Logo */}
+      {/* Logo - 高度與 Header 一致 */}
       <div
         className={cn(
-          "flex h-12 items-center gap-2 border-b",
+          "flex h-[var(--header-height)] items-center gap-2 border-b",
           isCollapsed ? "justify-center px-2" : "px-4"
         )}
       >

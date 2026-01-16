@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, RefreshCw, Unlink, ExternalLink, Loader2, CheckCircle2, AlertCircle, Info, AlertTriangle } from "lucide-react";
+import { Plus, RefreshCw, Unlink, ExternalLink, Loader2, CheckCircle2, AlertCircle, Info, AlertTriangle, LinkIcon } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -216,20 +217,15 @@ export function ThreadsAccountsSection() {
         )}
 
         {accounts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <p className="text-muted-foreground">尚未連結任何 Threads 帳號</p>
-            <Button variant="outline" className="mt-4" onClick={handleConnectAccount} disabled={isConnecting}>
-              {isConnecting ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : (
-                <Plus className="mr-2 size-4" />
-              )}
-              連結你的第一個帳號
-            </Button>
-            <p className="mt-3 text-xs text-muted-foreground">
-              連結時會使用瀏覽器目前登入的 Threads 帳號
-            </p>
-          </div>
+          <EmptyState
+            icon={<LinkIcon />}
+            title="尚未連結任何 Threads 帳號"
+            description="連結時會使用瀏覽器目前登入的 Threads 帳號"
+            action={{
+              label: isConnecting ? "連結中..." : "連結你的第一個帳號",
+              onClick: handleConnectAccount,
+            }}
+          />
         ) : (
           <div className="space-y-4">
             {accounts.map((account) => (

@@ -14,7 +14,9 @@ import {
   AlertCircle,
   List,
   CalendarDays,
+  UserX,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -53,6 +55,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useSelectedAccountContext } from "@/contexts/selected-account-context";
 import { ScheduleCalendar, Views, type ScheduleEvent } from "@/components/scheduled/schedule-calendar";
+import { PageHeader } from "@/components/layout";
+import { SCHEDULE_STATUS_COLORS } from "@/lib/design-tokens";
 
 interface ScheduledPost {
   id: string;
@@ -82,11 +86,11 @@ type StatusTabValue = "scheduled" | "published" | "failed";
 type ViewMode = "list" | "calendar";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof Clock; color: string }> = {
-  scheduled: { label: "排程中", variant: "secondary", icon: Clock, color: "rgb(14, 116, 144)" },       // Cyan 700
-  publishing: { label: "發布中", variant: "default", icon: Loader2, color: "rgb(217, 119, 6)" },       // Amber 600
-  published: { label: "已發布", variant: "outline", icon: Send, color: "rgb(22, 163, 74)" },           // Green 600
-  failed: { label: "發布失敗", variant: "destructive", icon: AlertCircle, color: "rgb(220, 38, 38)" }, // Red 600
-  cancelled: { label: "已取消", variant: "outline", icon: Trash2, color: "rgb(87, 83, 78)" },          // Stone 600
+  scheduled: { label: "排程中", variant: "secondary", icon: Clock, color: SCHEDULE_STATUS_COLORS.scheduled },
+  publishing: { label: "發布中", variant: "default", icon: Loader2, color: SCHEDULE_STATUS_COLORS.publishing },
+  published: { label: "已發布", variant: "outline", icon: Send, color: SCHEDULE_STATUS_COLORS.published },
+  failed: { label: "發布失敗", variant: "destructive", icon: AlertCircle, color: SCHEDULE_STATUS_COLORS.failed },
+  cancelled: { label: "已取消", variant: "outline", icon: Trash2, color: SCHEDULE_STATUS_COLORS.cancelled },
 };
 
 export default function ScheduledPage() {
@@ -380,33 +384,32 @@ export default function ScheduledPage() {
   );
 
   return (
-    <div className="container max-w-6xl py-8">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">排程管理</h1>
-          <p className="text-sm text-muted-foreground">
-            管理已排程的貼文，拖曳調整發布時間
-          </p>
-        </div>
-        {/* 視圖切換 */}
-        <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
-          <ToggleGroupItem value="calendar" aria-label="日曆視圖">
-            <CalendarDays className="size-4" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="list" aria-label="清單視圖">
-            <List className="size-4" />
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="排程管理"
+        description="管理已排程的貼文，拖曳調整發布時間"
+        actions={
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
+            <ToggleGroupItem value="calendar" aria-label="日曆視圖">
+              <CalendarDays className="size-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="list" aria-label="清單視圖">
+              <List className="size-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+        }
+      />
 
       {/* 未選擇帳號提示 */}
       {!isLoadingAccount && !selectedAccount && (
-        <div className="mb-6 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-          <p className="text-sm text-destructive">
-            尚未選擇 Threads 帳號，請先在側邊欄選擇帳號
-          </p>
-        </div>
+        <Card className="mb-6">
+          <EmptyState
+            size="sm"
+            icon={<UserX />}
+            title="尚未選擇帳號"
+            description="請先在側邊欄選擇 Threads 帳號"
+          />
+        </Card>
       )}
 
       {/* 日曆視圖 */}
@@ -414,10 +417,13 @@ export default function ScheduledPage() {
         <Card>
           <CardContent className="p-4">
             {calendarEvents.length === 0 && (
-              <div className="mb-4 rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                <CalendarIcon className="mx-auto mb-2 size-8 text-muted-foreground/50" />
-                目前沒有排程貼文
-              </div>
+              <EmptyState
+                size="sm"
+                icon={<CalendarIcon />}
+                title="目前沒有排程貼文"
+                description="建立新貼文並設定發布時間"
+                animate={false}
+              />
             )}
             <div className="h-[600px]">
               <ScheduleCalendar
@@ -461,14 +467,14 @@ export default function ScheduledPage() {
               </Card>
             ) : posts.length === 0 ? (
               <Card>
-                <CardContent className="py-12 text-center">
-                  <CalendarIcon className="mx-auto mb-4 size-12 text-muted-foreground/50" />
-                  <p className="text-muted-foreground">
-                    {activeTab === "scheduled" && "目前沒有排程中的貼文"}
-                    {activeTab === "published" && "目前沒有已發布的排程貼文"}
-                    {activeTab === "failed" && "沒有發布失敗的貼文"}
-                  </p>
-                </CardContent>
+                <EmptyState
+                  icon={<CalendarIcon />}
+                  title={
+                    activeTab === "scheduled" ? "目前沒有排程中的貼文" :
+                    activeTab === "published" ? "目前沒有已發布的排程貼文" :
+                    "沒有發布失敗的貼文"
+                  }
+                />
               </Card>
             ) : (
               <div className="space-y-6">

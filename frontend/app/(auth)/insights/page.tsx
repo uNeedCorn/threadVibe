@@ -18,6 +18,10 @@ import {
   STONE,
   getTealShadeColor,
 } from "@/lib/design-tokens";
+import { PageHeader } from "@/components/layout";
+import { KPICard, GrowthBadgeSimple, BenchmarkBadge } from "@/components/dashboard";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LinkIcon } from "lucide-react";
 
 type Period = "week" | "month";
 
@@ -161,24 +165,6 @@ function getHeatmapColor(views: number, maxViews: number): string {
   return getTealShadeColor(views, maxViews);
 }
 
-function GrowthBadge({ value, className }: { value: number; className?: string }) {
-  if (value === 0) return null;
-
-  const isPositive = value > 0;
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-0.5 text-xs font-medium",
-        isPositive ? "text-success" : "text-destructive",
-        className
-      )}
-    >
-      {isPositive ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-      {isPositive ? "+" : ""}{value.toFixed(1)}%
-    </span>
-  );
-}
-
 function formatNumber(v: number) {
   if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
   if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
@@ -258,7 +244,7 @@ function AccountProfileCard({
                     <span className="text-2xl font-bold">
                       {formatNumber(account.currentFollowers)}
                     </span>
-                    <GrowthBadge value={account.followersGrowth} />
+                    <GrowthBadgeSimple value={account.followersGrowth} />
                   </div>
                   {account.followersGrowth !== 0 && (
                     <p className="text-xs text-muted-foreground">vs {periodLabel}</p>
@@ -268,111 +254,6 @@ function AccountProfileCard({
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function BenchmarkBadge({
-  currentValue,
-  benchmarkValue,
-  totalPosts,
-  minPosts = 10,
-}: {
-  currentValue: number;
-  benchmarkValue: number;
-  totalPosts: number;
-  minPosts?: number;
-}) {
-  // 貼文數不足時不顯示
-  if (totalPosts < minPosts) return null;
-  if (benchmarkValue === 0) return null;
-
-  const diff = ((currentValue - benchmarkValue) / benchmarkValue) * 100;
-  const isAbove = diff > 0;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-0.5 text-xs font-medium",
-        isAbove ? "text-info" : "text-warning"
-      )}
-    >
-      {isAbove ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-      {isAbove ? "高於" : "低於"}基準 {Math.abs(diff).toFixed(1)}%
-    </span>
-  );
-}
-
-function KPICard({
-  title,
-  value,
-  growth,
-  icon,
-  isLoading,
-  format = "number",
-  periodLabel,
-  benchmark,
-}: {
-  title: string;
-  value: number;
-  growth?: number;
-  icon: React.ReactNode;
-  isLoading?: boolean;
-  format?: "number" | "percent";
-  periodLabel: string;
-  benchmark?: {
-    value: number;
-    totalPosts: number;
-  };
-}) {
-  const formatValue = (v: number) => {
-    if (format === "percent") return `${v.toFixed(2)}%`;
-    return formatNumber(v);
-  };
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="size-4" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-8 w-24" />
-          <Skeleton className="mt-1 h-3 w-16" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        <div className="text-muted-foreground">{icon}</div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{formatValue(value)}</div>
-        {growth !== undefined && (
-          <div className="flex items-center gap-1">
-            <GrowthBadge value={growth} />
-            {growth !== 0 && (
-              <span className="text-xs text-muted-foreground">vs {periodLabel}</span>
-            )}
-          </div>
-        )}
-        {benchmark && (
-          <div className="mt-1">
-            <BenchmarkBadge
-              currentValue={value}
-              benchmarkValue={benchmark.value}
-              totalPosts={benchmark.totalPosts}
-            />
-          </div>
-        )}
       </CardContent>
     </Card>
   );
@@ -1471,29 +1352,30 @@ export default function InsightsOverviewPage() {
 
   return (
     <div className="space-y-6">
-      {/* 標題和期間切換 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">總覽</h1>
-          <p className="text-muted-foreground">
-            {periodTitle}成效概覽，快速掌握帳號表現
-          </p>
-        </div>
-        <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
-          <TabsList>
-            <TabsTrigger value="week">本週</TabsTrigger>
-            <TabsTrigger value="month">本月</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+      <PageHeader
+        title="總覽"
+        description={`${periodTitle}成效概覽，快速掌握帳號表現`}
+        actions={
+          <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
+            <TabsList>
+              <TabsTrigger value="week">本週</TabsTrigger>
+              <TabsTrigger value="month">本月</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
+      />
 
       {/* 無帳號提示 */}
       {hasNoAccounts && !isLoading && (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-muted-foreground">
-            尚未連結任何 Threads 帳號，請先至設定頁面連結帳號。
-          </p>
-        </div>
+        <EmptyState
+          icon={<LinkIcon />}
+          title="尚未連結帳號"
+          description="請先至設定頁面連結 Threads 帳號"
+          action={{
+            label: "前往設定",
+            href: "/settings",
+          }}
+        />
       )}
 
       {/* 主要內容 */}
@@ -1523,7 +1405,7 @@ export default function InsightsOverviewPage() {
                 </div>
                 {!isLoading && kpiData?.postsGrowth !== undefined && kpiData.postsGrowth !== 0 && (
                   <div className="mt-2 flex items-center gap-1">
-                    <GrowthBadge value={kpiData.postsGrowth} />
+                    <GrowthBadgeSimple value={kpiData.postsGrowth} />
                     <span className="text-xs text-muted-foreground">vs {periodLabel}</span>
                   </div>
                 )}
@@ -1574,6 +1456,7 @@ export default function InsightsOverviewPage() {
             <h2 className="mb-3 text-lg font-semibold">{periodTitle}成效</h2>
             <div className="grid gap-4 md:grid-cols-3">
               <KPICard
+                variant="simple"
                 title="總曝光數"
                 value={kpiData?.totalViews || 0}
                 growth={kpiData?.viewsGrowth}
@@ -1586,6 +1469,7 @@ export default function InsightsOverviewPage() {
                 } : undefined}
               />
               <KPICard
+                variant="simple"
                 title="總互動數"
                 value={kpiData?.totalInteractions || 0}
                 growth={kpiData?.interactionsGrowth}
@@ -1598,12 +1482,13 @@ export default function InsightsOverviewPage() {
                 } : undefined}
               />
               <KPICard
+                variant="simple"
                 title="平均互動率"
                 value={kpiData?.engagementRate || 0}
                 growth={kpiData?.engagementGrowth}
                 icon={<TrendingUp className="size-4" />}
                 isLoading={isLoading}
-                format="percent"
+                format="percentage"
                 periodLabel={periodLabel}
                 benchmark={benchmarkData ? {
                   value: benchmarkData.avgEngagementRate,
@@ -1618,6 +1503,7 @@ export default function InsightsOverviewPage() {
             <h2 className="mb-3 text-lg font-semibold">互動明細</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <KPICard
+                variant="simple"
                 title="讚"
                 value={kpiData?.totalLikes || 0}
                 growth={kpiData?.likesGrowth}
@@ -1630,6 +1516,7 @@ export default function InsightsOverviewPage() {
                 } : undefined}
               />
               <KPICard
+                variant="simple"
                 title="回覆"
                 value={kpiData?.totalReplies || 0}
                 growth={kpiData?.repliesGrowth}
@@ -1642,6 +1529,7 @@ export default function InsightsOverviewPage() {
                 } : undefined}
               />
               <KPICard
+                variant="simple"
                 title="轉發"
                 value={kpiData?.totalReposts || 0}
                 growth={kpiData?.repostsGrowth}
@@ -1654,6 +1542,7 @@ export default function InsightsOverviewPage() {
                 } : undefined}
               />
               <KPICard
+                variant="simple"
                 title="引用"
                 value={kpiData?.totalQuotes || 0}
                 growth={kpiData?.quotesGrowth}

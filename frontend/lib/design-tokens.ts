@@ -212,7 +212,19 @@ export const VIRALITY_COLORS = {
   viral: SEMANTIC_COLORS.destructive, // 爆紅中
   excellent: SEMANTIC_COLORS.warning, // 表現優異
   good: TEAL[500], // 表現良好
-  normal: STONE[100], // 一般
+  normal: STONE[400], // 一般
+} as const;
+
+/**
+ * 排程狀態色彩
+ * 用於排程管理頁面的狀態顯示
+ */
+export const SCHEDULE_STATUS_COLORS = {
+  scheduled: "#0E7490", // Cyan 700
+  publishing: "#D97706", // Amber 600
+  published: "#16A34A", // Green 600
+  failed: "#DC2626", // Red 600
+  cancelled: STONE[600], // Stone 600
 } as const;
 
 // ============================================================================

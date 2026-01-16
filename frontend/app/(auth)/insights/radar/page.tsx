@@ -64,6 +64,7 @@ import {
   SEMANTIC_COLORS,
   STONE,
   TEAL,
+  VIRALITY_COLORS,
   getChartColor,
   getHeatmapIntensityColor,
 } from "@/lib/design-tokens";
@@ -274,7 +275,7 @@ function ViralityBadge({
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-2">
-        {Icon && <Icon className="size-4" style={{ color: level === "viral" ? "#ef4444" : level === "excellent" ? "#f59e0b" : level === "good" ? "#14b8a6" : "#a1a1aa" }} />}
+        {Icon && <Icon className="size-4" style={{ color: VIRALITY_COLORS[level] }} />}
         <span className="font-mono font-medium">{score.toFixed(1)}</span>
         <Badge className={cn("gap-1", className)}>
           {label}

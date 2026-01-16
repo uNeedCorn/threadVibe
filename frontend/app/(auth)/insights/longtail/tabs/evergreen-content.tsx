@@ -56,6 +56,7 @@ import {
   getEvergreenColor,
   type LongtailStatus,
 } from "@/lib/longtail-utils";
+import { TEAL } from "@/lib/design-tokens";
 import type { LongtailPageData, PostWithMetrics } from "../page";
 
 interface Props {
@@ -192,7 +193,7 @@ export function EvergreenContentTab({ data }: Props) {
           ) : (
             <ChartContainer
               config={{
-                scatter: { label: "貼文", color: "#14B8A6" },
+                scatter: { label: "貼文", color: TEAL[500] },
               }}
               className="h-[350px] w-full"
             >
@@ -245,7 +246,7 @@ export function EvergreenContentTab({ data }: Props) {
                     />
                   }
                 />
-                <Scatter data={scatterData} fill="#14B8A6">
+                <Scatter data={scatterData} fill={TEAL[500]}>
                   {scatterData.map((entry, index) => (
                     <Cell
                       key={index}

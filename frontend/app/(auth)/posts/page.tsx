@@ -8,6 +8,9 @@ import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { useAccountTags } from "@/hooks/use-account-tags";
 import { useColumnConfig } from "@/hooks/use-column-config";
 import { createClient } from "@/lib/supabase/client";
+import { PageHeader } from "@/components/layout";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LinkIcon } from "lucide-react";
 
 // 計算增量值（delta）：將絕對值陣列轉換為相鄰差值
 function calculateDeltas(values: number[]): number[] {
@@ -507,18 +510,22 @@ export default function PostsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">貼文列表</h1>
-        <p className="text-muted-foreground">查看和分析你的 Threads 貼文成效</p>
-      </div>
+      <PageHeader
+        title="貼文列表"
+        description="查看和分析你的 Threads 貼文成效"
+      />
 
       {/* 無帳號提示 */}
       {hasNoAccount && !isLoading && (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-muted-foreground">
-            尚未連結任何 Threads 帳號，請先至設定頁面連結帳號。
-          </p>
-        </div>
+        <EmptyState
+          icon={<LinkIcon />}
+          title="尚未連結帳號"
+          description="請先至設定頁面連結 Threads 帳號"
+          action={{
+            label: "前往設定",
+            href: "/settings",
+          }}
+        />
       )}
 
       {/* 篩選器 */}

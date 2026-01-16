@@ -66,7 +66,7 @@ import {
   formatAgeText,
   toLifecycleChartData,
 } from "@/lib/midterm-utils";
-import { TEAL, STONE } from "@/lib/design-tokens";
+import { TEAL, STONE, CHART_COLORS_EXTENDED } from "@/lib/design-tokens";
 
 // ============================================================================
 // Types
@@ -1284,14 +1284,11 @@ function LifecycleTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: b
   );
 }
 
-// 貼文比較用的顏色
-const COMPARISON_COLORS = [
-  { stroke: "#14b8a6", fill: "#14b8a6" }, // teal-500
-  { stroke: "#f97316", fill: "#f97316" }, // orange-500
-  { stroke: "#8b5cf6", fill: "#8b5cf6" }, // violet-500
-  { stroke: "#ec4899", fill: "#ec4899" }, // pink-500
-  { stroke: "#22c55e", fill: "#22c55e" }, // green-500
-];
+// 貼文比較用的顏色（使用 design tokens）
+const COMPARISON_COLORS = CHART_COLORS_EXTENDED.slice(0, 5).map((color) => ({
+  stroke: color,
+  fill: color,
+}));
 
 // Tab 3: 貼文比較
 function ComparisonTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: boolean }) {

@@ -8,6 +8,7 @@ import {
 } from "@/components/settings";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { featureFlags } from "@/lib/feature-flags";
+import { PageHeader } from "@/components/layout";
 
 function ThreadsAccountsSkeleton() {
   return (
@@ -25,15 +26,15 @@ function ThreadsAccountsSkeleton() {
 
 export default function SettingsPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">設定</h1>
-        <p className="text-muted-foreground">
-          {featureFlags.workspaceTeamMode
+    <div className="mx-auto max-w-3xl space-y-6">
+      <PageHeader
+        title="設定"
+        description={
+          featureFlags.workspaceTeamMode
             ? "管理你的工作區設定"
-            : "管理你的帳號設定"}
-        </p>
-      </div>
+            : "管理你的帳號設定"
+        }
+      />
 
       {/* Threads 帳號管理 */}
       <Suspense fallback={<ThreadsAccountsSkeleton />}>

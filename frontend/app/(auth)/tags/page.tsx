@@ -4,6 +4,9 @@ import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { useAccountTags } from "@/hooks/use-account-tags";
 import { useAiTags } from "@/hooks/use-ai-tags";
 import { TagsList, AiTagsSection } from "@/components/tags";
+import { PageHeader } from "@/components/layout";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LinkIcon } from "lucide-react";
 
 export default function TagsPage() {
   const { selectedAccountId, isLoading: isAccountLoading } = useSelectedAccount();
@@ -13,22 +16,23 @@ export default function TagsPage() {
   const hasNoAccount = !isAccountLoading && !selectedAccountId;
 
   return (
-    <div className="space-y-8">
-      {/* 標題 */}
-      <div>
-        <h1 className="text-2xl font-bold">標籤管理</h1>
-        <p className="text-muted-foreground">
-          建立和管理標籤，用於分類你的貼文
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="標籤管理"
+        description="建立和管理標籤，用於分類你的貼文"
+      />
 
       {/* 無帳號提示 */}
       {hasNoAccount && (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-muted-foreground">
-            尚未連結任何 Threads 帳號，請先至設定頁面連結帳號。
-          </p>
-        </div>
+        <EmptyState
+          icon={<LinkIcon />}
+          title="尚未連結帳號"
+          description="請先至設定頁面連結 Threads 帳號"
+          action={{
+            label: "前往設定",
+            href: "/settings",
+          }}
+        />
       )}
 
       {/* 自訂標籤列表 */}

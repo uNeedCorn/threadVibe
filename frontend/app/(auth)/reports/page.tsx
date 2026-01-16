@@ -40,6 +40,8 @@ import {
   truncateText,
   type CsvColumn,
 } from "@/lib/csv-generator";
+import { PageHeader } from "@/components/layout";
+import { STONE } from "@/lib/design-tokens";
 
 interface SummaryRow {
   period: string;
@@ -227,7 +229,7 @@ export default function ReportsPage() {
       const dataUrl = await toPng(exportRef.current, {
         width: 1920,
         height: 1080,
-        backgroundColor: "#F8FAFC",
+        backgroundColor: STONE[50],
         pixelRatio: 1,
         skipFonts: true,
       });
@@ -253,7 +255,7 @@ export default function ReportsPage() {
       const dataUrl = await toPng(exportRef.current, {
         width: 1920,
         height: 1080,
-        backgroundColor: "#F8FAFC",
+        backgroundColor: STONE[50],
         pixelRatio: 2, // 提高解析度讓 PDF 更清晰
         skipFonts: true,
       });
@@ -335,7 +337,7 @@ export default function ReportsPage() {
         const dataUrl = await toPng(ref.current, {
           width: 1920,
           height: 1080,
-          backgroundColor: "#F8FAFC",
+          backgroundColor: STONE[50],
           pixelRatio: 2,
           skipFonts: true,
         });
@@ -361,13 +363,10 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">報表匯出</h1>
-        <p className="text-muted-foreground">
-          匯出成效報告，支援 PNG 圖片和 CSV 數據
-        </p>
-      </div>
+      <PageHeader
+        title="報表匯出"
+        description="匯出成效報告，支援 PNG 圖片和 CSV 數據"
+      />
 
       {/* 沒有選擇帳號的提示 */}
       {!selectedAccountId && (
@@ -492,7 +491,7 @@ export default function ReportsPage() {
                 top: 0,
                 width: "1920px",
                 height: "1080px",
-                backgroundColor: "#F8FAFC",
+                backgroundColor: STONE[50],
                 overflow: "hidden",
                 // 重設所有 CSS 變數避免 lab() 色彩
                 colorScheme: "light",
@@ -608,19 +607,19 @@ export default function ReportsPage() {
                 colorScheme: "light",
               }}
             >
-              <div style={{ width: "1920px", height: "1080px", backgroundColor: "#F8FAFC" }}>
+              <div style={{ width: "1920px", height: "1080px", backgroundColor: STONE[50] }}>
                 <Page1Summary ref={fullPage1Ref} data={fullReportData} />
               </div>
-              <div style={{ width: "1920px", height: "1080px", backgroundColor: "#F8FAFC" }}>
+              <div style={{ width: "1920px", height: "1080px", backgroundColor: STONE[50] }}>
                 <Page2Trend ref={fullPage2Ref} data={fullReportData} />
               </div>
-              <div style={{ width: "1920px", height: "1080px", backgroundColor: "#F8FAFC" }}>
+              <div style={{ width: "1920px", height: "1080px", backgroundColor: STONE[50] }}>
                 <Page3Posts ref={fullPage3Ref} data={fullReportData} />
               </div>
-              <div style={{ width: "1920px", height: "1080px", backgroundColor: "#F8FAFC" }}>
+              <div style={{ width: "1920px", height: "1080px", backgroundColor: STONE[50] }}>
                 <Page4Categories ref={fullPage4Ref} data={fullReportData} />
               </div>
-              <div style={{ width: "1920px", height: "1080px", backgroundColor: "#F8FAFC" }}>
+              <div style={{ width: "1920px", height: "1080px", backgroundColor: STONE[50] }}>
                 <Page5TimeAnalysis ref={fullPage5Ref} data={fullReportData} />
               </div>
             </div>

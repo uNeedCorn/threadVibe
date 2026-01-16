@@ -44,7 +44,7 @@ export function Header() {
 
   return (
     <>
-      <header className="flex h-16 items-center justify-between border-b bg-card px-6">
+      <header className="flex h-[var(--header-height)] items-center justify-between border-b bg-card px-6">
         {/* Sidebar Toggle Button */}
         <Tooltip>
           <TooltipTrigger asChild>
