@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Home } from "lucide-react";
+import { Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
@@ -22,20 +22,12 @@ export default function NotFound() {
         </p>
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button asChild>
-            <Link href="/">
-              <Home className="mr-2 size-4" />
-              回到首頁
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/login">
-              <ArrowLeft className="mr-2 size-4" />
-              前往登入
-            </Link>
-          </Button>
-        </div>
+        <Button asChild>
+          <Link href="/">
+            <Home className="mr-2 size-4" />
+            回到首頁
+          </Link>
+        </Button>
       </div>
     </main>
   );
