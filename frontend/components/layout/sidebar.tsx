@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -325,30 +326,27 @@ export function Sidebar() {
       {/* Logo - 高度與 Header 一致 */}
       <div
         className={cn(
-          "flex h-[var(--header-height)] items-center gap-2 border-b",
+          "flex h-[var(--header-height)] items-center border-b",
           isCollapsed ? "justify-center px-2" : "px-4"
         )}
       >
-        <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="size-4"
-          >
-            <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5" />
-            <path d="M8.5 8.5v.01" />
-            <path d="M16 15.5v.01" />
-            <path d="M12 12v.01" />
-            <path d="M11 17v.01" />
-            <path d="M7 14v.01" />
-          </svg>
-        </div>
-        {!isCollapsed && <span className="text-base font-semibold">Postlyzer</span>}
+        {isCollapsed ? (
+          <Image
+            src="/logo-icon.png"
+            alt="Postlyzer"
+            width={28}
+            height={28}
+            className="size-7"
+          />
+        ) : (
+          <Image
+            src="/logo-full.png"
+            alt="Postlyzer"
+            width={189}
+            height={43}
+            className="h-11 w-auto"
+          />
+        )}
       </div>
 
       {/* Threads Account Switcher - 固定顯示，收折時隱藏 */}

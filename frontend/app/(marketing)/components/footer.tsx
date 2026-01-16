@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3 } from "lucide-react";
+import Image from "next/image";
 
 const footerLinks = [
   { label: "登入", href: "/login" },
@@ -16,9 +16,13 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Logo & Brand */}
           <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <BarChart3 className="size-4" />
-            </div>
+            <Image
+              src="/logo-icon.png"
+              alt="Postlyzer"
+              width={32}
+              height={32}
+              className="size-8"
+            />
             <span className="font-semibold text-foreground">Postlyzer</span>
           </div>
 

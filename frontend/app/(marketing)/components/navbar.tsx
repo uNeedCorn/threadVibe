@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { WaitlistModal } from "./waitlist-modal";
 
 const navLinks = [
@@ -20,10 +21,14 @@ export function Navbar() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <BarChart3 className="size-5" />
-            </div>
-            <span className="text-xl font-bold">Postlyzer</span>
+            <Image
+              src="/logo-full.png"
+              alt="Postlyzer"
+              width={210}
+              height={48}
+              className="h-12 w-auto"
+              priority
+            />
             <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
               BETA
             </span>
