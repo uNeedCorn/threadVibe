@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
   ImageIcon,
   Sparkles,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -34,8 +35,19 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { useAccountTags } from "@/hooks/use-account-tags";
+import { useSelectedAccountContext } from "@/contexts/selected-account-context";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { MediaTypeSelector, type MediaType } from "@/components/compose/media-type-selector";
@@ -64,6 +76,29 @@ function ComposePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // 帳號 context
+  const {
+    selectedAccount: contextAccount,
+    selectedAccountId,
+    isLoading: isLoadingAccount,
+  } = useSelectedAccountContext();
+
+  // 轉換為本地格式
+  const currentAccount: ThreadsAccount | null = contextAccount
+    ? {
+        id: contextAccount.id,
+        username: contextAccount.username,
+        profilePicUrl: contextAccount.profilePicUrl,
+      }
+    : null;
+
+  // 追蹤上一個帳號 ID，用於偵測帳號切換
+  const prevAccountIdRef = useRef<string | null>(null);
+
+  // 帳號切換確認對話框
+  const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
+  const [pendingAccountId, setPendingAccountId] = useState<string | null>(null);
+
   // 決策輔助面板狀態
   const [isInsightsPanelCollapsed, setIsInsightsPanelCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -71,10 +106,6 @@ function ComposePageContent() {
     }
     return false;
   });
-
-  // 當前帳號
-  const [currentAccount, setCurrentAccount] = useState<ThreadsAccount | null>(null);
-  const [isLoadingAccount, setIsLoadingAccount] = useState(true);
 
   // 貼文內容
   const [mediaType, setMediaType] = useState<MediaType>("TEXT");
@@ -97,6 +128,74 @@ function ComposePageContent() {
   // 狀態
   const [isLoading, setIsLoading] = useState(false);
 
+  // 檢查是否有未儲存的內容
+  const hasUnsavedContent = useCallback(() => {
+    return (
+      text.trim().length > 0 ||
+      mediaUrls.length > 0 ||
+      topicTag.trim().length > 0 ||
+      linkAttachment.trim().length > 0 ||
+      selectedTagIds.length > 0
+    );
+  }, [text, mediaUrls, topicTag, linkAttachment, selectedTagIds]);
+
+  // 重置表單
+  const resetForm = useCallback(() => {
+    setMediaType("TEXT");
+    setText("");
+    setMediaUrls([]);
+    setTopicTag("");
+    setLinkAttachment("");
+    setScheduledAt(null);
+    setSelectedTagIds([]);
+  }, []);
+
+  // 偵測帳號切換
+  useEffect(() => {
+    // 首次載入時只記錄帳號 ID
+    if (prevAccountIdRef.current === null) {
+      prevAccountIdRef.current = selectedAccountId;
+      return;
+    }
+
+    // 帳號沒變，不做任何事
+    if (selectedAccountId === prevAccountIdRef.current) {
+      return;
+    }
+
+    // 帳號變了，檢查是否有未儲存內容
+    if (hasUnsavedContent()) {
+      // 有未儲存內容，顯示確認對話框
+      setPendingAccountId(selectedAccountId);
+      setShowSwitchConfirm(true);
+    } else {
+      // 沒有未儲存內容，直接切換
+      prevAccountIdRef.current = selectedAccountId;
+      resetForm();
+    }
+  }, [selectedAccountId, hasUnsavedContent, resetForm]);
+
+  // 確認切換帳號
+  const handleConfirmSwitch = useCallback(() => {
+    prevAccountIdRef.current = pendingAccountId;
+    resetForm();
+    setShowSwitchConfirm(false);
+    setPendingAccountId(null);
+    toast.success("已切換帳號，編輯內容已清除");
+  }, [pendingAccountId, resetForm]);
+
+  // 取消切換帳號（需要還原到之前的帳號）
+  const handleCancelSwitch = useCallback(() => {
+    // 還原到之前的帳號
+    if (prevAccountIdRef.current) {
+      localStorage.setItem("currentThreadsAccountId", prevAccountIdRef.current);
+      // 觸發頁面重新整理來還原 context 狀態
+      window.location.reload();
+    }
+    setShowSwitchConfirm(false);
+    setPendingAccountId(null);
+  }, []);
+
   // 保存決策輔助面板狀態
   useEffect(() => {
     localStorage.setItem(
@@ -115,39 +214,6 @@ function ComposePageContent() {
     if (topicParam) setTopicTag(topicParam);
     if (tagsParam) setSelectedTagIds(tagsParam.split(",").filter(Boolean));
   }, [searchParams]);
-
-  // 載入當前帳號
-  useEffect(() => {
-    async function fetchCurrentAccount() {
-      setIsLoadingAccount(true);
-      const supabase = createClient();
-      const accountId = localStorage.getItem("currentThreadsAccountId");
-
-      if (!accountId) {
-        setIsLoadingAccount(false);
-        return;
-      }
-
-      const { data } = await supabase
-        .from("workspace_threads_accounts")
-        .select("id, username, profile_pic_url")
-        .eq("id", accountId)
-        .eq("is_active", true)
-        .single();
-
-      if (data) {
-        setCurrentAccount({
-          id: data.id,
-          username: data.username,
-          profilePicUrl: data.profile_pic_url,
-        });
-      }
-
-      setIsLoadingAccount(false);
-    }
-
-    fetchCurrentAccount();
-  }, []);
 
   // 計算目標日期與標籤
   const getTargetDateInfo = useCallback(() => {
@@ -416,29 +482,8 @@ function ComposePageContent() {
 
           {/* 編輯區域 */}
           <div className="space-y-6 rounded-2xl border bg-card p-6 shadow-sm">
-            {/* 貼文類型 */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">貼文類型</Label>
-              <MediaTypeSelector
-                value={mediaType}
-                onChange={handleMediaTypeChange}
-                disabled={isLoading}
-              />
-            </div>
-
             {/* 貼文內容 */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="text" className="text-sm font-medium">
-                  貼文內容
-                  {mediaType !== "TEXT" && (
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      （選填）
-                    </span>
-                  )}
-                </Label>
-              </div>
-
+            <div className="space-y-2">
               <div className="relative">
                 <Textarea
                   id="text"
@@ -446,17 +491,17 @@ function ComposePageContent() {
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   className={cn(
-                    "min-h-[180px] resize-none text-base leading-relaxed transition-all",
-                    "focus:ring-2 focus:ring-primary/20",
-                    isOverLimit && "border-destructive focus:ring-destructive/20"
+                    "min-h-[160px] resize-none border-0 p-0 pb-8 text-base leading-relaxed transition-all",
+                    "focus-visible:ring-0 focus-visible:ring-offset-0",
+                    isOverLimit && "text-destructive"
                   )}
                   disabled={isLoading}
                 />
 
-                {/* 字數進度條 */}
-                <div className="absolute bottom-3 right-3 flex items-center gap-2">
-                  <div className="relative size-8">
-                    <svg className="size-8 -rotate-90" viewBox="0 0 36 36">
+                {/* 字數進度（文字框內右下角） */}
+                <div className="absolute bottom-0 right-0 flex items-center gap-1.5">
+                  <div className="relative size-5">
+                    <svg className="size-5 -rotate-90" viewBox="0 0 36 36">
                       <circle
                         cx="18"
                         cy="18"
@@ -485,18 +530,30 @@ function ComposePageContent() {
                         )}
                       />
                     </svg>
-                    {charCount > TEXT_LIMIT * 0.8 && (
-                      <span
-                        className={cn(
-                          "absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums",
-                          isOverLimit ? "text-destructive" : "text-muted-foreground"
-                        )}
-                      >
-                        {TEXT_LIMIT - charCount}
-                      </span>
-                    )}
                   </div>
+                  <span
+                    className={cn(
+                      "text-xs tabular-nums",
+                      isOverLimit
+                        ? "text-destructive font-medium"
+                        : charCount > TEXT_LIMIT * 0.8
+                        ? "text-warning font-medium"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    剩餘 {TEXT_LIMIT - charCount}
+                  </span>
                 </div>
+              </div>
+
+              {/* 工具列：貼文類型 */}
+              <div className="border-t pt-3">
+                <MediaTypeSelector
+                  value={mediaType}
+                  onChange={handleMediaTypeChange}
+                  disabled={isLoading}
+                  compact
+                />
               </div>
             </div>
 
@@ -747,6 +804,32 @@ function ComposePageContent() {
         isCollapsed={isInsightsPanelCollapsed}
         onToggleCollapse={() => setIsInsightsPanelCollapsed(!isInsightsPanelCollapsed)}
       />
+
+      {/* 帳號切換確認對話框 */}
+      <AlertDialog open={showSwitchConfirm} onOpenChange={setShowSwitchConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" />
+              確認切換帳號？
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              您目前有尚未發布的編輯內容。切換帳號後，這些內容將會被清除，且無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSwitch}>
+              取消切換
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmSwitch}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              確認切換
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -719,22 +719,56 @@ export function QuickComposeSheet({ open, onOpenChange }: QuickComposeSheetProps
                     placeholder="有什麼新鮮事？"
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    className="min-h-[100px] resize-none border-0 p-0 pr-12 pb-6 text-[15px] leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="min-h-[100px] resize-none border-0 p-0 pb-6 text-[15px] leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0"
                     disabled={isLoading}
                     autoFocus
                   />
-                  <span
-                    className={cn(
-                      "absolute bottom-0 right-0 text-xs tabular-nums",
-                      isOverLimit
-                        ? "text-destructive font-medium"
-                        : charCount > TEXT_LIMIT * 0.8
-                        ? "text-amber-500"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    {charCount}/{TEXT_LIMIT}
-                  </span>
+                  {/* 字數進度（文字框內右下角） */}
+                  <div className="absolute bottom-0 right-0 flex items-center gap-1.5">
+                    <div className="relative size-4">
+                      <svg className="size-4 -rotate-90" viewBox="0 0 36 36">
+                        <circle
+                          cx="18"
+                          cy="18"
+                          r="14"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          className="text-muted/30"
+                        />
+                        <circle
+                          cx="18"
+                          cy="18"
+                          r="14"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          strokeDasharray={`${Math.min((charCount / TEXT_LIMIT) * 88, 88)} 88`}
+                          strokeLinecap="round"
+                          className={cn(
+                            "transition-all duration-300",
+                            isOverLimit
+                              ? "text-destructive"
+                              : charCount > TEXT_LIMIT * 0.8
+                              ? "text-amber-500"
+                              : "text-primary"
+                          )}
+                        />
+                      </svg>
+                    </div>
+                    <span
+                      className={cn(
+                        "text-[11px] tabular-nums",
+                        isOverLimit
+                          ? "text-destructive font-medium"
+                          : charCount > TEXT_LIMIT * 0.8
+                          ? "text-amber-500 font-medium"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      剩餘 {TEXT_LIMIT - charCount}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
