@@ -137,8 +137,6 @@ const mainNavItems: NavEntry[] = [
     title: "排程管理",
     href: "/scheduled",
     icon: CalendarClock,
-    adminOnly: true,
-    badge: "開發中",
   },
   {
     title: "標籤",

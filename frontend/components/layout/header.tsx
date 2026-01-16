@@ -9,12 +9,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { QuickComposeSheet } from "@/components/compose";
-import { useCurrentUser } from "@/hooks/use-current-user";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebarCollapsed";
 
 export function Header() {
-  const { isAdmin } = useCurrentUser();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
 
@@ -66,24 +64,20 @@ export function Header() {
           </TooltipContent>
         </Tooltip>
 
-        {/* Compose Button - Admin Only */}
-        {isAdmin && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsComposeOpen(true)}
-                className="size-9 text-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
-              >
-                <PenSquare className="size-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <span className="text-orange-500">發文（管理員）</span>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        {/* Compose Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsComposeOpen(true)}
+              className="size-9 text-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
+            >
+              <PenSquare className="size-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">快速發文</TooltipContent>
+        </Tooltip>
       </header>
 
       {/* Quick Compose Sheet */}
