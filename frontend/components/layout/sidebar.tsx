@@ -25,6 +25,7 @@ import {
   LogOut,
   User,
   CalendarClock,
+  SquarePen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -121,6 +122,11 @@ const mainNavItems: NavEntry[] = [
         icon: Users,
       },
     ],
+  },
+  {
+    title: "發文",
+    href: "/compose",
+    icon: SquarePen,
   },
   {
     title: "貼文列表",

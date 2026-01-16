@@ -1,46 +1,34 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import {
   TrendingUp,
   Clock,
   BarChart3,
   Zap,
-  ChevronRight,
+  PanelRightClose,
+  PanelRightOpen,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
-interface TagStats {
-  id: string;
-  name: string;
-  color: string;
-  postCount: number;
-  avgViews: number;
-  avgLikes: number;
-  avgReplies: number;
-  engagementRate: number;
-  peakHour: number;
-  lifecyclePeak: string; // e.g., "24hr"
-}
+import { useTagStats, type TagStats } from "@/hooks/use-tag-stats";
 
 interface ComposeInsightsPanelProps {
   selectedTagIds: string[];
   accountTags: Array<{ id: string; name: string; color: string }>;
+  accountId: string | null;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  onSuggestedHourChange?: (hour: number | null) => void;
 }
-
-// Mock data - 實際使用時從 API 獲取
-const mockTagStats: Record<string, TagStats> = {
-  // 可以根據實際 tag ID 動態載入
-};
 
 // 格式化數字
 function formatNumber(num: number): string {
@@ -50,85 +38,70 @@ function formatNumber(num: number): string {
   return num.toString();
 }
 
-// 生命週期曲線 SVG
-function LifecycleCurve({ peak = "24hr" }: { peak?: string }) {
+// 迷你生命週期曲線
+function MiniLifecycleCurve({ peak = "24hr" }: { peak?: string }) {
   return (
-    <div className="relative h-12 w-full">
+    <div className="relative h-8 w-full">
       <svg
-        viewBox="0 0 100 40"
+        viewBox="0 0 100 32"
         className="h-full w-full"
         preserveAspectRatio="none"
       >
-        {/* 背景網格 */}
-        <line x1="0" y1="30" x2="100" y2="30" stroke="currentColor" strokeOpacity="0.1" strokeDasharray="2" />
-        <line x1="0" y1="20" x2="100" y2="20" stroke="currentColor" strokeOpacity="0.1" strokeDasharray="2" />
-        <line x1="0" y1="10" x2="100" y2="10" stroke="currentColor" strokeOpacity="0.1" strokeDasharray="2" />
-
-        {/* 曲線 */}
         <path
-          d="M 0 35 Q 15 35, 25 15 Q 35 5, 50 10 Q 65 15, 80 25 Q 95 32, 100 33"
+          d="M 0 28 Q 20 28, 30 12 Q 40 4, 55 8 Q 70 12, 85 20 Q 95 26, 100 27"
+          fill="url(#areaGradient)"
+          opacity="0.3"
+        />
+        <path
+          d="M 0 28 Q 20 28, 30 12 Q 40 4, 55 8 Q 70 12, 85 20 Q 95 26, 100 27"
           fill="none"
-          stroke="url(#curveGradient)"
+          stroke="var(--primary)"
           strokeWidth="2"
           strokeLinecap="round"
         />
-
-        {/* 高峰點標記 */}
-        <circle cx="35" cy="8" r="3" fill="var(--primary)" />
-
-        {/* 漸層定義 */}
+        <circle cx="40" cy="6" r="3" fill="var(--primary)" />
         <defs>
-          <linearGradient id="curveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.3" />
-            <stop offset="35%" stopColor="var(--primary)" stopOpacity="1" />
-            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.2" />
+          <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
           </linearGradient>
         </defs>
       </svg>
-
-      {/* 高峰標籤 */}
-      <div className="absolute left-[35%] top-0 -translate-x-1/2">
-        <span className="text-[10px] font-medium text-primary">{peak}</span>
-      </div>
-
-      {/* 時間軸標籤 */}
-      <div className="absolute bottom-0 left-0 right-0 flex justify-between text-[9px] text-muted-foreground">
-        <span>0h</span>
-        <span>24h</span>
-        <span>48h</span>
-        <span>72h</span>
+      <div className="absolute left-[40%] -top-1 -translate-x-1/2">
+        <span className="text-[9px] font-semibold text-primary bg-background px-1 rounded">{peak}</span>
       </div>
     </div>
   );
 }
 
-// 時間熱力圖
+// 時間熱力圖（簡化版）
 function TimeHeatmap({ peakHour = 20 }: { peakHour?: number }) {
-  const hours = [9, 12, 15, 18, 20, 21, 22];
+  const hours = [9, 12, 15, 18, 20, 21];
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       {hours.map((hour) => {
-        const intensity = hour === peakHour ? 1 : Math.random() * 0.6 + 0.1;
         const isPeak = hour === peakHour;
+        const intensity = isPeak ? 1 : 0.15 + Math.random() * 0.35;
 
         return (
           <Tooltip key={hour}>
             <TooltipTrigger asChild>
               <div
                 className={cn(
-                  "h-6 w-6 rounded-md flex items-center justify-center text-[10px] font-medium transition-all cursor-default",
-                  isPeak
-                    ? "bg-primary text-primary-foreground ring-2 ring-primary/30"
-                    : "bg-primary/10 text-primary"
+                  "h-5 flex-1 rounded-sm flex items-center justify-center text-[9px] font-medium cursor-default transition-all",
+                  isPeak && "ring-1 ring-primary"
                 )}
-                style={{ opacity: isPeak ? 1 : intensity }}
+                style={{
+                  backgroundColor: `oklch(var(--primary) / ${intensity})`,
+                  color: isPeak ? "var(--primary-foreground)" : "var(--primary)",
+                }}
               >
                 {hour}
               </div>
             </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs">
-              {hour}:00 {isPeak && "- 最佳時段"}
+            <TooltipContent side="top" className="text-xs px-2 py-1">
+              {hour}:00 {isPeak && "⚡ 最佳"}
             </TooltipContent>
           </Tooltip>
         );
@@ -140,213 +113,205 @@ function TimeHeatmap({ peakHour = 20 }: { peakHour?: number }) {
 export function ComposeInsightsPanel({
   selectedTagIds,
   accountTags,
+  accountId,
   isCollapsed,
   onToggleCollapse,
+  onSuggestedHourChange,
 }: ComposeInsightsPanelProps) {
-  // 獲取選中標籤的統計數據
+  // 從 API 獲取選中標籤的統計數據
+  const { stats: tagStats, isLoading } = useTagStats({
+    tagIds: selectedTagIds,
+    accountId,
+  });
+
+  // 合併標籤基本資料與統計數據
   const selectedTagsWithStats = useMemo(() => {
-    return selectedTagIds
-      .map((id) => {
-        const tag = accountTags.find((t) => t.id === id);
-        if (!tag) return null;
-
-        // Mock stats - 實際使用時從 API 獲取
-        const stats: TagStats = mockTagStats[id] || {
-          id: tag.id,
-          name: tag.name,
-          color: tag.color,
-          postCount: Math.floor(Math.random() * 20) + 5,
-          avgViews: Math.floor(Math.random() * 3000) + 500,
-          avgLikes: Math.floor(Math.random() * 200) + 20,
-          avgReplies: Math.floor(Math.random() * 30) + 5,
-          engagementRate: Math.random() * 8 + 2,
-          peakHour: [9, 12, 18, 20, 21][Math.floor(Math.random() * 5)],
-          lifecyclePeak: ["12hr", "24hr", "36hr", "48hr"][Math.floor(Math.random() * 4)],
-        };
-
-        return stats;
-      })
-      .filter(Boolean) as TagStats[];
-  }, [selectedTagIds, accountTags]);
+    return tagStats.map((stat) => {
+      const tag = accountTags.find((t) => t.id === stat.id);
+      return {
+        ...stat,
+        // 確保使用最新的標籤名稱和顏色
+        name: tag?.name || stat.name,
+        color: tag?.color || stat.color,
+      };
+    });
+  }, [tagStats, accountTags]);
 
   // 計算綜合建議時間
   const suggestedTime = useMemo(() => {
-    if (selectedTagsWithStats.length === 0) return null;
+    const validStats = selectedTagsWithStats.filter((t) => t.peakHour !== null);
+    if (validStats.length === 0) return null;
 
     const avgPeakHour = Math.round(
-      selectedTagsWithStats.reduce((sum, t) => sum + t.peakHour, 0) /
-        selectedTagsWithStats.length
+      validStats.reduce((sum, t) => sum + (t.peakHour || 0), 0) /
+        validStats.length
     );
 
     return {
       hour: avgPeakHour,
       label: `${avgPeakHour}:00`,
-      dayLabel: "今天",
     };
   }, [selectedTagsWithStats]);
 
-  // 收合狀態下的迷你視圖
+  // 通知父組件建議時間變更
+  useEffect(() => {
+    onSuggestedHourChange?.(suggestedTime?.hour ?? null);
+  }, [suggestedTime?.hour, onSuggestedHourChange]);
+
+  // 收合狀態
   if (isCollapsed) {
     return (
-      <button
-        onClick={onToggleCollapse}
-        className={cn(
-          "flex h-full w-10 flex-col items-center justify-center gap-3 border-l",
-          "bg-gradient-to-b from-muted/30 to-muted/50",
-          "hover:bg-muted/60 transition-colors"
-        )}
-      >
-        <ChevronRight className="size-4 text-muted-foreground rotate-180" />
-        <div className="flex flex-col items-center gap-2 [writing-mode:vertical-lr]">
-          <Sparkles className="size-3.5 text-primary" />
-          <span className="text-xs font-medium text-muted-foreground">
+      <div className="flex h-full w-12 flex-col border-l bg-muted/30">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="mx-auto mt-3 size-8"
+              onClick={onToggleCollapse}
+            >
+              <PanelRightOpen className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">展開決策輔助</TooltipContent>
+        </Tooltip>
+
+        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+          <Sparkles className="size-4 text-primary" />
+          <span className="text-[10px] font-medium text-muted-foreground [writing-mode:vertical-lr] rotate-180">
             決策輔助
           </span>
         </div>
-      </button>
+      </div>
     );
   }
 
   return (
-    <div className="flex h-full w-80 flex-col border-l bg-gradient-to-b from-card to-muted/20">
+    <div className="flex h-full w-72 flex-col border-l bg-muted/20">
       {/* Header */}
-      <div className="flex items-center justify-between border-b px-4 py-3">
+      <div className="flex items-center justify-between border-b px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10">
-            <Sparkles className="size-4 text-primary" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold">決策輔助</h3>
-            <p className="text-[11px] text-muted-foreground">
-              根據歷史數據提供建議
-            </p>
-          </div>
+          <Sparkles className="size-4 text-primary" />
+          <span className="text-sm font-semibold">決策輔助</span>
         </div>
-        <button
-          onClick={onToggleCollapse}
-          className="flex size-7 items-center justify-center rounded-md hover:bg-accent transition-colors"
-        >
-          <ChevronRight className="size-4 text-muted-foreground" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              onClick={onToggleCollapse}
+            >
+              <PanelRightClose className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">收合面板</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
-        {selectedTagsWithStats.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-muted">
-              <BarChart3 className="size-5 text-muted-foreground" />
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Loader2 className="size-6 text-primary animate-spin mb-3" />
+            <p className="text-sm font-medium text-muted-foreground">
+              載入數據中...
+            </p>
+          </div>
+        ) : selectedTagsWithStats.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-3 flex size-10 items-center justify-center rounded-full bg-muted">
+              <BarChart3 className="size-4 text-muted-foreground" />
             </div>
             <p className="text-sm font-medium text-muted-foreground">
               選擇貼文標籤
             </p>
-            <p className="mt-1 text-xs text-muted-foreground/70">
-              查看該類貼文的歷史成效
+            <p className="mt-1 text-xs text-muted-foreground/60">
+              查看歷史成效數據
             </p>
           </div>
         ) : (
           <>
-            {/* 標籤成效摘要 */}
+            {/* 標籤成效卡片 */}
             {selectedTagsWithStats.map((tag) => (
               <div
                 key={tag.id}
-                className="rounded-xl border bg-card p-4 space-y-4"
+                className="rounded-lg border bg-card p-3 space-y-3"
               >
-                {/* 標籤標題 */}
-                <div className="flex items-center gap-2">
+                {/* 標籤 Header */}
+                <div className="flex items-center justify-between">
                   <Badge
                     variant="secondary"
                     className="px-2 py-0.5 text-xs font-medium"
                     style={{
-                      backgroundColor: `${tag.color}15`,
+                      backgroundColor: `${tag.color}20`,
                       color: tag.color,
-                      borderColor: `${tag.color}30`,
                     }}
                   >
                     {tag.name}
                   </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    過去 {tag.postCount} 篇
+                  <span className="text-[10px] text-muted-foreground">
+                    {tag.postCount} 篇
                   </span>
                 </div>
 
                 {/* 成效指標 */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="text-center">
-                    <p className="text-lg font-semibold tabular-nums">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-sm font-semibold tabular-nums">
                       {formatNumber(tag.avgViews)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      平均觸及
-                    </p>
+                    <p className="text-[9px] text-muted-foreground">觸及</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-lg font-semibold tabular-nums">
+                  <div>
+                    <p className="text-sm font-semibold tabular-nums">
                       {formatNumber(tag.avgLikes)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      平均愛心
-                    </p>
+                    <p className="text-[9px] text-muted-foreground">愛心</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-lg font-semibold tabular-nums text-primary">
+                  <div>
+                    <p className="text-sm font-semibold tabular-nums text-primary">
                       {tag.engagementRate.toFixed(1)}%
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      互動率
-                    </p>
+                    <p className="text-[9px] text-muted-foreground">互動率</p>
                   </div>
                 </div>
 
-                {/* 生命週期曲線 */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <TrendingUp className="size-3.5" />
-                    <span>成效生命週期</span>
+                {/* 生命週期 */}
+                {tag.lifecyclePeak && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <TrendingUp className="size-3" />
+                      <span>成效週期</span>
+                    </div>
+                    <MiniLifecycleCurve peak={tag.lifecyclePeak} />
                   </div>
-                  <LifecycleCurve peak={tag.lifecyclePeak} />
-                  <p className="text-[11px] text-muted-foreground text-center">
-                    約 <span className="font-medium text-foreground">{tag.lifecyclePeak}</span> 達到 80% 成效
-                  </p>
-                </div>
+                )}
               </div>
             ))}
 
-            {/* 最佳發文時間建議 */}
+            {/* 建議時間卡片 */}
             {suggestedTime && (
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-6 items-center justify-center rounded-full bg-primary/20">
-                    <Zap className="size-3.5 text-primary" />
-                  </div>
-                  <span className="text-sm font-medium">建議發文時間</span>
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="size-3.5 text-primary" />
+                  <span className="text-xs font-medium">建議發文時間</span>
                 </div>
-
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold tabular-nums">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xl font-bold tabular-nums text-primary">
                     {suggestedTime.label}
                   </span>
-                  <span className="text-sm text-muted-foreground">
-                    {suggestedTime.dayLabel}
-                  </span>
+                  <span className="text-xs text-muted-foreground">今天</span>
                 </div>
-
-                <div className="space-y-1.5">
-                  <p className="text-[11px] text-muted-foreground">
-                    粉絲活躍時段分布
-                  </p>
-                  <TimeHeatmap peakHour={suggestedTime.hour} />
-                </div>
+                <TimeHeatmap peakHour={suggestedTime.hour} />
               </div>
             )}
 
-            {/* 小提示 */}
-            <div className="flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2.5">
-              <Clock className="mt-0.5 size-3.5 text-muted-foreground shrink-0" />
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
-                數據基於過去 30 天的貼文表現。選擇多個標籤時，會綜合計算建議時間。
-              </p>
-            </div>
+            {/* 提示 */}
+            <p className="text-[10px] text-muted-foreground/60 text-center pt-2">
+              <Clock className="inline size-3 mr-1" />
+              數據基於過去 30 天表現
+            </p>
           </>
         )}
       </div>

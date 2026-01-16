@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense, useRef } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -12,10 +12,9 @@ import {
   X,
   Tag,
   Check,
-  ImageIcon,
-  Sparkles,
-  ChevronRight,
+  ChevronDown,
   AlertTriangle,
+  Settings2,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   Popover,
@@ -45,15 +43,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { createClient } from "@/lib/supabase/client";
 import { useAccountTags } from "@/hooks/use-account-tags";
 import { useSelectedAccountContext } from "@/contexts/selected-account-context";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { MediaTypeSelector, type MediaType } from "@/components/compose/media-type-selector";
-import { ComposeMediaSection } from "@/components/compose/compose-media-section";
-import { ComposeScheduler } from "@/components/compose/compose-scheduler";
-import { ComposeInsightsPanel } from "@/components/compose/compose-insights-panel";
+import {
+  MediaTypeSelector,
+  type MediaType,
+  ComposeMediaSection,
+  ComposeInsightsPanel,
+  ScheduleTimeline,
+} from "@/components/compose";
 
 const TEXT_LIMIT = 500;
 const TOPIC_TAG_LIMIT = 50;
@@ -65,16 +71,10 @@ interface ThreadsAccount {
   profilePicUrl: string | null;
 }
 
-interface ScheduledPost {
-  id: string;
-  text: string | null;
-  scheduled_at: string;
-  publish_status: string;
-}
-
 function ComposePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 帳號 context
   const {
@@ -83,19 +83,22 @@ function ComposePageContent() {
     isLoading: isLoadingAccount,
   } = useSelectedAccountContext();
 
-  // 轉換為本地格式
-  const currentAccount: ThreadsAccount | null = contextAccount
-    ? {
-        id: contextAccount.id,
-        username: contextAccount.username,
-        profilePicUrl: contextAccount.profilePicUrl,
-      }
-    : null;
+  // 轉換為本地格式（使用 useMemo 避免重複創建對象）
+  const currentAccount: ThreadsAccount | null = useMemo(() => {
+    if (!contextAccount) return null;
+    return {
+      id: contextAccount.id,
+      username: contextAccount.username,
+      profilePicUrl: contextAccount.profilePicUrl,
+    };
+  }, [contextAccount?.id, contextAccount?.username, contextAccount?.profilePicUrl]);
 
-  // 追蹤上一個帳號 ID，用於偵測帳號切換
+  // 追蹤上一個帳號 ID
   const prevAccountIdRef = useRef<string | null>(null);
+  // 追蹤是否已完成初始 focus
+  const hasInitialFocusRef = useRef(false);
 
-  // 帳號切換確認對話框
+  // 帳號切換確認
   const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
   const [pendingAccountId, setPendingAccountId] = useState<string | null>(null);
 
@@ -107,26 +110,51 @@ function ComposePageContent() {
     return false;
   });
 
+  // 進階設定區塊狀態
+  const [isSettingsOpen, setIsSettingsOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("composeSettingsOpen") !== "false";
+    }
+    return true;
+  });
+
   // 貼文內容
   const [mediaType, setMediaType] = useState<MediaType>("TEXT");
   const [text, setText] = useState("");
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [topicTag, setTopicTag] = useState("");
+  const [topicTagInput, setTopicTagInput] = useState(""); // 輸入中的主題標籤
+  const [isEditingTopicTag, setIsEditingTopicTag] = useState(false); // 是否在編輯主題標籤
+  const isComposingRef = useRef(false); // IME 輸入法狀態
   const [linkAttachment, setLinkAttachment] = useState("");
   const [scheduledAt, setScheduledAt] = useState<string | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
+  const [suggestedHour, setSuggestedHour] = useState<number>(20); // 預設 20:00
 
   // 帳號標籤
   const { tags: accountTags, isLoading: isLoadingTags } = useAccountTags();
 
-  // 目標日期排程貼文
-  const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
-  const [scheduleDateLabel, setScheduleDateLabel] = useState<string>("今日");
-  const [isLoadingScheduled, setIsLoadingScheduled] = useState(false);
-
   // 狀態
   const [isLoading, setIsLoading] = useState(false);
+
+  // Auto-focus textarea on mount (只執行一次)
+  useEffect(() => {
+    if (
+      textareaRef.current &&
+      !isLoadingAccount &&
+      currentAccount &&
+      !hasInitialFocusRef.current
+    ) {
+      textareaRef.current.focus();
+      hasInitialFocusRef.current = true;
+    }
+  }, [isLoadingAccount, currentAccount]);
+
+  // 保存進階設定區塊狀態
+  useEffect(() => {
+    localStorage.setItem("composeSettingsOpen", String(isSettingsOpen));
+  }, [isSettingsOpen]);
 
   // 檢查是否有未儲存的內容
   const hasUnsavedContent = useCallback(() => {
@@ -134,10 +162,11 @@ function ComposePageContent() {
       text.trim().length > 0 ||
       mediaUrls.length > 0 ||
       topicTag.trim().length > 0 ||
+      topicTagInput.trim().length > 0 ||
       linkAttachment.trim().length > 0 ||
       selectedTagIds.length > 0
     );
-  }, [text, mediaUrls, topicTag, linkAttachment, selectedTagIds]);
+  }, [text, mediaUrls, topicTag, topicTagInput, linkAttachment, selectedTagIds]);
 
   // 重置表單
   const resetForm = useCallback(() => {
@@ -145,6 +174,8 @@ function ComposePageContent() {
     setText("");
     setMediaUrls([]);
     setTopicTag("");
+    setTopicTagInput("");
+    setIsEditingTopicTag(false);
     setLinkAttachment("");
     setScheduledAt(null);
     setSelectedTagIds([]);
@@ -152,24 +183,17 @@ function ComposePageContent() {
 
   // 偵測帳號切換
   useEffect(() => {
-    // 首次載入時只記錄帳號 ID
     if (prevAccountIdRef.current === null) {
       prevAccountIdRef.current = selectedAccountId;
       return;
     }
 
-    // 帳號沒變，不做任何事
-    if (selectedAccountId === prevAccountIdRef.current) {
-      return;
-    }
+    if (selectedAccountId === prevAccountIdRef.current) return;
 
-    // 帳號變了，檢查是否有未儲存內容
     if (hasUnsavedContent()) {
-      // 有未儲存內容，顯示確認對話框
       setPendingAccountId(selectedAccountId);
       setShowSwitchConfirm(true);
     } else {
-      // 沒有未儲存內容，直接切換
       prevAccountIdRef.current = selectedAccountId;
       resetForm();
     }
@@ -184,12 +208,10 @@ function ComposePageContent() {
     toast.success("已切換帳號，編輯內容已清除");
   }, [pendingAccountId, resetForm]);
 
-  // 取消切換帳號（需要還原到之前的帳號）
+  // 取消切換帳號
   const handleCancelSwitch = useCallback(() => {
-    // 還原到之前的帳號
     if (prevAccountIdRef.current) {
       localStorage.setItem("currentThreadsAccountId", prevAccountIdRef.current);
-      // 觸發頁面重新整理來還原 context 狀態
       window.location.reload();
     }
     setShowSwitchConfirm(false);
@@ -204,7 +226,7 @@ function ComposePageContent() {
     );
   }, [isInsightsPanelCollapsed]);
 
-  // 從 URL 參數初始化內容
+  // 從 URL 參數初始化
   useEffect(() => {
     const textParam = searchParams.get("text");
     const topicParam = searchParams.get("topic");
@@ -214,66 +236,6 @@ function ComposePageContent() {
     if (topicParam) setTopicTag(topicParam);
     if (tagsParam) setSelectedTagIds(tagsParam.split(",").filter(Boolean));
   }, [searchParams]);
-
-  // 計算目標日期與標籤
-  const getTargetDateInfo = useCallback(() => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-
-    if (!scheduledAt) {
-      return { date: today, label: "今日" };
-    }
-
-    const scheduledDate = new Date(scheduledAt);
-    const scheduledDay = new Date(
-      scheduledDate.getFullYear(),
-      scheduledDate.getMonth(),
-      scheduledDate.getDate()
-    );
-
-    if (scheduledDay.getTime() === today.getTime()) {
-      return { date: scheduledDay, label: "今日" };
-    } else if (scheduledDay.getTime() === tomorrow.getTime()) {
-      return { date: scheduledDay, label: "明日" };
-    } else {
-      const label = `${scheduledDay.getMonth() + 1}/${scheduledDay.getDate()}`;
-      return { date: scheduledDay, label };
-    }
-  }, [scheduledAt]);
-
-  // 載入目標日期排程貼文
-  useEffect(() => {
-    if (!currentAccount) {
-      setScheduledPosts([]);
-      return;
-    }
-
-    const accountId = currentAccount.id;
-    const { date: targetDate, label } = getTargetDateInfo();
-    setScheduleDateLabel(label);
-
-    async function fetchScheduledPosts() {
-      setIsLoadingScheduled(true);
-      const supabase = createClient();
-      const startOfDay = targetDate.toISOString();
-      const endOfDay = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000).toISOString();
-
-      const { data } = await supabase
-        .from("workspace_threads_outbound_posts")
-        .select("id, text, scheduled_at, publish_status")
-        .eq("workspace_threads_account_id", accountId)
-        .gte("scheduled_at", startOfDay)
-        .lt("scheduled_at", endOfDay)
-        .in("publish_status", ["scheduled", "publishing"])
-        .order("scheduled_at", { ascending: true });
-
-      if (data) setScheduledPosts(data);
-      setIsLoadingScheduled(false);
-    }
-
-    fetchScheduledPosts();
-  }, [currentAccount, getTargetDateInfo]);
 
   // 切換貼文類型時重置媒體
   const handleMediaTypeChange = useCallback((type: MediaType) => {
@@ -350,9 +312,17 @@ function ComposePageContent() {
         await supabase.from("workspace_threads_post_tags").insert(tagInserts);
       }
 
+      // 重置表單
+      resetForm();
+
+      // 顯示成功訊息
       if (scheduledAt) {
         toast.success("貼文已排程！", {
           description: `將於 ${new Date(scheduledAt).toLocaleString("zh-TW")} 發布`,
+          action: {
+            label: "查看排程",
+            onClick: () => router.push("/scheduled"),
+          },
         });
       } else {
         toast.success("貼文已發布！", {
@@ -362,8 +332,6 @@ function ComposePageContent() {
             : undefined,
         });
       }
-
-      router.push("/posts");
     } catch (err) {
       console.error("Publish error:", err);
       toast.error("發布失敗", {
@@ -386,174 +354,258 @@ function ComposePageContent() {
       (mediaType === "VIDEO" && mediaUrls.length === 1) ||
       (mediaType === "CAROUSEL" && mediaUrls.length >= 2));
 
+  // 計算進階設定的填寫數量（用於顯示 badge）
+  const settingsCount = [
+    selectedTagIds.length > 0,
+    topicTag.trim().length > 0,
+    linkAttachment.trim().length > 0,
+  ].filter(Boolean).length;
+
   return (
-    <div className="flex h-[calc(100vh-48px)] overflow-hidden">
+    <div className="flex h-[calc(100vh-var(--header-height))] overflow-hidden">
       {/* 主要編輯區域 */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl px-6 py-8">
-          {/* Header */}
-          <div className="mb-8 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="shrink-0" asChild>
-                    <Link href="/posts">
-                      <ArrowLeft className="size-5" />
-                    </Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>返回貼文列表</TooltipContent>
-              </Tooltip>
+        <div className="mx-auto max-w-2xl px-6 py-6">
+          {/* Compact Header */}
+          <div className="mb-6 flex items-center gap-4">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="shrink-0" asChild>
+                  <Link href="/posts">
+                    <ArrowLeft className="size-5" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>返回貼文列表</TooltipContent>
+            </Tooltip>
 
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">建立貼文</h1>
-                <p className="text-sm text-muted-foreground">
-                  撰寫內容並選擇發布時間
-                </p>
-              </div>
+            <div className="flex-1">
+              <h1 className="text-xl font-bold tracking-tight">建立貼文</h1>
             </div>
 
-            {/* 發布按鈕 */}
-            <Button
-              onClick={handlePublish}
-              disabled={!canPublish}
-              size="lg"
-              className={cn(
-                "gap-2 px-6 font-semibold transition-all",
-                canPublish
-                  ? "bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30"
-                  : ""
-              )}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {scheduledAt ? "排程中..." : "發布中..."}
-                </>
-              ) : scheduledAt ? (
-                <>
-                  <Clock className="size-4" />
-                  排程發布
-                </>
-              ) : (
-                <>
-                  <Send className="size-4" />
-                  立即發布
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* 當前帳號卡片 */}
-          <div className="mb-6">
-            {isLoadingAccount ? (
-              <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
-                <div className="size-12 animate-pulse rounded-full bg-muted" />
-                <div className="space-y-2">
-                  <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-                  <div className="h-3 w-16 animate-pulse rounded bg-muted" />
-                </div>
-              </div>
-            ) : !currentAccount ? (
-              <div className="rounded-xl border-2 border-dashed border-destructive/30 bg-destructive/5 p-4">
-                <p className="text-sm text-destructive">
-                  尚未選擇 Threads 帳號，請先在側邊欄選擇帳號
-                </p>
-              </div>
-            ) : (
-              <div className="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-sm">
-                <Avatar className="size-12 ring-2 ring-primary/20">
+            {/* 帳號顯示（inline） */}
+            {!isLoadingAccount && currentAccount && (
+              <div className="flex items-center gap-2 rounded-full bg-muted/50 px-3 py-1.5">
+                <Avatar className="size-6">
                   <AvatarImage src={currentAccount.profilePicUrl || undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                  <AvatarFallback className="text-xs">
                     {currentAccount.username.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <p className="font-semibold">@{currentAccount.username}</p>
-                  <p className="text-sm text-muted-foreground">發文帳號</p>
-                </div>
-                <Badge variant="secondary" className="ml-auto">
-                  <Check className="mr-1 size-3" />
-                  已連接
-                </Badge>
+                <span className="text-sm font-medium">@{currentAccount.username}</span>
               </div>
             )}
           </div>
 
-          {/* 編輯區域 */}
-          <div className="space-y-6 rounded-2xl border bg-card p-6 shadow-sm">
-            {/* 貼文內容 */}
-            <div className="space-y-2">
-              <div className="relative">
-                <Textarea
-                  id="text"
-                  placeholder="想說些什麼？"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  className={cn(
-                    "min-h-[160px] resize-none border-0 p-0 pb-8 text-base leading-relaxed transition-all",
-                    "focus-visible:ring-0 focus-visible:ring-offset-0",
-                    isOverLimit && "text-destructive"
-                  )}
-                  disabled={isLoading}
-                />
+          {/* 無帳號警告 */}
+          {!isLoadingAccount && !currentAccount && (
+            <div className="mb-6 rounded-xl border-2 border-dashed border-destructive/30 bg-destructive/5 p-4">
+              <p className="text-sm text-destructive">
+                尚未選擇 Threads 帳號，請先在側邊欄選擇帳號
+              </p>
+            </div>
+          )}
 
-                {/* 字數進度（文字框內右下角） */}
-                <div className="absolute bottom-0 right-0 flex items-center gap-1.5">
-                  <div className="relative size-5">
-                    <svg className="size-5 -rotate-90" viewBox="0 0 36 36">
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r="14"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        className="text-muted/30"
-                      />
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r="14"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeDasharray={`${charPercentage * 0.88} 88`}
-                        strokeLinecap="round"
-                        className={cn(
-                          "transition-all duration-300",
-                          isOverLimit
-                            ? "text-destructive"
-                            : charCount > TEXT_LIMIT * 0.8
-                            ? "text-warning"
-                            : "text-primary"
-                        )}
-                      />
-                    </svg>
-                  </div>
-                  <span
-                    className={cn(
-                      "text-xs tabular-nums",
-                      isOverLimit
-                        ? "text-destructive font-medium"
-                        : charCount > TEXT_LIMIT * 0.8
-                        ? "text-warning font-medium"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    剩餘 {TEXT_LIMIT - charCount}
-                  </span>
+          {/* ===== 區塊 1：內容區（核心）===== */}
+          <div className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
+            {/* 內容編輯 */}
+            <div className="relative">
+              <Textarea
+                ref={textareaRef}
+                placeholder="想說些什麼？"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className={cn(
+                  "min-h-[140px] resize-none border-0 p-0 text-base leading-relaxed",
+                  "focus-visible:ring-0 focus-visible:ring-offset-0",
+                  "placeholder:text-muted-foreground/60",
+                  isOverLimit && "text-destructive"
+                )}
+                disabled={isLoading || !currentAccount}
+              />
+
+              {/* 字數進度 */}
+              <div className="absolute bottom-0 right-0 flex items-center gap-1.5">
+                <div className="relative size-5">
+                  <svg className="size-5 -rotate-90" viewBox="0 0 36 36">
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      className="text-muted/30"
+                    />
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeDasharray={`${charPercentage * 0.88} 88`}
+                      strokeLinecap="round"
+                      className={cn(
+                        "transition-all duration-300",
+                        isOverLimit
+                          ? "text-destructive"
+                          : charCount > TEXT_LIMIT * 0.8
+                          ? "text-warning"
+                          : "text-primary"
+                      )}
+                    />
+                  </svg>
                 </div>
+                <span
+                  className={cn(
+                    "text-xs tabular-nums",
+                    isOverLimit
+                      ? "text-destructive font-medium"
+                      : charCount > TEXT_LIMIT * 0.8
+                      ? "text-warning font-medium"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  {TEXT_LIMIT - charCount}
+                </span>
               </div>
+            </div>
 
-              {/* 工具列：貼文類型 */}
-              <div className="border-t pt-3">
-                <MediaTypeSelector
-                  value={mediaType}
-                  onChange={handleMediaTypeChange}
-                  disabled={isLoading}
-                  compact
-                />
+            {/* 工具列 */}
+            <div className="flex items-center gap-2 border-t pt-3">
+              <MediaTypeSelector
+                value={mediaType}
+                onChange={handleMediaTypeChange}
+                disabled={isLoading || !currentAccount}
+                compact
+              />
+
+              {/* 快速標籤按鈕 */}
+              <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "h-8 gap-1.5",
+                      selectedTagIds.length > 0 && "text-primary"
+                    )}
+                    disabled={isLoading || isLoadingTags || !currentAccount}
+                  >
+                    <Tag className="size-4" />
+                    {selectedTagIds.length > 0 && (
+                      <span className="text-xs">{selectedTagIds.length}</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2" align="start">
+                  <div className="space-y-1">
+                    {accountTags.length === 0 ? (
+                      <div className="py-6 text-center">
+                        <Tag className="mx-auto mb-2 size-8 text-muted-foreground/50" />
+                        <p className="text-sm text-muted-foreground">尚無標籤</p>
+                        <Button variant="link" size="sm" asChild className="mt-1">
+                          <Link href="/tags">建立標籤</Link>
+                        </Button>
+                      </div>
+                    ) : (
+                      accountTags.map((tag) => (
+                        <button
+                          key={tag.id}
+                          className={cn(
+                            "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                            "hover:bg-accent",
+                            selectedTagIds.includes(tag.id) && "bg-accent"
+                          )}
+                          onClick={() => handleToggleTag(tag.id)}
+                        >
+                          <div
+                            className="size-3.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          <span className="flex-1 truncate text-left font-medium">
+                            {tag.name}
+                          </span>
+                          {selectedTagIds.includes(tag.id) && (
+                            <Check className="size-4 text-primary" />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* 主題標籤快捷 */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn("h-8", topicTag && "text-primary")}
+                    onClick={() => {
+                      setIsSettingsOpen(true);
+                      // Focus topic input after expanding
+                      setTimeout(() => {
+                        document.getElementById("topic-tag")?.focus();
+                      }, 100);
+                    }}
+                    disabled={isLoading || !currentAccount}
+                  >
+                    <Hash className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>主題標籤</TooltipContent>
+              </Tooltip>
+
+              {/* 連結快捷（僅文字貼文） */}
+              {mediaType === "TEXT" && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn("h-8", linkAttachment && "text-primary")}
+                      onClick={() => {
+                        setIsSettingsOpen(true);
+                        setTimeout(() => {
+                          document.getElementById("link-attachment")?.focus();
+                        }, 100);
+                      }}
+                      disabled={isLoading || !currentAccount}
+                    >
+                      <Link2 className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>連結預覽</TooltipContent>
+                </Tooltip>
+              )}
+
+              {/* 已選標籤預覽 */}
+              <div className="flex-1 flex items-center gap-1.5 overflow-hidden">
+                {selectedTags.slice(0, 3).map((tag) => (
+                  <Badge
+                    key={tag.id}
+                    variant="secondary"
+                    className="h-6 gap-1 px-2 text-xs"
+                    style={{
+                      backgroundColor: `${tag.color}15`,
+                      color: tag.color,
+                    }}
+                  >
+                    <span
+                      className="size-1.5 rounded-full"
+                      style={{ backgroundColor: tag.color }}
+                    />
+                    {tag.name}
+                  </Badge>
+                ))}
+                {selectedTags.length > 3 && (
+                  <span className="text-xs text-muted-foreground">
+                    +{selectedTags.length - 3}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -562,236 +614,281 @@ function ComposePageContent() {
               mediaType={mediaType}
               mediaUrls={mediaUrls}
               onMediaUrlsChange={setMediaUrls}
-              disabled={isLoading}
+              disabled={isLoading || !currentAccount}
             />
+          </div>
 
-            <Separator />
-
-            {/* 貼文標籤 */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-1.5 text-sm font-medium">
-                  <Tag className="size-3.5" />
-                  貼文標籤
-                  <span className="text-xs font-normal text-muted-foreground">
-                    （選填，用於分類與成效分析）
-                  </span>
-                </Label>
-                {selectedTagIds.length > 0 && (
-                  <span className="text-xs text-primary font-medium">
-                    已選 {selectedTagIds.length} 個
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 gap-2 border-dashed"
-                      disabled={isLoading || isLoadingTags}
-                    >
-                      <Tag className="size-3.5" />
-                      選擇標籤
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-2" align="start">
-                    <div className="space-y-1">
-                      {accountTags.length === 0 ? (
-                        <div className="py-6 text-center">
-                          <Tag className="mx-auto mb-2 size-8 text-muted-foreground/50" />
-                          <p className="text-sm text-muted-foreground">尚無標籤</p>
-                          <Button variant="link" size="sm" asChild className="mt-1">
-                            <Link href="/tags">建立標籤</Link>
-                          </Button>
+          {/* ===== 區塊 2：進階設定（可收合）===== */}
+          <Collapsible open={isSettingsOpen} onOpenChange={setIsSettingsOpen} className="mt-4">
+            <CollapsibleTrigger asChild>
+              <button className="group flex w-full items-center justify-between rounded-xl border bg-card px-5 py-3 text-sm font-medium transition-all duration-200 hover:bg-accent/50 hover:shadow-sm">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="size-4 text-muted-foreground transition-transform duration-200 group-hover:rotate-45" />
+                  進階設定
+                  {settingsCount > 0 && (
+                    <Badge variant="secondary" className="h-5 px-1.5 text-xs animate-in fade-in duration-200">
+                      {settingsCount}
+                    </Badge>
+                  )}
+                </div>
+                <ChevronDown className={cn(
+                  "size-4 text-muted-foreground transition-transform duration-200",
+                  isSettingsOpen && "rotate-180"
+                )} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 space-y-4 rounded-xl border bg-card p-5">
+                {/* 貼文標籤 */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5 text-sm font-medium">
+                    <Tag className="size-3.5" />
+                    貼文標籤
+                    <span className="text-xs font-normal text-muted-foreground">
+                      （用於分類與成效分析）
+                    </span>
+                  </Label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* 選擇標籤按鈕 */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-2 border-dashed"
+                          disabled={isLoading || isLoadingTags || !currentAccount}
+                        >
+                          <Tag className="size-3.5" />
+                          選擇標籤
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-2" align="start">
+                        <div className="space-y-1">
+                          {accountTags.length === 0 ? (
+                            <div className="py-6 text-center">
+                              <Tag className="mx-auto mb-2 size-8 text-muted-foreground/50" />
+                              <p className="text-sm text-muted-foreground">尚無標籤</p>
+                              <Button variant="link" size="sm" asChild className="mt-1">
+                                <Link href="/tags">建立標籤</Link>
+                              </Button>
+                            </div>
+                          ) : (
+                            accountTags.map((tag) => (
+                              <button
+                                key={tag.id}
+                                className={cn(
+                                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                                  "hover:bg-accent",
+                                  selectedTagIds.includes(tag.id) && "bg-accent"
+                                )}
+                                onClick={() => handleToggleTag(tag.id)}
+                              >
+                                <div
+                                  className="size-3.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
+                                  style={{ backgroundColor: tag.color }}
+                                />
+                                <span className="flex-1 truncate text-left font-medium">
+                                  {tag.name}
+                                </span>
+                                {selectedTagIds.includes(tag.id) && (
+                                  <Check className="size-4 text-primary" />
+                                )}
+                              </button>
+                            ))
+                          )}
                         </div>
-                      ) : (
-                        accountTags.map((tag) => (
-                          <button
-                            key={tag.id}
-                            className={cn(
-                              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
-                              "hover:bg-accent",
-                              selectedTagIds.includes(tag.id) && "bg-accent"
-                            )}
-                            onClick={() => handleToggleTag(tag.id)}
-                          >
-                            <div
-                              className="size-3.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
-                              style={{ backgroundColor: tag.color }}
-                            />
-                            <span className="flex-1 truncate text-left font-medium">
-                              {tag.name}
-                            </span>
-                            {selectedTagIds.includes(tag.id) && (
-                              <Check className="size-4 text-primary" />
-                            )}
-                          </button>
-                        ))
+                      </PopoverContent>
+                    </Popover>
+
+                    {/* 已選標籤 */}
+                    {selectedTags.map((tag) => (
+                      <Badge
+                        key={tag.id}
+                        variant="secondary"
+                        className="h-8 gap-1.5 pl-2.5 pr-2 font-medium"
+                        style={{
+                          backgroundColor: `${tag.color}15`,
+                          color: tag.color,
+                          borderColor: `${tag.color}30`,
+                        }}
+                      >
+                        <span
+                          className="size-2 rounded-full"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        {tag.name}
+                        <button
+                          onClick={() => handleToggleTag(tag.id)}
+                          className="ml-1 rounded-full p-0.5 hover:bg-black/10 transition-colors"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 主題標籤 */}
+                <div className="space-y-2">
+                  <Label htmlFor="topic-tag" className="flex items-center gap-1.5 text-sm font-medium">
+                    <Hash className="size-3.5" />
+                    主題標籤
+                    <span className="text-xs font-normal text-muted-foreground">
+                      （Threads 原生標籤，按 Enter 確認）
+                    </span>
+                  </Label>
+
+                  {/* 已確認的主題標籤顯示為 Badge，否則顯示輸入框 */}
+                  {topicTag && !isEditingTopicTag ? (
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        className="h-8 gap-1.5 pl-2.5 pr-2 font-medium bg-primary/10 text-primary border-primary/20"
+                      >
+                        <Hash className="size-3" />
+                        {topicTag}
+                        <button
+                          onClick={() => {
+                            setTopicTag("");
+                            setTopicTagInput("");
+                          }}
+                          className="ml-1 rounded-full p-0.5 hover:bg-primary/20 transition-colors"
+                          disabled={isLoading || !currentAccount}
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-muted-foreground"
+                        onClick={() => {
+                          setTopicTagInput(topicTag);
+                          setIsEditingTopicTag(true);
+                          setTimeout(() => document.getElementById("topic-tag")?.focus(), 50);
+                        }}
+                        disabled={isLoading || !currentAccount}
+                      >
+                        變更
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                        <span className="text-muted-foreground">#</span>
+                      </div>
+                      <Input
+                        id="topic-tag"
+                        placeholder="輸入主題標籤後按 Enter"
+                        value={topicTagInput}
+                        onChange={(e) => setTopicTagInput(e.target.value.replace(/^#/, ""))}
+                        onCompositionStart={() => { isComposingRef.current = true; }}
+                        onCompositionEnd={() => { isComposingRef.current = false; }}
+                        onKeyDown={(e) => {
+                          // 只在非 IME 組合狀態時處理 Enter
+                          if (e.key === "Enter" && !isComposingRef.current) {
+                            e.preventDefault();
+                            if (topicTagInput.trim()) {
+                              setTopicTag(topicTagInput.trim());
+                              setIsEditingTopicTag(false);
+                            }
+                          }
+                          // ESC 取消編輯
+                          if (e.key === "Escape") {
+                            setTopicTagInput(topicTag);
+                            setIsEditingTopicTag(false);
+                          }
+                        }}
+                        onBlur={() => {
+                          // 失去焦點時，如果有輸入值則確認
+                          if (topicTagInput.trim()) {
+                            setTopicTag(topicTagInput.trim());
+                          }
+                          setIsEditingTopicTag(false);
+                        }}
+                        maxLength={TOPIC_TAG_LIMIT}
+                        className="pl-7"
+                        disabled={isLoading || !currentAccount}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* 連結預覽（僅文字貼文） */}
+                {mediaType === "TEXT" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="link-attachment" className="flex items-center gap-1.5 text-sm font-medium">
+                      <Link2 className="size-3.5" />
+                      連結預覽
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="link-attachment"
+                        placeholder="輸入要顯示預覽的連結 URL"
+                        value={linkAttachment}
+                        onChange={(e) => setLinkAttachment(e.target.value)}
+                        disabled={isLoading || !currentAccount}
+                      />
+                      {linkAttachment && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 size-7"
+                          onClick={() => setLinkAttachment("")}
+                        >
+                          <X className="size-3.5" />
+                        </Button>
                       )}
                     </div>
-                  </PopoverContent>
-                </Popover>
-
-                {/* 已選標籤 */}
-                {selectedTags.map((tag) => (
-                  <Badge
-                    key={tag.id}
-                    variant="secondary"
-                    className="h-9 gap-1.5 pl-2.5 pr-2 font-medium"
-                    style={{
-                      backgroundColor: `${tag.color}15`,
-                      color: tag.color,
-                      borderColor: `${tag.color}30`,
-                    }}
-                  >
-                    <span
-                      className="size-2 rounded-full"
-                      style={{ backgroundColor: tag.color }}
-                    />
-                    {tag.name}
-                    <button
-                      onClick={() => handleToggleTag(tag.id)}
-                      className="ml-1 rounded-full p-0.5 hover:bg-black/10 transition-colors"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </Badge>
-                ))}
-
-                {/* 選擇標籤後的提示 */}
-                {selectedTagIds.length > 0 && !isInsightsPanelCollapsed && (
-                  <div className="flex items-center gap-1.5 text-xs text-primary">
-                    <Sparkles className="size-3" />
-                    <span>查看右側面板的成效參考</span>
-                    <ChevronRight className="size-3" />
+                    <p className="text-xs text-muted-foreground">
+                      若不指定，將使用貼文內容中的第一個連結
+                    </p>
                   </div>
                 )}
               </div>
-            </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-            <Separator />
-
-            {/* 主題標籤 */}
-            <div className="space-y-3">
-              <Label htmlFor="topic-tag" className="flex items-center gap-1.5 text-sm font-medium">
-                <Hash className="size-3.5" />
-                主題標籤
-                <span className="text-xs font-normal text-muted-foreground">
-                  （選填，Threads 原生標籤）
-                </span>
-              </Label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <span className="text-muted-foreground">#</span>
-                </div>
-                <Input
-                  id="topic-tag"
-                  placeholder="輸入主題標籤"
-                  value={topicTag}
-                  onChange={(e) => setTopicTag(e.target.value.replace(/^#/, ""))}
-                  maxLength={TOPIC_TAG_LIMIT}
-                  className="pl-7"
-                  disabled={isLoading}
-                />
-                {topicTag && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 size-7"
-                    onClick={() => setTopicTag("")}
-                  >
-                    <X className="size-3.5" />
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* 連結附加（僅文字貼文） */}
-            {mediaType === "TEXT" && (
-              <div className="space-y-3">
-                <Label htmlFor="link-attachment" className="flex items-center gap-1.5 text-sm font-medium">
-                  <Link2 className="size-3.5" />
-                  連結預覽
-                  <span className="text-xs font-normal text-muted-foreground">
-                    （選填）
-                  </span>
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="link-attachment"
-                    placeholder="輸入要顯示預覽的連結 URL"
-                    value={linkAttachment}
-                    onChange={(e) => setLinkAttachment(e.target.value)}
-                    disabled={isLoading}
-                  />
-                  {linkAttachment && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 size-7"
-                      onClick={() => setLinkAttachment("")}
-                    >
-                      <X className="size-3.5" />
-                    </Button>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  若不指定，將使用貼文內容中的第一個連結
-                </p>
-              </div>
-            )}
-
-            <Separator />
-
-            {/* 排程 */}
-            <ComposeScheduler
+          {/* ===== 區塊 3：發布區（排程時間軸）===== */}
+          <div className="mt-4 rounded-2xl border bg-card p-5 shadow-sm">
+            <ScheduleTimeline
+              accountId={currentAccount?.id || null}
               scheduledAt={scheduledAt}
               onScheduledAtChange={setScheduledAt}
-              disabled={isLoading}
+              suggestedHour={suggestedHour}
+              disabled={isLoading || !currentAccount}
             />
 
-            {/* 目標日期排程狀態 */}
-            <div className="rounded-xl bg-muted/50 p-4">
-              <p className="mb-3 text-sm font-medium text-muted-foreground">
-                {scheduleDateLabel}排程
-                {scheduledPosts.length > 0 && `（${scheduledPosts.length} 篇）`}
-              </p>
-              {isLoadingScheduled ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                </div>
-              ) : scheduledPosts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-4 text-center">
-                  <Clock className="size-6 text-muted-foreground/40 mb-2" />
-                  <p className="text-xs text-muted-foreground">
-                    {scheduleDateLabel}尚無排程貼文
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {scheduledPosts.map((post) => (
-                    <div
-                      key={post.id}
-                      className="flex items-center gap-3 text-sm rounded-lg bg-background px-3 py-2"
-                    >
-                      <Clock className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="font-medium tabular-nums text-primary">
-                        {new Date(post.scheduled_at).toLocaleTimeString("zh-TW", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      <span className="truncate flex-1 text-muted-foreground">
-                        {post.text?.slice(0, 30) || "(無文字)"}
-                        {post.text && post.text.length > 30 ? "..." : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+            {/* 發布按鈕 */}
+            <div className="mt-5 pt-4 border-t">
+              <Button
+                onClick={handlePublish}
+                disabled={!canPublish}
+                size="lg"
+                className={cn(
+                  "w-full gap-2 font-semibold transition-all duration-300",
+                  canPublish
+                    ? "bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:scale-[1.01] active:scale-[0.99]"
+                    : "opacity-60"
+                )}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    {scheduledAt ? "排程中..." : "發布中..."}
+                  </>
+                ) : scheduledAt ? (
+                  <>
+                    <Clock className="size-4" />
+                    排程發布
+                  </>
+                ) : (
+                  <>
+                    <Send className="size-4" />
+                    立即發布
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </div>
@@ -801,8 +898,10 @@ function ComposePageContent() {
       <ComposeInsightsPanel
         selectedTagIds={selectedTagIds}
         accountTags={accountTags}
+        accountId={currentAccount?.id || null}
         isCollapsed={isInsightsPanelCollapsed}
         onToggleCollapse={() => setIsInsightsPanelCollapsed(!isInsightsPanelCollapsed)}
+        onSuggestedHourChange={(hour) => setSuggestedHour(hour ?? 20)}
       />
 
       {/* 帳號切換確認對話框 */}
@@ -838,7 +937,7 @@ export default function ComposePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-[calc(100vh-48px)] items-center justify-center">
+        <div className="flex h-[calc(100vh-var(--header-height))] items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="size-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">載入中...</p>
