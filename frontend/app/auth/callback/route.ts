@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -7,10 +8,19 @@ export async function GET(request: Request) {
   const userAgent = request.headers.get("user-agent") || "unknown";
   const isSafari = userAgent.includes("Safari") && !userAgent.includes("Chrome");
 
+  // 偵錯：列出所有收到的 cookies
+  const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+  const cookieNames = allCookies.map(c => c.name);
+  const hasCodeVerifier = cookieNames.some(name => name.includes("code-verifier"));
+
   console.log("[OAuth Callback] Request:", {
     hasCode: !!code,
     codeLength: code?.length,
     isSafari,
+    cookieCount: allCookies.length,
+    cookieNames,
+    hasCodeVerifier,
     userAgent: userAgent.substring(0, 100),
   });
 
