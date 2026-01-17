@@ -58,29 +58,25 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // 公開頁面清單
-  const publicPages = [
-    "/",
-    "/login_2026Q1",
-    "/terms",
-    "/privacy",
-    "/data-deletion",
+  // 需要登入才能存取的路由（受保護的 app 路由）
+  const protectedPrefixes = [
+    "/dashboard",
+    "/settings",
+    "/posts",
+    "/insights",
+    "/reports",
+    "/scheduled",
+    "/tags",
+    "/admin",
   ];
 
-  const isPublicPage = publicPages.includes(pathname) || pathname.startsWith("/#");
-  const isAuthCallback = pathname.startsWith("/auth/callback");
-  const isPublicApiRoute = pathname.startsWith("/api/turnstile") ||
-                           pathname.startsWith("/api/waitlist") ||
-                           pathname.startsWith("/api/invitation");
-  const isStaticFile = pathname.startsWith("/_next") ||
-                       pathname === "/robots.txt" ||
-                       pathname === "/sitemap.xml" ||
-                       pathname === "/favicon.ico";
-  const isPublicPath = isPublicPage || isAuthCallback || isPublicApiRoute || isStaticFile;
+  const isProtectedRoute = protectedPrefixes.some(prefix =>
+    pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
   const isLoginPage = pathname === "/login_2026Q1";
 
-  // 未登入且不在公開頁面 → 導向登入頁
-  if (!user && !isPublicPath) {
+  // 未登入且在受保護路由 → 導向登入頁
+  if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login_2026Q1";
     return NextResponse.redirect(url);
