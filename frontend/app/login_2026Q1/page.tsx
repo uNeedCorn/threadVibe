@@ -2,6 +2,7 @@
 
 import { useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { LoginForm } from "./login-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -29,25 +30,13 @@ function LoginPageContent() {
         {/* Logo & Branding */}
         <div className="text-center space-y-2">
           <div className="flex justify-center">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="size-6"
-              >
-                <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5" />
-                <path d="M8.5 8.5v.01" />
-                <path d="M16 15.5v.01" />
-                <path d="M12 12v.01" />
-                <path d="M11 17v.01" />
-                <path d="M7 14v.01" />
-              </svg>
-            </div>
+            <Image
+              src="/logo-icon.png"
+              alt="Postlyzer"
+              width={48}
+              height={48}
+              className="rounded-xl"
+            />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Postlyzer</h1>
           <p className="text-muted-foreground">
