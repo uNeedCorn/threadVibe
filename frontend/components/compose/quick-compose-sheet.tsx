@@ -1053,7 +1053,14 @@ export function QuickComposeSheet({ open, onOpenChange }: QuickComposeSheetProps
                 ) : (
                   <>
                     <Clock className="size-4 mr-1.5" />
-                    排程發布
+                    {(() => {
+                      const scheduledAt = getScheduledAt();
+                      if (scheduledAt) {
+                        const date = new Date(scheduledAt);
+                        return `排程 ${date.toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" })} ${date.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}`;
+                      }
+                      return "排程發布";
+                    })()}
                   </>
                 )}
               </Button>

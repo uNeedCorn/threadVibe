@@ -35,10 +35,10 @@ const TIME_SLOTS = [0, 3, 6, 9, 12, 15, 18, 21];
 
 // 常用時間快捷選項
 const QUICK_TIMES = [
-  { hour: 9, label: "早上" },
-  { hour: 12, label: "中午" },
-  { hour: 18, label: "傍晚" },
-  { hour: 21, label: "晚上" },
+  { hour: 8, label: "早上" },
+  { hour: 11, label: "上午" },
+  { hour: 17, label: "傍晚" },
+  { hour: 20, label: "晚上" },
 ];
 
 export function ScheduleTimeline({
