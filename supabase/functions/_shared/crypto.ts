@@ -111,3 +111,22 @@ export async function decrypt(encrypted: string): Promise<string> {
 
   return new TextDecoder().decode(plaintext);
 }
+
+/**
+ * 常數時間字串比較
+ * 防止 Timing Attack，用於驗證 secret/token
+ *
+ * @param a 第一個字串
+ * @param b 第二個字串
+ * @returns 是否相等
+ */
+export function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}

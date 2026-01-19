@@ -11,6 +11,7 @@ import { handleCors } from '../_shared/cors.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse } from '../_shared/response.ts';
 import { GeminiClient } from '../_shared/gemini.ts';
+import { constantTimeEqual } from '../_shared/crypto.ts';
 
 const BATCH_SIZE = 10;
 const CRON_SECRET = Deno.env.get('CRON_SECRET');
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
 
-    if (!CRON_SECRET || token !== CRON_SECRET) {
+    if (!CRON_SECRET || !token || !constantTimeEqual(token, CRON_SECRET)) {
       return unauthorizedResponse(req, 'Invalid cron secret');
     }
 

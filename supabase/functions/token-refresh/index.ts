@@ -9,7 +9,7 @@
 
 import { handleCors } from '../_shared/cors.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
-import { encrypt, decrypt } from '../_shared/crypto.ts';
+import { encrypt, decrypt, constantTimeEqual } from '../_shared/crypto.ts';
 import { ThreadsApiClient } from '../_shared/threads-api.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse } from '../_shared/response.ts';
 import { acquireJobLock, releaseJobLock } from '../_shared/job-lock.ts';
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
 
-    if (!CRON_SECRET || token !== CRON_SECRET) {
+    if (!CRON_SECRET || !token || !constantTimeEqual(token, CRON_SECRET)) {
       return unauthorizedResponse(req, 'Invalid cron secret');
     }
 

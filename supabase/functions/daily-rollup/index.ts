@@ -12,6 +12,7 @@
 import { createServiceClient } from '../_shared/supabase.ts';
 import { handleCors } from '../_shared/cors.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse } from '../_shared/response.ts';
+import { constantTimeEqual } from '../_shared/crypto.ts';
 import { calculateRates } from '../_shared/metrics.ts';
 import {
   DiffRecord,
@@ -46,7 +47,7 @@ Deno.serve(async (req) => {
   // 驗證 CRON_SECRET
   const authHeader = req.headers.get('Authorization');
   const token = authHeader?.replace('Bearer ', '');
-  if (!CRON_SECRET || token !== CRON_SECRET) {
+  if (!CRON_SECRET || !token || !constantTimeEqual(token, CRON_SECRET)) {
     return unauthorizedResponse(req, 'Invalid cron secret');
   }
 

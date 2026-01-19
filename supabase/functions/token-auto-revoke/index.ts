@@ -13,6 +13,7 @@ import { handleCors } from '../_shared/cors.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse } from '../_shared/response.ts';
 import { acquireJobLock, releaseJobLock } from '../_shared/job-lock.ts';
+import { constantTimeEqual } from '../_shared/crypto.ts';
 
 const CRON_SECRET = Deno.env.get('CRON_SECRET');
 const JOB_LOCK_TTL_SECONDS = 10 * 60;
@@ -37,7 +38,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
 
-    if (!CRON_SECRET || token !== CRON_SECRET) {
+    if (!CRON_SECRET || !token || !constantTimeEqual(token, CRON_SECRET)) {
       return unauthorizedResponse(req, 'Invalid cron secret');
     }
 
