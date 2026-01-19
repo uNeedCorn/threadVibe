@@ -18,7 +18,7 @@ import { getAuthenticatedUser, validateWorkspaceMembership } from '../_shared/au
 import { isUuid } from '../_shared/validation.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse, forbiddenResponse } from '../_shared/response.ts';
 
-const AUTO_REVOKE_DAYS = 7;
+const AUTO_REVOKE_DAYS = 1; // 24 小時後自動撤銷（SEC-M20 安全修正）
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);

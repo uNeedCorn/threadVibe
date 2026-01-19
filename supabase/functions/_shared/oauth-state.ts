@@ -5,8 +5,8 @@
 
 const OAUTH_STATE_SECRET = Deno.env.get('OAUTH_STATE_SECRET');
 
-// State 有效期（5 分鐘）
-const STATE_EXPIRY_MS = 5 * 60 * 1000;
+// State 有效期（10 分鐘，考慮網路延遲）
+const STATE_EXPIRY_MS = 10 * 60 * 1000;
 
 export interface StatePayload {
   workspaceId: string;

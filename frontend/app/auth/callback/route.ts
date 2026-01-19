@@ -7,9 +7,17 @@ export async function GET(request: Request) {
 
   // 驗證 next 參數為站內路徑，防止 Open Redirect 攻擊
   const rawNext = searchParams.get("next") ?? "/dashboard";
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("://")
-    ? rawNext
-    : "/dashboard";
+  let next = "/dashboard";
+  try {
+    // 使用 URL 解析器驗證，確保是同源相對路徑
+    const testUrl = new URL(rawNext, origin);
+    if (testUrl.origin === origin && testUrl.pathname.startsWith("/")) {
+      next = testUrl.pathname + testUrl.search + testUrl.hash;
+    }
+  } catch {
+    // URL 解析失敗，使用預設值
+    next = "/dashboard";
+  }
 
   if (code) {
     const supabase = await createClient();
