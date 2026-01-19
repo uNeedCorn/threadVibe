@@ -26,7 +26,7 @@ interface ScheduleTimelineProps {
   accountId: string | null;
   scheduledAt: string | null;
   onScheduledAtChange: (value: string | null) => void;
-  suggestedHour?: number;
+  suggestedHour?: number | null; // null = 無建議（未選擇標籤）
   disabled?: boolean;
 }
 
@@ -45,7 +45,7 @@ export function ScheduleTimeline({
   accountId,
   scheduledAt,
   onScheduledAtChange,
-  suggestedHour = 20,
+  suggestedHour = null,
   disabled,
 }: ScheduleTimelineProps) {
   // 發布模式：now | schedule
@@ -189,8 +189,8 @@ export function ScheduleTimeline({
     setMode(newMode);
     if (newMode === "now") {
       onScheduledAtChange(null);
-    } else if (!scheduledAt) {
-      // 預設選擇建議時間
+    } else if (!scheduledAt && suggestedHour !== null) {
+      // 有建議時間時自動選擇
       selectTime(suggestedHour);
     }
   };

@@ -130,7 +130,7 @@ function ComposePageContent() {
   const [scheduledAt, setScheduledAt] = useState<string | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
-  const [suggestedHour, setSuggestedHour] = useState<number>(20); // 預設 20:00
+  const [suggestedHour, setSuggestedHour] = useState<number | null>(null); // 由決策面板根據標籤計算
 
   // 帳號標籤
   const { tags: accountTags, isLoading: isLoadingTags } = useAccountTags();
@@ -901,7 +901,7 @@ function ComposePageContent() {
         accountId={currentAccount?.id || null}
         isCollapsed={isInsightsPanelCollapsed}
         onToggleCollapse={() => setIsInsightsPanelCollapsed(!isInsightsPanelCollapsed)}
-        onSuggestedHourChange={(hour) => setSuggestedHour(hour ?? 20)}
+        onSuggestedHourChange={setSuggestedHour}
       />
 
       {/* 帳號切換確認對話框 */}
