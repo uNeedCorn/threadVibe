@@ -880,7 +880,7 @@ function ComposePageContent() {
                 ) : scheduledAt ? (
                   <>
                     <Clock className="size-4" />
-                    排程發布
+                    {`排程 ${new Date(scheduledAt).toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" })} ${new Date(scheduledAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}`}
                   </>
                 ) : (
                   <>
