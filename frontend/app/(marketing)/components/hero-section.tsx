@@ -44,6 +44,7 @@ export function HeroSection() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4">
             <WaitlistModal
+              location="hero"
               trigger={
                 <Button size="lg" className="text-base px-8">
                   申請試用

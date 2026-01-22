@@ -50,6 +50,7 @@ export function Navbar() {
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
             <WaitlistModal
+              location="navbar"
               trigger={<Button>申請試用</Button>}
               buttonSize="default"
             />
@@ -84,6 +85,7 @@ export function Navbar() {
               ))}
               <div className="flex flex-col gap-2 pt-4 border-t">
                 <WaitlistModal
+                  location="navbar"
                   trigger={<Button className="w-full">申請試用</Button>}
                   buttonSize="default"
                 />

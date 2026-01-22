@@ -21,12 +21,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, CheckCircle2, ArrowRight } from "lucide-react";
+import { AnalyticsEvents } from "../lib/analytics";
+
+export type WaitlistModalLocation = "hero" | "cta" | "navbar";
 
 interface WaitlistModalProps {
   trigger?: React.ReactNode;
   buttonVariant?: "default" | "outline";
   buttonSize?: "default" | "lg";
   buttonClassName?: string;
+  location?: WaitlistModalLocation;
 }
 
 type SubmitStatus = "idle" | "submitting" | "success" | "already_exists" | "error";
@@ -67,6 +71,7 @@ export function WaitlistModal({
   buttonVariant = "default",
   buttonSize = "lg",
   buttonClassName = "",
+  location = "hero",
 }: WaitlistModalProps) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<SubmitStatus>("idle");
@@ -136,9 +141,13 @@ export function WaitlistModal({
 
       if (data.alreadyExists) {
         setStatus("already_exists");
+        AnalyticsEvents.submitWaitlistSuccess(false);
       } else {
         setStatus("success");
+        AnalyticsEvents.submitWaitlistSuccess(true);
       }
+      // 追蹤提交事件（包含用戶類型）
+      AnalyticsEvents.submitWaitlist(userType);
     } catch {
       setErrorMessage("網路錯誤，請稍後再試");
       setStatus("error");
@@ -147,7 +156,10 @@ export function WaitlistModal({
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
-    if (!newOpen) {
+    if (newOpen) {
+      // 開啟時追蹤事件
+      AnalyticsEvents.openWaitlistModal(location);
+    } else {
       // 關閉時重置表單（但保留成功狀態讓使用者看到）
       if (status !== "success" && status !== "already_exists") {
         setStatus("idle");

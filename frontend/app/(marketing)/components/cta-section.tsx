@@ -15,6 +15,7 @@ export function CtaSection() {
           </p>
           <div className="flex justify-center">
             <WaitlistModal
+              location="cta"
               trigger={
                 <Button size="lg" className="text-base px-8">
                   申請試用
