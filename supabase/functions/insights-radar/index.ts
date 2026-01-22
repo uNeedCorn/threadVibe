@@ -120,8 +120,27 @@ interface RadarResponse {
 
 // ============ Helper Functions ============
 
-function getViralityLevel(score: number): ViralityLevel {
-  if (score >= 10) return 'viral';
+/**
+ * 判斷傳播力等級
+ *
+ * 「爆紅中」需要同時滿足：
+ * 1. viralityScore >= 10（傳播力達標）
+ * 2. diffusionStatus === 'accelerating'（正在擴散中）
+ *
+ * 如果傳播力高但已停止擴散，則降級為「表現優異」
+ */
+function getViralityLevel(
+  score: number,
+  diffusionStatus: DiffusionStatus | null
+): ViralityLevel {
+  if (score >= 10) {
+    // 只有在正在擴散時才標記為「爆紅中」
+    if (diffusionStatus === 'accelerating') {
+      return 'viral';
+    }
+    // 傳播力高但已停止擴散，降級為「表現優異」
+    return 'excellent';
+  }
   if (score >= 5) return 'excellent';
   if (score >= 2) return 'good';
   return 'normal';
@@ -582,7 +601,6 @@ Deno.serve(async (req) => {
 
       // 使用共用模組計算指標
       const rates = calculateRates({ views, likes, replies, reposts, quotes, shares });
-      const viralityLevel = getViralityLevel(rates.viralityScore);
       const timeStatus = getTimeStatus(ageMinutes);
       const trend = trendByPost[post.id] || [];
 
@@ -591,6 +609,9 @@ Deno.serve(async (req) => {
       const heatmap = calculateHeatmapMetrics(trend, publishedAt);
       // 使用 DB 預計算的 R̂_t（由 r-hat-calculator 計算）
       const diffusion = getDiffusionMetrics(post.current_r_hat, post.current_r_hat_status);
+
+      // 傳播力等級（結合擴散動態判斷「爆紅中」）
+      const viralityLevel = getViralityLevel(rates.viralityScore, diffusion?.status ?? null);
 
       return {
         id: post.id,
