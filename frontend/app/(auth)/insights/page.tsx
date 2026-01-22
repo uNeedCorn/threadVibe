@@ -344,7 +344,10 @@ function ThrottleRiskCard({
           </span>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          閾值 250x | {formatNumber(throttleRisk.threeDayTotalViews)} 次曝光
+          {formatNumber(throttleRisk.threeDayTotalViews)} 次曝光
+        </p>
+        <p className="text-[10px] text-muted-foreground/60 mt-2">
+          * 預估值，可能隨 Threads 演算法調整
         </p>
       </CardContent>
     </Card>

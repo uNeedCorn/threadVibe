@@ -443,9 +443,12 @@ function ThrottleQuotaCard({
         <div className={cn("text-sm font-medium", config.color)}>
           狀態：{config.label}
           <span className="font-normal text-muted-foreground ml-2">
-            (粉絲 {formatNumber(throttleRisk.followersCount)} | 閾值 250x)
+            (粉絲 {formatNumber(throttleRisk.followersCount)})
           </span>
         </div>
+        <p className="text-[10px] text-muted-foreground/60 mt-2">
+          * 預估值，可能隨 Threads 演算法調整
+        </p>
       </CardContent>
     </Card>
   );
