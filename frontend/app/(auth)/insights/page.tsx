@@ -259,6 +259,98 @@ function AccountProfileCard({
   );
 }
 
+// 配額等級配置
+const QUOTA_LEVEL_CONFIG = {
+  healthy: {
+    label: "充裕",
+    description: "配額充裕，可正常發文",
+    color: "text-green-600 dark:text-green-400",
+    bgColor: "bg-green-500",
+  },
+  caution: {
+    label: "謹慎",
+    description: "配額偏高，建議減少發文頻率",
+    color: "text-yellow-600 dark:text-yellow-400",
+    bgColor: "bg-yellow-500",
+  },
+  exhausted: {
+    label: "耗盡",
+    description: "配額耗盡，建議冷卻 2-3 天",
+    color: "text-red-600 dark:text-red-400",
+    bgColor: "bg-red-500",
+  },
+};
+
+function ThrottleRiskCard({
+  throttleRisk,
+  isLoading,
+}: {
+  throttleRisk: {
+    followersCount: number;
+    threeDayTotalViews: number;
+    cumulativeMultiple: number;
+    quotaPercentage: number;
+    quotaLevel: "healthy" | "caution" | "exhausted";
+  } | null;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <Skeleton className="h-4 w-24 mb-3" />
+          <Skeleton className="h-2 w-full mb-2" />
+          <Skeleton className="h-8 w-32" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!throttleRisk || throttleRisk.followersCount === 0) {
+    return (
+      <Card>
+        <CardContent className="flex h-full flex-col justify-center p-6">
+          <p className="text-sm text-muted-foreground">限流風險</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            需要粉絲數才能計算
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const config = QUOTA_LEVEL_CONFIG[throttleRisk.quotaLevel];
+  const percentage = Math.min(throttleRisk.quotaPercentage, 100);
+
+  return (
+    <Card>
+      <CardContent className="flex h-full flex-col justify-center p-6">
+        <p className="text-sm text-muted-foreground">3 天曝光配額</p>
+        {/* 進度條 */}
+        <div className="mt-2 mb-1">
+          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn("h-full rounded-full transition-all", config.bgColor)}
+              style={{ width: `${percentage}%` }}
+            />
+          </div>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl font-bold font-mono">
+            {throttleRisk.cumulativeMultiple.toFixed(0)}x
+          </span>
+          <span className={cn("text-sm font-medium", config.color)}>
+            {config.label}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          閾值 250x | {formatNumber(throttleRisk.threeDayTotalViews)} 次曝光
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function PostCountChart({
   data,
   isLoading,
@@ -769,6 +861,13 @@ export default function InsightsOverviewPage() {
   const [tagViewsData, setTagViewsData] = useState<TagViewsDataPoint[]>([]);
   const [heatmapData, setHeatmapData] = useState<HeatmapCell[]>([]);
   const [trendData, setTrendData] = useState<TrendDataPoint[]>([]);
+  const [throttleRisk, setThrottleRisk] = useState<{
+    followersCount: number;
+    threeDayTotalViews: number;
+    cumulativeMultiple: number;
+    quotaPercentage: number;
+    quotaLevel: "healthy" | "caution" | "exhausted";
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasNoAccounts, setHasNoAccounts] = useState(false);
 
@@ -861,8 +960,11 @@ export default function InsightsOverviewPage() {
           postTextMap[p.id] = text.length > 20 ? text.slice(0, 20) + "..." : text;
         });
 
+        // 3 天前的時間點（用於限流風險計算）
+        const days3Ago = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+
         // 並行查詢
-        const [accountRes, currentPostsRes, previousPostsRes, insightsRes, allPostsRes, hourlyMetricsRes, dailyMetricsRes] = await Promise.all([
+        const [accountRes, currentPostsRes, previousPostsRes, insightsRes, allPostsRes, hourlyMetricsRes, dailyMetricsRes, threeDayPostsRes] = await Promise.all([
           // 帳號資料
           supabase
             .from("workspace_threads_accounts")
@@ -917,6 +1019,14 @@ export default function InsightsOverviewPage() {
                 .order("bucket_date", { ascending: true })
                 .limit(10000)
             : Promise.resolve({ data: [] }),
+          // 3 天內貼文（用於限流風險計算）
+          supabase
+            .from("workspace_threads_posts")
+            .select("current_views")
+            .eq("workspace_threads_account_id", selectedAccountId)
+            .eq("is_reply", false)
+            .neq("media_type", "REPOST_FACADE")
+            .gte("published_at", days3Ago.toISOString()),
         ]);
 
         const account = accountRes.data;
@@ -926,6 +1036,7 @@ export default function InsightsOverviewPage() {
         const previousInsight = insightsRes.data?.[0];
         const hourlyMetrics = hourlyMetricsRes.data || [];
         const dailyMetrics = dailyMetricsRes.data || [];
+        const threeDayPosts = threeDayPostsRes.data || [];
 
         // 計算成長率
         const calcGrowth = (current: number, previous: number) => {
@@ -943,6 +1054,28 @@ export default function InsightsOverviewPage() {
             profilePicUrl: account.profile_pic_url,
             currentFollowers: account.current_followers_count || 0,
             followersGrowth: calcGrowth(account.current_followers_count || 0, prevFollowers),
+          });
+
+          // 計算限流風險
+          const followersCount = account.current_followers_count || 0;
+          const threeDayTotalViews = threeDayPosts.reduce(
+            (sum, p) => sum + (p.current_views || 0),
+            0
+          );
+          const cumulativeMultiple = followersCount > 0
+            ? Math.round((threeDayTotalViews / followersCount) * 10) / 10
+            : 0;
+          const quotaPercentage = Math.round((cumulativeMultiple / 250) * 100);
+          const quotaLevel: "healthy" | "caution" | "exhausted" =
+            cumulativeMultiple >= 250 ? "exhausted" :
+            cumulativeMultiple >= 150 ? "caution" : "healthy";
+
+          setThrottleRisk({
+            followersCount,
+            threeDayTotalViews,
+            cumulativeMultiple,
+            quotaPercentage,
+            quotaLevel,
           });
         }
 
@@ -1381,8 +1514,8 @@ export default function InsightsOverviewPage() {
       {/* 主要內容 */}
       {!hasNoAccounts && (
         <>
-          {/* 帳號資訊 + 本週貼文數 + 發文時間表 (1:1:2) */}
-          <div className="grid gap-4 lg:grid-cols-4">
+          {/* 帳號資訊 + 本週貼文數 + 限流風險 + 發文時間表 (1:1:1:2) */}
+          <div className="grid gap-4 lg:grid-cols-5">
             <AccountProfileCard
               account={accountData}
               isLoading={isLoading}
@@ -1420,6 +1553,10 @@ export default function InsightsOverviewPage() {
                 )}
               </CardContent>
             </Card>
+            <ThrottleRiskCard
+              throttleRisk={throttleRisk}
+              isLoading={isLoading}
+            />
             <div className="lg:col-span-2">
               <PostingHeatmap
                 data={heatmapData}

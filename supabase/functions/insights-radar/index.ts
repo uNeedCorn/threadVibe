@@ -24,6 +24,10 @@ type ViralityLevel = 'viral' | 'excellent' | 'good' | 'normal';
 type HeatType = 'early' | 'slow' | 'steady';
 type DiffusionStatus = 'accelerating' | 'stable' | 'decelerating';
 
+// 限流風險等級
+type ReachRiskLevel = 'safe' | 'warning' | 'danger';
+type QuotaLevel = 'healthy' | 'caution' | 'exhausted';
+
 interface TrendPoint {
   timestamp: number;
   views: number;
@@ -94,6 +98,9 @@ interface RadarPost {
   ignition: IgnitionMetrics | null;
   heatmap: HeatmapMetrics | null;
   diffusion: DiffusionMetrics | null;
+  // 限流風險指標
+  reachMultiple: number;              // 觸及倍數 = views / followers
+  reachRiskLevel: ReachRiskLevel;     // 風險等級
 }
 
 interface RadarSummary {
@@ -111,10 +118,20 @@ interface RadarAlert {
   message: string;
 }
 
+// 限流風險指標（帳號層級）
+interface ThrottleRisk {
+  followersCount: number;           // 當前粉絲數
+  threeDayTotalViews: number;       // 3 天累計曝光
+  cumulativeMultiple: number;       // 3 天累計倍數
+  quotaLevel: QuotaLevel;           // 配額等級
+  quotaPercentage: number;          // 配額使用百分比 (0-100+)
+}
+
 interface RadarResponse {
   posts: RadarPost[];
   summary: RadarSummary;
   alerts: RadarAlert[];
+  throttleRisk: ThrottleRisk;        // 限流風險指標
   generatedAt: string;
 }
 
@@ -150,6 +167,34 @@ function getTimeStatus(ageMinutes: number): TimeStatus {
   if (ageMinutes <= 30) return 'golden';
   if (ageMinutes <= 120) return 'early';
   return 'tracking';
+}
+
+/**
+ * 計算單篇貼文的觸及風險等級
+ *
+ * 閾值：
+ * - safe: < 50x（安全）
+ * - warning: 50-100x（接近閾值）
+ * - danger: > 100x（高風險，可能觸發限流）
+ */
+function getReachRiskLevel(reachMultiple: number): ReachRiskLevel {
+  if (reachMultiple >= 100) return 'danger';
+  if (reachMultiple >= 50) return 'warning';
+  return 'safe';
+}
+
+/**
+ * 計算帳號的配額等級（3 天累計觸及倍數）
+ *
+ * 閾值：
+ * - healthy: < 150x（充裕）
+ * - caution: 150-250x（謹慎）
+ * - exhausted: > 250x（耗盡，建議冷卻 2-3 天）
+ */
+function getQuotaLevel(cumulativeMultiple: number): QuotaLevel {
+  if (cumulativeMultiple >= 250) return 'exhausted';
+  if (cumulativeMultiple >= 150) return 'caution';
+  return 'healthy';
 }
 
 /**
@@ -457,10 +502,10 @@ Deno.serve(async (req) => {
 
     const serviceClient = createServiceClient();
 
-    // 取得帳號資訊並驗證權限
+    // 取得帳號資訊並驗證權限（包含粉絲數用於計算限流風險）
     const { data: account, error: accountError } = await serviceClient
       .from('workspace_threads_accounts')
-      .select('id, workspace_id')
+      .select('id, workspace_id, current_followers_count')
       .eq('id', accountId)
       .single();
 
@@ -482,6 +527,37 @@ Deno.serve(async (req) => {
     // 計算時間範圍
     const now = new Date();
     const hours72Ago = new Date(now.getTime() - 72 * 60 * 60 * 1000);
+    const days3Ago = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+
+    // 取得粉絲數（用於計算限流風險）
+    const followersCount = account.current_followers_count || 0;
+
+    // 查詢 3 天內所有貼文的累計曝光（用於計算配額）
+    const { data: threeDayPosts, error: threeDayError } = await serviceClient
+      .from('workspace_threads_posts')
+      .select('current_views')
+      .eq('workspace_threads_account_id', accountId)
+      .eq('is_reply', false)
+      .neq('media_type', 'REPOST_FACADE')
+      .gte('published_at', days3Ago.toISOString());
+
+    if (threeDayError) {
+      console.error('Failed to fetch 3-day posts:', threeDayError);
+    }
+
+    // 計算 3 天累計曝光
+    const threeDayTotalViews = (threeDayPosts || []).reduce(
+      (sum, p) => sum + (p.current_views || 0),
+      0
+    );
+
+    // 計算累計倍數和配額等級
+    const cumulativeMultiple = followersCount > 0
+      ? Math.round((threeDayTotalViews / followersCount) * 10) / 10
+      : 0;
+    const quotaLevel = getQuotaLevel(cumulativeMultiple);
+    // 配額百分比：以 250x 為 100%
+    const quotaPercentage = Math.round((cumulativeMultiple / 250) * 100);
 
     // 查詢 72 小時內的貼文（排除回覆和轉發），包含預計算的 R̂_t 和首次同步時間
     // 轉發貼文 (REPOST_FACADE) 沒有成效數據，不需要追蹤
@@ -613,6 +689,12 @@ Deno.serve(async (req) => {
       // 傳播力等級（結合擴散動態判斷「爆紅中」）
       const viralityLevel = getViralityLevel(rates.viralityScore, diffusion?.status ?? null);
 
+      // 計算觸及倍數和風險等級
+      const reachMultiple = followersCount > 0
+        ? Math.round((views / followersCount) * 10) / 10
+        : 0;
+      const reachRiskLevel = getReachRiskLevel(reachMultiple);
+
       return {
         id: post.id,
         text: post.text || '',
@@ -636,6 +718,8 @@ Deno.serve(async (req) => {
         ignition,
         heatmap,
         diffusion,
+        reachMultiple,
+        reachRiskLevel,
       };
     });
 
@@ -673,10 +757,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 組裝限流風險指標
+    const throttleRisk: ThrottleRisk = {
+      followersCount,
+      threeDayTotalViews,
+      cumulativeMultiple,
+      quotaLevel,
+      quotaPercentage,
+    };
+
     const response: RadarResponse = {
       posts: radarPosts,
       summary,
       alerts,
+      throttleRisk,
       generatedAt: now.toISOString(),
     };
 

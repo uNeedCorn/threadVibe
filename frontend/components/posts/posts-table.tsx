@@ -55,6 +55,8 @@ export interface AiSelectedTags {
   audience?: string[];
 }
 
+export type ReachRiskLevel = "safe" | "warning" | "danger";
+
 export interface Post {
   id: string;
   text: string | null;
@@ -78,6 +80,9 @@ export interface Post {
   tags?: PostTag[];
   ai_suggested_tags?: AiSuggestedTags | null;
   ai_selected_tags?: AiSelectedTags | null;
+  // 限流風險指標
+  reachMultiple?: number;
+  reachRiskLevel?: ReachRiskLevel;
   account: {
     id: string;
     username: string;
@@ -158,6 +163,7 @@ const COLUMN_TO_SORT_FIELD: Record<string, SortField | null> = {
   tags: null,
   ai_tags: null,
   views: "current_views",
+  reach_multiple: null, // 不支援排序（需計算）
   likes: "current_likes",
   replies: "current_replies",
   reposts: "current_reposts",
@@ -167,6 +173,22 @@ const COLUMN_TO_SORT_FIELD: Record<string, SortField | null> = {
   repost_rate: "repost_rate",
   quote_rate: "quote_rate",
   virality_score: "virality_score",
+};
+
+// 觸及倍數風險等級配置
+const REACH_RISK_CONFIG = {
+  safe: {
+    label: "安全",
+    className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  },
+  warning: {
+    label: "注意",
+    className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+  },
+  danger: {
+    label: "高風險",
+    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  },
 };
 
 export function PostsTable({
@@ -328,6 +350,13 @@ export function PostsTable({
             {resizer}
           </TableHead>
         );
+      case "reach_multiple":
+        return (
+          <TableHead key={column.id} style={{ width }} className="relative">
+            觸及倍數
+            {resizer}
+          </TableHead>
+        );
       case "likes":
         return (
           <TableHead key={column.id} style={{ width }} className="text-right relative">
@@ -474,6 +503,19 @@ export function PostsTable({
               {post.trend?.views && <Sparkline data={post.trend.views} />}
               <span className="font-medium">{post.current_views.toLocaleString()}</span>
             </div>
+          </TableCell>
+        );
+      case "reach_multiple":
+        return (
+          <TableCell key={column.id}>
+            {post.reachMultiple !== undefined && post.reachRiskLevel ? (
+              <Badge className={`gap-1 font-mono ${REACH_RISK_CONFIG[post.reachRiskLevel].className}`}>
+                {post.reachMultiple.toFixed(0)}x
+                <span className="font-sans text-[10px]">{REACH_RISK_CONFIG[post.reachRiskLevel].label}</span>
+              </Badge>
+            ) : (
+              <span className="text-muted-foreground text-xs">-</span>
+            )}
           </TableCell>
         );
       case "likes":

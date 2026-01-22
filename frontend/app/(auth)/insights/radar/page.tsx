@@ -78,6 +78,10 @@ type DiffusionStatus = "accelerating" | "stable" | "decelerating";
 type SortOption = "latest" | "virality" | "engagement" | "views";
 type FilterOption = "all" | "golden" | "early" | "tracking" | "viral";
 
+// 限流風險類型
+type ReachRiskLevel = "safe" | "warning" | "danger";
+type QuotaLevel = "healthy" | "caution" | "exhausted";
+
 interface TrendPoint {
   timestamp: number;
   views: number;
@@ -152,6 +156,9 @@ interface ApiRadarPost {
   ignition: IgnitionMetrics | null;
   heatmap: HeatmapMetrics | null;
   diffusion: DiffusionMetrics | null;
+  // 限流風險指標
+  reachMultiple: number;
+  reachRiskLevel: ReachRiskLevel;
 }
 
 // 前端使用的貼文格式
@@ -181,6 +188,9 @@ interface TrackingPost {
   ignition: IgnitionMetrics | null;
   heatmap: HeatmapMetrics | null;
   diffusion: DiffusionMetrics | null;
+  // 限流風險指標
+  reachMultiple: number;
+  reachRiskLevel: ReachRiskLevel;
 }
 
 interface TrackingSummary {
@@ -198,6 +208,15 @@ interface PageAlert {
   message: string;
 }
 
+// 限流風險指標（帳號層級）
+interface ThrottleRisk {
+  followersCount: number;
+  threeDayTotalViews: number;
+  cumulativeMultiple: number;
+  quotaLevel: QuotaLevel;
+  quotaPercentage: number;
+}
+
 // API 回傳格式
 interface RadarApiResponse {
   posts: ApiRadarPost[];
@@ -208,6 +227,7 @@ interface RadarApiResponse {
     postId: string;
     message: string;
   }>;
+  throttleRisk: ThrottleRisk;
   generatedAt: string;
 }
 
@@ -287,6 +307,147 @@ function ViralityBadge({
         </span>
       )}
     </div>
+  );
+}
+
+// 觸及倍數 Badge 配置
+const REACH_RISK_CONFIG = {
+  safe: {
+    label: "安全",
+    description: "觸及量正常，不會觸發限流",
+    className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  },
+  warning: {
+    label: "注意",
+    description: "接近限流閾值，建議控制發文頻率",
+    className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+  },
+  danger: {
+    label: "高風險",
+    description: "超過 100 倍，可能已觸發限流機制",
+    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  },
+};
+
+function ReachMultipleBadge({
+  multiple,
+  riskLevel,
+}: {
+  multiple: number;
+  riskLevel: ReachRiskLevel;
+}) {
+  const config = REACH_RISK_CONFIG[riskLevel];
+
+  return (
+    <Badge
+      className={cn("gap-1 font-mono", config.className)}
+      title={config.description}
+    >
+      {multiple.toFixed(0)}x
+      <span className="font-sans text-[10px]">{config.label}</span>
+    </Badge>
+  );
+}
+
+// 配額等級配置
+const QUOTA_CONFIG = {
+  healthy: {
+    label: "充裕",
+    description: "配額充裕，可正常發文",
+    color: "text-green-600 dark:text-green-400",
+    bgColor: "bg-green-500",
+  },
+  caution: {
+    label: "謹慎",
+    description: "配額偏高，建議減少發文頻率",
+    color: "text-yellow-600 dark:text-yellow-400",
+    bgColor: "bg-yellow-500",
+  },
+  exhausted: {
+    label: "耗盡",
+    description: "配額耗盡，建議冷卻 2-3 天",
+    color: "text-red-600 dark:text-red-400",
+    bgColor: "bg-red-500",
+  },
+};
+
+// 配額儀表組件
+function ThrottleQuotaCard({
+  throttleRisk,
+  isLoading,
+}: {
+  throttleRisk: ThrottleRisk;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BarChart3 className="size-4" />
+            曝光配額監控
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-24 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const config = QUOTA_CONFIG[throttleRisk.quotaLevel];
+  const percentage = Math.min(throttleRisk.quotaPercentage, 100);
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <BarChart3 className="size-4" />
+          曝光配額監控
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* 進度條 */}
+        <div className="space-y-1">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">3 天累計配額</span>
+            <span className={cn("font-medium", config.color)}>
+              {throttleRisk.quotaPercentage}%
+            </span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn("h-full rounded-full transition-all", config.bgColor)}
+              style={{ width: `${percentage}%` }}
+            />
+          </div>
+        </div>
+
+        {/* 數據 */}
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <span className="text-muted-foreground">累計觸及</span>
+            <p className="font-mono font-medium">
+              {formatNumber(throttleRisk.threeDayTotalViews)}
+            </p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">觸及倍數</span>
+            <p className="font-mono font-medium">
+              {throttleRisk.cumulativeMultiple.toFixed(1)}x
+            </p>
+          </div>
+        </div>
+
+        {/* 狀態 */}
+        <div className={cn("text-sm font-medium", config.color)}>
+          狀態：{config.label}
+          <span className="font-normal text-muted-foreground ml-2">
+            (粉絲 {formatNumber(throttleRisk.followersCount)} | 閾值 250x)
+          </span>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1927,6 +2088,7 @@ function PostsTable({
                 <TableHead className="w-20">階段</TableHead>
                 <TableHead className="w-24">發布時間</TableHead>
                 <TableHead className="w-20 text-right">曝光</TableHead>
+                <TableHead className="w-24">觸及倍數</TableHead>
                 <TableHead className="w-36">互動</TableHead>
                 <TableHead className="w-40">傳播力</TableHead>
                 <TableHead className="w-28">擴散動態</TableHead>
@@ -1941,6 +2103,7 @@ function PostsTable({
                   <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-12" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-28" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-20" /></TableCell>
@@ -1979,6 +2142,7 @@ function PostsTable({
               <TableHead className="w-20">階段</TableHead>
               <TableHead className="w-24">發布時間</TableHead>
               <TableHead className="w-20 text-right">曝光</TableHead>
+              <TableHead className="w-24">觸及倍數</TableHead>
               <TableHead className="w-36">互動</TableHead>
               <TableHead className="w-40">傳播力</TableHead>
               <TableHead className="w-28">擴散動態</TableHead>
@@ -2042,6 +2206,12 @@ function PostsTable({
                   )}
                 </TableCell>
                 <TableCell>
+                  <ReachMultipleBadge
+                    multiple={post.reachMultiple}
+                    riskLevel={post.reachRiskLevel}
+                  />
+                </TableCell>
+                <TableCell>
                   <CompactEngagement
                     likes={post.likes}
                     replies={post.replies}
@@ -2087,6 +2257,13 @@ export default function RadarPage() {
     earlyPosts: 0,
     trackingPosts: 0,
     viralPotential: 0,
+  });
+  const [throttleRisk, setThrottleRisk] = useState<ThrottleRisk>({
+    followersCount: 0,
+    threeDayTotalViews: 0,
+    cumulativeMultiple: 0,
+    quotaLevel: "healthy",
+    quotaPercentage: 0,
   });
   const [alerts, setAlerts] = useState<PageAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -2174,6 +2351,9 @@ export default function RadarPage() {
         ignition: post.ignition,
         heatmap: post.heatmap,
         diffusion: post.diffusion,
+        // 限流風險指標
+        reachMultiple: post.reachMultiple,
+        reachRiskLevel: post.reachRiskLevel,
       }));
 
       // API 回傳的 alerts 轉換為前端格式（加上 emoji）
@@ -2188,6 +2368,7 @@ export default function RadarPage() {
 
       setPosts(processedPosts);
       setSummary(data.summary);
+      setThrottleRisk(data.throttleRisk);
       setAlerts(processedAlerts);
       setLastRefresh(new Date());
     } catch (error) {
@@ -2328,6 +2509,9 @@ export default function RadarPage() {
               isLoading={isLoading}
             />
           </div>
+
+          {/* 曝光配額監控 */}
+          <ThrottleQuotaCard throttleRisk={throttleRisk} isLoading={isLoading} />
 
           {/* 72 小時曝光趨勢圖 */}
           <ViewDeltaTrendChart posts={posts} isLoading={isLoading} />

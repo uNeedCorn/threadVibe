@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Loader2, Clock } from "lucide-react";
-import { PostsFilters, PostsTable, PostDetailPanel, ColumnSettings, type PostsFiltersValue, type Post, type PostTag, type PostTrend, type SortField, type SortOrder } from "@/components/posts";
+import { PostsFilters, PostsTable, PostDetailPanel, ColumnSettings, type PostsFiltersValue, type Post, type PostTag, type PostTrend, type SortField, type SortOrder, type ReachRiskLevel } from "@/components/posts";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { useAccountTags } from "@/hooks/use-account-tags";
@@ -20,6 +20,13 @@ function calculateDeltas(values: number[]): number[] {
     deltas.push(Math.max(0, values[i] - values[i - 1])); // 確保非負
   }
   return deltas;
+}
+
+// 根據觸及倍數計算風險等級
+function getReachRiskLevel(multiple: number): ReachRiskLevel {
+  if (multiple >= 100) return 'danger';
+  if (multiple >= 50) return 'warning';
+  return 'safe';
 }
 
 // 取得貼文的趨勢資料（從 hourly 表抓取近 6 小時）
@@ -190,7 +197,8 @@ export default function PostsPage() {
         workspace_threads_accounts!inner (
           id,
           username,
-          profile_pic_url
+          profile_pic_url,
+          current_followers_count
         ),
         workspace_threads_post_tags (
           workspace_threads_account_tags (
@@ -241,6 +249,7 @@ export default function PostsPage() {
       id: string;
       username: string;
       profile_pic_url: string | null;
+      current_followers_count: number | null;
     };
 
     type TagRelation = {
@@ -268,6 +277,11 @@ export default function PostsPage() {
           color: tag.color,
         }));
 
+      // 計算觸及倍數
+      const followersCount = accountData?.current_followers_count || 0;
+      const reachMultiple = followersCount > 0 ? (post.current_views || 0) / followersCount : 0;
+      const reachRiskLevel = getReachRiskLevel(reachMultiple);
+
       return {
         id: post.id,
         text: post.text,
@@ -291,6 +305,8 @@ export default function PostsPage() {
         tags,
         ai_suggested_tags: post.ai_suggested_tags,
         ai_selected_tags: post.ai_selected_tags,
+        reachMultiple,
+        reachRiskLevel,
         account: {
           id: accountData?.id || "",
           username: accountData?.username || "",
