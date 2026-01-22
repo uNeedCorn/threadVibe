@@ -463,19 +463,21 @@ export default function ReportsPage() {
             </Alert>
           )}
 
-          {/* 圖片預覽 */}
+          {/* 圖片預覽 - 固定 16:9 比例 */}
           {showImagePreview && imageReportData && (
             <div className="mt-4">
               <p className="mb-2 text-sm text-muted-foreground">
                 預覽（縮小顯示，實際匯出為 1920x1080）
               </p>
-              <div className="overflow-hidden rounded-lg border bg-muted/50" style={{ height: "378px" }}>
-                <div className="origin-top-left scale-[0.35]" style={{ width: "1920px", height: "1080px" }}>
-                  <SummaryCardExport
-                    data={imageReportData}
-                    theme={theme}
-                    customColor={customColor}
-                  />
+              <div className="overflow-hidden rounded-lg border bg-muted/50 aspect-video">
+                <div className="w-full h-full origin-top-left scale-[0.35]">
+                  <div style={{ width: "1920px", height: "1080px" }}>
+                    <SummaryCardExport
+                      data={imageReportData}
+                      theme={theme}
+                      customColor={customColor}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -570,7 +572,7 @@ export default function ReportsPage() {
             </Alert>
           )}
 
-          {/* 完整報表預覽 */}
+          {/* 完整報表預覽 - 固定 16:9 比例 */}
           {showFullReport && fullReportData && (
             <div className="mt-4 space-y-4">
               <p className="text-sm text-muted-foreground">
@@ -586,9 +588,11 @@ export default function ReportsPage() {
                 ].map((page, idx) => (
                   <div key={idx} className="space-y-2">
                     <p className="text-xs text-muted-foreground">{page.title}</p>
-                    <div className="overflow-hidden rounded-lg border bg-muted/50" style={{ height: "180px" }}>
-                      <div className="origin-top-left scale-[0.167]" style={{ width: "1920px", height: "1080px" }}>
-                        {page.component}
+                    <div className="overflow-hidden rounded-lg border bg-muted/50 aspect-video">
+                      <div className="w-full h-full origin-top-left scale-[0.167]">
+                        <div style={{ width: "1920px", height: "1080px" }}>
+                          {page.component}
+                        </div>
                       </div>
                     </div>
                   </div>
