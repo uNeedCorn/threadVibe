@@ -2368,7 +2368,9 @@ export default function RadarPage() {
 
       setPosts(processedPosts);
       setSummary(data.summary);
-      setThrottleRisk(data.throttleRisk);
+      if (data.throttleRisk) {
+        setThrottleRisk(data.throttleRisk);
+      }
       setAlerts(processedAlerts);
       setLastRefresh(new Date());
     } catch (error) {
