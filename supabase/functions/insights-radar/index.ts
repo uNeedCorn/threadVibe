@@ -12,7 +12,7 @@
 
 import { handleCors } from '../_shared/cors.ts';
 import { createAnonClient, createServiceClient } from '../_shared/supabase.ts';
-import { getAuthenticatedUser, validateWorkspaceMembership } from '../_shared/auth.ts';
+import { getAuthenticatedUser, validateWorkspaceMembership, isSystemAdmin } from '../_shared/auth.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse, forbiddenResponse } from '../_shared/response.ts';
 import { isUuid } from '../_shared/validation.ts';
 import { calculateRates, RHatStatus } from '../_shared/metrics.ts';
@@ -513,15 +513,18 @@ Deno.serve(async (req) => {
       return errorResponse(req, 'Threads account not found', 404);
     }
 
-    // 驗證 Workspace 權限
-    const membership = await validateWorkspaceMembership(
-      supabase,
-      user.id,
-      account.workspace_id
-    );
+    // 驗證 Workspace 權限（system_admin 可以跳過）
+    const isAdmin = await isSystemAdmin(supabase, user.id);
+    if (!isAdmin) {
+      const membership = await validateWorkspaceMembership(
+        supabase,
+        user.id,
+        account.workspace_id
+      );
 
-    if (!membership) {
-      return forbiddenResponse(req, 'No access to this workspace');
+      if (!membership) {
+        return forbiddenResponse(req, 'No access to this workspace');
+      }
     }
 
     // 計算時間範圍
