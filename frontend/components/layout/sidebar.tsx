@@ -27,6 +27,7 @@ import {
   User,
   CalendarClock,
   SquarePen,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -158,6 +159,11 @@ const adminNavGroup: NavGroup = {
   basePath: "/admin",
   adminOnly: true,
   children: [
+    {
+      title: "帳號模擬",
+      href: "/admin",
+      icon: UserCog,
+    },
     {
       title: "帳號觀測",
       href: "/admin/watchlist",
