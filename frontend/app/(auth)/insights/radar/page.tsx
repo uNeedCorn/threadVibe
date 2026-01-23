@@ -1044,6 +1044,56 @@ function IgnitionCurveChart({
               <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(320px,1fr))] xl:grid-cols-[repeat(3,minmax(320px,1fr))]">
                 {sortedInactivePosts.map((post) => {
                   const isDelayed = post.noDataReason === "delayed";
+                  const hasData = post.hasEnoughData && post.ignition;
+
+                  // 有數據時顯示圖表（即使已超過 3 小時）
+                  if (hasData) {
+                    const ignition = post.ignition!;
+                    return (
+                      <div key={post.id} className="rounded-lg border border-dashed p-3 opacity-70">
+                        <div className="mb-2 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="size-2.5 rounded-full" style={{ backgroundColor: post.color }} />
+                            <span className="max-w-32 truncate text-sm font-medium">{post.postText}</span>
+                          </div>
+                          <Badge variant="outline" className="text-xs border-border bg-muted text-muted-foreground">
+                            <Clock className="mr-1 size-3" />
+                            已超時
+                          </Badge>
+                        </div>
+                        <div className="h-24">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={ignition.dataPoints}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={STONE[200]} />
+                              <XAxis dataKey="timeLabel" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                              <YAxis hide domain={[0, 100]} />
+                              <Tooltip
+                                content={({ active, payload }) => {
+                                  if (!active || !payload || payload.length === 0) return null;
+                                  const data = payload[0].payload as IgnitionDataPoint;
+                                  return (
+                                    <div className="rounded border bg-background p-2 text-xs shadow">
+                                      <p className="font-medium">{data.timeLabel}</p>
+                                      <p className="text-warning">互動：{data.engagementPct.toFixed(1)}%</p>
+                                      <p className="text-primary">曝光：{data.viewsPct.toFixed(1)}%</p>
+                                    </div>
+                                  );
+                                }}
+                              />
+                              <Line type="monotone" dataKey="engagementPct" stroke={SEMANTIC_COLORS.warning} strokeWidth={2} dot={false} />
+                              <Line type="monotone" dataKey="viewsPct" stroke={ACCENT.DEFAULT} strokeWidth={2} dot={false} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+                          <span>互動高峰：{ignition.peakEngagementTime}</span>
+                          <span>曝光高峰：{ignition.peakViewsTime}</span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // 沒有數據時顯示提示
                   return (
                     <div key={post.id} className="rounded-lg border border-dashed p-3 opacity-70">
                       <div className="mb-2 flex items-center justify-between">
@@ -1318,6 +1368,39 @@ function EarlySignalHeatmap({
               <div className="space-y-1 opacity-70">
                 {inactivePosts.map((post) => {
                   const isDelayed = post.noDataReason === "delayed";
+                  const hasData = post.hasEnoughData && post.heatmap;
+
+                  // 有數據時顯示熱力圖（即使已超過 3 小時）
+                  if (hasData) {
+                    const heatmap = post.heatmap!;
+                    const { label: heatTypeLabel, color: heatTypeColor } = HEAT_TYPE_CONFIG[heatmap.heatType];
+
+                    return (
+                      <div key={post.id} className="flex items-center">
+                        <div className="w-28 shrink-0 truncate pr-2 text-sm text-muted-foreground" title={post.postText}>
+                          {post.postText}
+                        </div>
+                        <div className="flex flex-1 gap-0.5">
+                          {heatmap.cells.map((cell) => (
+                            <div key={cell.bucketIndex} className="group relative flex-1">
+                              <div
+                                className="h-6 w-full rounded-sm transition-all hover:ring-2 hover:ring-warning"
+                                style={{ backgroundColor: getHeatmapColor(cell.intensity) }}
+                              />
+                              <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-xs text-background group-hover:block">
+                                {TIME_BUCKET_LABELS[cell.bucketIndex]}: {cell.viralityDelta.toFixed(1)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className={cn("w-20 shrink-0 text-center text-xs", heatTypeColor)}>
+                          {heatTypeLabel}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // 沒有數據時顯示提示
                   return (
                     <div key={post.id} className="flex items-center">
                       <div className="w-28 shrink-0 truncate pr-2 text-sm text-muted-foreground" title={post.postText}>
