@@ -120,9 +120,30 @@ interface ActionSuggestion {
 // ============================================================================
 
 function formatNumber(v: number): string {
-  if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
   return v.toLocaleString();
+}
+
+/**
+ * 智能計算 Y 軸範圍
+ * - 變動幅度 < 最大值的 20% → 使用動態範圍（放大變化）
+ * - 否則 → 從 0 開始（保持比例正確）
+ */
+function getSmartYAxisDomain(data: number[]): [number, number] {
+  const validData = data.filter((v) => v !== null && v !== undefined && !isNaN(v));
+  if (validData.length === 0) return [0, 100];
+
+  const min = Math.min(...validData);
+  const max = Math.max(...validData);
+  const range = max - min;
+
+  // 如果變動幅度 < 最大值的 20%，使用動態範圍
+  if (max > 0 && range / max < 0.2) {
+    const padding = range * 0.1 || max * 0.05;
+    return [Math.floor(Math.max(0, min - padding)), Math.ceil(max + padding)];
+  }
+
+  // 否則從 0 開始，上方留 5% 空間
+  return [0, Math.ceil(max * 1.05)];
 }
 
 // 生成行動建議
@@ -388,6 +409,9 @@ function LifecycleChart({
     post.publishedAt
   );
 
+  // 計算智能 Y 軸範圍
+  const yAxisDomain = getSmartYAxisDomain(chartData.map((d) => d.views));
+
   if (chartData.length < 2) {
     return (
       <Card>
@@ -442,6 +466,7 @@ function LifecycleChart({
                 tick={{ fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
+                domain={yAxisDomain}
                 tickFormatter={(value) => formatNumber(value)}
               />
               <Tooltip
@@ -697,6 +722,10 @@ function PostsTable({
                 <TableCell>
                   {post.engagement ? (
                     <EngagementStatusBadge status={post.engagement.engagementStatus} />
+                  ) : post.hourlyMetrics.length < 6 ? (
+                    <span className="text-xs text-muted-foreground" title="需要至少 6 小時的數據才能計算互動趨勢">
+                      累積中...
+                    </span>
                   ) : (
                     <span className="text-xs text-muted-foreground">-</span>
                   )}
@@ -722,6 +751,10 @@ function PostsTable({
                       )}
                     >
                       {post.engagement.engagementRate.toFixed(2)}%
+                    </span>
+                  ) : post.hourlyMetrics.length < 6 ? (
+                    <span className="text-xs text-muted-foreground" title="需要至少 6 小時的數據">
+                      -
                     </span>
                   ) : (
                     <span className="text-muted-foreground">-</span>
@@ -1071,6 +1104,12 @@ function LifecycleTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: b
     };
   });
 
+  // 計算智能 Y 軸範圍（包含平均和選中貼文的數據）
+  const lifecycleYAxisDomain = getSmartYAxisDomain([
+    ...comparisonChartData.map((d) => d.avgViews),
+    ...comparisonChartData.map((d) => d.selectedViews).filter((v): v is number => v !== null),
+  ]);
+
   return (
     <div className="space-y-6">
       {/* 曝光階段分布 */}
@@ -1221,6 +1260,7 @@ function LifecycleTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: b
                   tick={{ fontSize: 12 }}
                   tickLine={false}
                   axisLine={false}
+                  domain={lifecycleYAxisDomain}
                   tickFormatter={(value) => formatNumber(value)}
                 />
                 <Tooltip
@@ -1390,6 +1430,20 @@ function ComparisonTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: 
     return data;
   }, [selectedPosts]);
 
+  // 計算智能 Y 軸範圍（包含所有選中貼文的數據）
+  const comparisonYAxisDomain = useMemo(() => {
+    const allValues: number[] = [];
+    for (const point of comparisonChartData) {
+      selectedPosts.forEach((_, idx) => {
+        const value = point[`post${idx}`];
+        if (typeof value === "number") {
+          allValues.push(value);
+        }
+      });
+    }
+    return getSmartYAxisDomain(allValues);
+  }, [comparisonChartData, selectedPosts]);
+
   if (isLoading) {
     return (
       <Card>
@@ -1476,6 +1530,7 @@ function ComparisonTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: 
                       tick={{ fontSize: 12 }}
                       tickLine={false}
                       axisLine={false}
+                      domain={comparisonYAxisDomain}
                       tickFormatter={(value) => formatNumber(value)}
                     />
                     <Tooltip
@@ -1567,7 +1622,11 @@ function ComparisonTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: 
           </CardHeader>
           <CardContent className="pt-0">
             {rankings?.engagementTop.length === 0 ? (
-              <p className="text-sm text-muted-foreground">無資料</p>
+              <p className="text-sm text-muted-foreground">
+                {posts.every((p) => p.hourlyMetrics.length < 6)
+                  ? "資料累積中（需 6 小時以上）"
+                  : "無資料"}
+              </p>
             ) : (
               <div className="space-y-2">
                 {rankings?.engagementTop.map((post, idx) => (
