@@ -364,7 +364,7 @@ export default function FollowersPage() {
               value={followerStats?.currentFollowers || 0}
               icon={<Users className="size-4" />}
               isLoading={isLoading}
-              format="number"
+              format="fullNumber"
               periodLabel={period === "week" ? "上週" : "上月"}
             />
             <KPICard
@@ -419,7 +419,7 @@ export default function FollowersPage() {
                   <div className="text-right">
                     <div className="text-2xl font-bold">
                       {followerStats.periodGrowth > 0 ? "+" : ""}
-                      {formatNumber(followerStats.periodGrowth)}
+                      {followerStats.periodGrowth.toLocaleString()}
                     </div>
                     <div className="flex items-center justify-end gap-2">
                       <span className="text-sm text-muted-foreground">
@@ -462,10 +462,10 @@ export default function FollowersPage() {
                             const growth = props.payload?.growth;
                             return [
                               <span key="value">
-                                {formatNumber(value as number)} 粉絲
+                                {(value as number).toLocaleString()} 粉絲
                                 {growth !== undefined && growth !== 0 && (
                                   <span className={growth > 0 ? "text-success" : "text-destructive"}>
-                                    {" "}({growth > 0 ? "+" : ""}{growth})
+                                    {" "}({growth > 0 ? "+" : ""}{growth.toLocaleString()})
                                   </span>
                                 )}
                               </span>,
@@ -493,88 +493,7 @@ export default function FollowersPage() {
             </CardContent>
           </Card>
 
-          {/* 里程碑追蹤 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="size-5" />
-                里程碑追蹤
-              </CardTitle>
-              <CardDescription>
-                追蹤您的粉絲成長里程碑
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-6 w-40" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-60" />
-                </div>
-              ) : milestoneData ? (
-                <div className="space-y-4">
-                  {/* 目標顯示 */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-lg font-semibold">
-                        目標：{formatMilestone(milestoneData.target)} 粉絲
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-2xl font-bold text-primary">
-                        {milestoneData.progress.toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 進度條 */}
-                  <div className="space-y-2">
-                    <Progress value={milestoneData.progress} className="h-3" />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>{formatMilestone(milestoneData.previousMilestone)}</span>
-                      <span>{formatMilestone(milestoneData.target)}</span>
-                    </div>
-                  </div>
-
-                  {/* 剩餘資訊 */}
-                  <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">當前：</span>
-                      <span className="font-medium">
-                        {formatNumber(milestoneData.current)} 粉絲
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">還差：</span>
-                      <span className="font-medium">
-                        {formatNumber(milestoneData.remaining)} 位
-                      </span>
-                    </div>
-                    {milestoneData.estimatedDays !== null && (
-                      <div>
-                        <span className="text-muted-foreground">預估達成：</span>
-                        <span className="font-medium text-primary">
-                          {milestoneData.estimatedDays} 天後
-                        </span>
-                      </div>
-                    )}
-                    {milestoneData.estimatedDays === null && followerStats && followerStats.avgDailyGrowth <= 0 && (
-                      <div>
-                        <span className="text-muted-foreground">預估達成：</span>
-                        <span className="font-medium text-destructive">
-                          需提升成長率
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex h-[100px] items-center justify-center text-muted-foreground">
-                  無法計算里程碑資料
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* TODO: 里程碑追蹤 - 待新增自訂目標功能後再開放 */}
         </>
       )}
     </div>
