@@ -90,14 +90,32 @@ export function ThreadsAccountsSection() {
   }
 
   const handleConnectAccount = async () => {
-    const workspaceId = localStorage.getItem("currentWorkspaceId");
-    if (!workspaceId) {
-      setMessage({ type: "error", text: "請先選擇 Workspace" });
-      return;
-    }
-
     setIsConnecting(true);
     setMessage(null);
+
+    let workspaceId = localStorage.getItem("currentWorkspaceId");
+
+    // 如果 localStorage 沒有 workspaceId，嘗試從 API 取得
+    if (!workspaceId) {
+      try {
+        const response = await fetch("/api/ensure-workspace", { method: "POST" });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.workspace_id) {
+            workspaceId = data.workspace_id as string;
+            localStorage.setItem("currentWorkspaceId", workspaceId);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to get workspace:", error);
+      }
+    }
+
+    if (!workspaceId) {
+      setMessage({ type: "error", text: "無法取得工作區，請重新登入" });
+      setIsConnecting(false);
+      return;
+    }
 
     // 使用 Next.js API route 處理 OAuth（會自動帶上 session）
     window.location.href = `/api/threads-oauth?workspace_id=${workspaceId}`;

@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const workspaceId = searchParams.get("workspace_id");
+  let workspaceId = searchParams.get("workspace_id");
 
   console.log("[threads-oauth] Starting OAuth flow for workspace:", workspaceId);
-
-  if (!workspaceId) {
-    return NextResponse.json(
-      { error: "workspace_id is required" },
-      { status: 400 }
-    );
-  }
 
   const supabase = await createClient();
 
@@ -33,6 +26,30 @@ export async function GET(request: NextRequest) {
     const loginUrl = new URL("/login_2026Q1", request.url);
     loginUrl.searchParams.set("error", "session_expired");
     return NextResponse.redirect(loginUrl);
+  }
+
+  // 如果沒有 workspaceId，從 DB 查詢使用者的 workspace
+  if (!workspaceId) {
+    console.log("[threads-oauth] No workspace_id provided, fetching from DB for user:", user.id);
+
+    const serviceClient = createServiceClient();
+    const { data: memberships } = await serviceClient
+      .from("workspace_members")
+      .select("workspace_id")
+      .eq("user_id", user.id)
+      .not("joined_at", "is", null)
+      .limit(1);
+
+    if (memberships && memberships.length > 0) {
+      workspaceId = memberships[0].workspace_id;
+      console.log("[threads-oauth] Found workspace from DB:", workspaceId);
+    } else {
+      console.error("[threads-oauth] No workspace found for user");
+      return NextResponse.json(
+        { error: "No workspace found. Please create a workspace first." },
+        { status: 400 }
+      );
+    }
   }
 
   // 獲取 session 以取得 access_token
