@@ -282,7 +282,9 @@ export default function LongtailPage() {
           }
         );
 
-        setPosts(processedPosts);
+        // 過濾掉沒有爆發期數據的貼文（沒有 first7dViews 無法準確計算長尾比例）
+        const validPosts = processedPosts.filter((p) => p.first7dViews > 0);
+        setPosts(validPosts);
       } catch (error) {
         console.error("Error loading longtail data:", error);
       } finally {
@@ -419,7 +421,7 @@ export default function LongtailPage() {
         <div>
           <h1 className="text-2xl font-bold">長尾分析</h1>
           <p className="text-muted-foreground">
-            識別內容資產，優化長期流量策略
+            識別內容資產，優化長期流量策略（僅分析發布超過 7 天且有完整數據的貼文）
           </p>
         </div>
       </div>

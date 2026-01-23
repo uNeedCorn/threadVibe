@@ -179,12 +179,7 @@ export function FeatureAnalysisTab({ data }: Props) {
       .fill(null)
       .map(() => Array(12).fill(0));
 
-    // 過濾掉沒有爆發期數據的貼文（沒有 first7dViews 無法準確計算長尾比例）
-    const validPosts = posts.filter(
-      (p) => p.daysSincePublish >= 7 && p.first7dViews > 0
-    );
-
-    for (const post of validPosts) {
+    for (const post of posts) {
       const date = new Date(post.publishedAt);
       const dayOfWeek = date.getDay();
       const hourBucket = Math.floor(date.getHours() / 2);
@@ -253,6 +248,16 @@ export function FeatureAnalysisTab({ data }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* 數據解讀提示 */}
+      <Alert>
+        <Info className="size-4" />
+        <AlertDescription>
+          長尾比例反映發布 7 天後的流量佔比。發布較久的貼文長尾比例自然較高，建議搭配「常青內容」分頁中的
+          <span className="font-medium">常青指數</span>
+          （近期 vs 前 7 天的日均曝光比）來判斷真正的長尾效果。
+        </AlertDescription>
+      </Alert>
+
       <div className="grid gap-6 md:grid-cols-2">
         {/* 標籤 vs 長尾比例 */}
         <Card>
@@ -338,7 +343,7 @@ export function FeatureAnalysisTab({ data }: Props) {
           <CardContent>
             {mediaChartData.length === 0 ? (
               <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                暫無數據
+                數據累積中，請等待貼文發布超過 7 天
               </div>
             ) : (
               <ChartContainer config={chartConfig} className="h-[300px] w-full">
@@ -398,62 +403,70 @@ export function FeatureAnalysisTab({ data }: Props) {
           <HeatmapLegend />
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px]">
-              <thead>
-                <tr>
-                  <th className="w-16 pb-2 text-left text-xs font-normal text-muted-foreground">
-                    時段
-                  </th>
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <th
-                      key={i}
-                      className="pb-2 text-center text-xs font-normal text-muted-foreground"
-                    >
-                      {i * 2}:00
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {WEEKDAY_NAMES.map((dayName, dayIndex) => (
-                  <tr key={dayIndex}>
-                    <td className="py-1 text-xs text-muted-foreground">
-                      {dayName}
-                    </td>
-                    {heatmapData.avgMatrix[dayIndex].map((cell, hourIndex) => (
-                      <td key={hourIndex} className="p-0.5">
-                        <div
-                          className={cn(
-                            "flex h-8 items-center justify-center rounded text-xs",
-                            getHeatmapColor(cell.avg, heatmapData.maxValue)
-                          )}
-                          title={`${dayName} ${hourIndex * 2}:00-${(hourIndex + 1) * 2}:00\n平均長尾比例: ${(cell.avg * 100).toFixed(1)}%\n貼文數: ${cell.count}`}
+          {heatmapData.maxValue === 0 ? (
+            <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+              數據累積中，請等待貼文發布超過 7 天
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[600px]">
+                  <thead>
+                    <tr>
+                      <th className="w-16 pb-2 text-left text-xs font-normal text-muted-foreground">
+                        時段
+                      </th>
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <th
+                          key={i}
+                          className="pb-2 text-center text-xs font-normal text-muted-foreground"
                         >
-                          {cell.count > 0 && (
-                            <span
+                          {i * 2}:00
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {WEEKDAY_NAMES.map((dayName, dayIndex) => (
+                      <tr key={dayIndex}>
+                        <td className="py-1 text-xs text-muted-foreground">
+                          {dayName}
+                        </td>
+                        {heatmapData.avgMatrix[dayIndex].map((cell, hourIndex) => (
+                          <td key={hourIndex} className="p-0.5">
+                            <div
                               className={cn(
-                                cell.avg / heatmapData.maxValue > 0.5
-                                  ? "text-white"
-                                  : "text-foreground"
+                                "flex h-8 items-center justify-center rounded text-xs",
+                                getHeatmapColor(cell.avg, heatmapData.maxValue)
                               )}
+                              title={`${dayName} ${hourIndex * 2}:00-${(hourIndex + 1) * 2}:00\n平均長尾比例: ${(cell.avg * 100).toFixed(1)}%\n貼文數: ${cell.count}`}
                             >
-                              {(cell.avg * 100).toFixed(0)}%
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                              {cell.count > 0 && (
+                                <span
+                                  className={cn(
+                                    cell.avg / heatmapData.maxValue > 0.5
+                                      ? "text-white"
+                                      : "text-foreground"
+                                  )}
+                                >
+                                  {(cell.avg * 100).toFixed(0)}%
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  </tbody>
+                </table>
+              </div>
 
-          {/* 說明 */}
-          <p className="mt-4 text-sm text-muted-foreground">
-            提示：在深色區塊對應的時段發布內容，可能獲得更好的長尾效果。
-          </p>
+              {/* 說明 */}
+              <p className="mt-4 text-sm text-muted-foreground">
+                提示：在深色區塊對應的時段發布內容，可能獲得更好的長尾效果。
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
