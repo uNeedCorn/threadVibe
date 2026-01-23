@@ -18,6 +18,7 @@ import {
   Rocket,
   AlertCircle,
   Info,
+  PanelRightOpen,
 } from "lucide-react";
 import {
   AreaChart,
@@ -36,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { PostDetailPanel } from "@/components/posts/post-detail-panel";
 import {
   Tabs,
   TabsContent,
@@ -125,8 +127,8 @@ function formatNumber(v: number): string {
 
 /**
  * 智能計算 Y 軸範圍
- * - 變動幅度 < 最大值的 20% → 使用動態範圍（放大變化）
- * - 否則 → 從 0 開始（保持比例正確）
+ * - 始終使用最小值作為起始點，讓數據變化更清晰可見
+ * - 上下各留 5% padding
  */
 function getSmartYAxisDomain(data: number[]): [number, number] {
   const validData = data.filter((v) => v !== null && v !== undefined && !isNaN(v));
@@ -136,14 +138,13 @@ function getSmartYAxisDomain(data: number[]): [number, number] {
   const max = Math.max(...validData);
   const range = max - min;
 
-  // 如果變動幅度 < 最大值的 20%，使用動態範圍
-  if (max > 0 && range / max < 0.2) {
-    const padding = range * 0.1 || max * 0.05;
-    return [Math.floor(Math.max(0, min - padding)), Math.ceil(max + padding)];
-  }
+  // 計算 padding（至少為 range 的 5%，若 range 為 0 則用 max 的 5%）
+  const padding = Math.max(range * 0.05, max * 0.02) || 10;
 
-  // 否則從 0 開始，上方留 5% 空間
-  return [0, Math.ceil(max * 1.05)];
+  return [
+    Math.floor(Math.max(0, min - padding)),
+    Math.ceil(max + padding),
+  ];
 }
 
 // 生成行動建議
@@ -608,12 +609,14 @@ function PostsTable({
   isLoading,
   selectedPostId,
   onSelectPost,
+  onOpenPanel,
   suggestions,
 }: {
   posts: MidtermPost[];
   isLoading: boolean;
   selectedPostId: string | null;
   onSelectPost: (post: MidtermPost) => void;
+  onOpenPanel: (postId: string) => void;
   suggestions: ActionSuggestion[];
 }) {
   // 建立 postId -> suggestion 的映射
@@ -710,10 +713,21 @@ function PostsTable({
                     {post.anomaly && (
                       <Sparkles className="size-4 text-violet-600 shrink-0" />
                     )}
-                    <p className="line-clamp-2 text-sm">
+                    <p className="line-clamp-2 text-sm flex-1">
                       {post.text?.slice(0, 40) || "(無文字)"}
                       {(post.text?.length || 0) > 40 && "..."}
                     </p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenPanel(post.id);
+                      }}
+                    >
+                      <PanelRightOpen className="size-4" />
+                    </Button>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -838,6 +852,7 @@ function OverviewTab({
   activeAnomalies,
   dismissAnomaly,
   suggestions,
+  onOpenPanel,
 }: {
   posts: MidtermPost[];
   isLoading: boolean;
@@ -848,6 +863,7 @@ function OverviewTab({
   activeAnomalies: MidtermAnomaly[];
   dismissAnomaly: (postId: string) => void;
   suggestions: ActionSuggestion[];
+  onOpenPanel: (postId: string) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -928,6 +944,7 @@ function OverviewTab({
           selectedPostIdRef.current = post.id;
           setSelectedPost(post);
         }}
+        onOpenPanel={onOpenPanel}
         suggestions={suggestions}
       />
     </div>
@@ -1227,9 +1244,11 @@ function LifecycleTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: b
                 variant={selectedPostId === post.id ? "default" : "outline"}
                 size="sm"
                 onClick={() => setSelectedPostId(post.id)}
-                className="max-w-40 truncate"
+                className="w-32 justify-start truncate"
+                title={post.text || "(無文字)"}
               >
-                {post.text?.slice(0, 15) || "(無文字)"}...
+                {post.text?.slice(0, 5) || "(無文字)"}
+                {(post.text?.length || 0) > 5 && "..."}
               </Button>
             ))}
           </div>
@@ -1493,13 +1512,15 @@ function ComparisonTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: 
                   variant={isSelected ? "default" : "outline"}
                   size="sm"
                   onClick={() => togglePostSelection(post.id)}
-                  className="max-w-40 truncate"
+                  className="w-32 justify-start truncate"
+                  title={post.text || "(無文字)"}
                   style={isSelected && colorIdx >= 0 ? {
                     backgroundColor: COMPARISON_COLORS[colorIdx].fill,
                     borderColor: COMPARISON_COLORS[colorIdx].stroke,
                   } : undefined}
                 >
-                  {post.text?.slice(0, 15) || "(無文字)"}...
+                  {post.text?.slice(0, 10) || "(無文字)"}
+                  {(post.text?.length || 0) > 10 && "..."}
                 </Button>
               );
             })}
@@ -1544,7 +1565,8 @@ function ComparisonTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: 
                               const post = selectedPosts[idx];
                               return (
                                 <p key={idx} className="text-sm" style={{ color: COMPARISON_COLORS[idx].stroke }}>
-                                  {post?.text?.slice(0, 15) || "(無文字)"}...: {" "}
+                                  {post?.text?.slice(0, 5) || "(無文字)"}
+                                  {(post?.text?.length || 0) > 5 && "..."}: {" "}
                                   <span className="font-mono font-medium">{formatNumber(entry.value as number)}</span>
                                 </p>
                               );
@@ -1569,13 +1591,18 @@ function ComparisonTab({ posts, isLoading }: { posts: MidtermPost[]; isLoading: 
               </div>
               <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm">
                 {selectedPosts.map((post, idx) => (
-                  <div key={post.id} className="flex items-center gap-2">
+                  <div
+                    key={post.id}
+                    className="flex items-center gap-2"
+                    title={post.text || "(無文字)"}
+                  >
                     <div
                       className="h-0.5 w-6 rounded"
                       style={{ backgroundColor: COMPARISON_COLORS[idx].fill }}
                     />
-                    <span className="text-muted-foreground max-w-32 truncate">
-                      {post.text?.slice(0, 15) || "(無文字)"}...
+                    <span className="text-muted-foreground">
+                      {post.text?.slice(0, 5) || "(無文字)"}
+                      {(post.text?.length || 0) > 5 && "..."}
                     </span>
                   </div>
                 ))}
@@ -1877,6 +1904,8 @@ export default function MidtermPage() {
     new Set()
   );
   const [activeTab, setActiveTab] = useState("overview");
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [selectedPostIdForPanel, setSelectedPostIdForPanel] = useState<string | null>(null);
 
   const selectedPostIdRef = useRef<string | null>(null);
 
@@ -2124,6 +2153,10 @@ export default function MidtermPage() {
             activeAnomalies={activeAnomalies}
             dismissAnomaly={dismissAnomaly}
             suggestions={suggestions}
+            onOpenPanel={(postId) => {
+              setSelectedPostIdForPanel(postId);
+              setIsPanelOpen(true);
+            }}
           />
         </TabsContent>
 
@@ -2143,6 +2176,14 @@ export default function MidtermPage() {
           />
         </TabsContent>
       </Tabs>
+
+      {/* 貼文詳細面板 */}
+      <PostDetailPanel
+        open={isPanelOpen}
+        onOpenChange={setIsPanelOpen}
+        postId={selectedPostIdForPanel}
+        selectedAccountId={selectedAccountId}
+      />
     </div>
   );
 }
