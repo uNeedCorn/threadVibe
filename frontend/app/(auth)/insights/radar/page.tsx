@@ -20,6 +20,7 @@ import {
   Sparkles,
   Lightbulb,
   BarChart3,
+  ChevronDown,
 } from "lucide-react";
 import {
   LineChart,
@@ -43,6 +44,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Select,
   SelectContent,
@@ -865,20 +871,31 @@ function IgnitionCurveChart({
     hasEnoughData: post.ignition && post.ignition.dataPoints.length >= 2,
     // 區分「延遲追蹤」和「資料累積中」
     noDataReason: !post.hasEarlyData ? "delayed" : "pending" as "delayed" | "pending",
+    // 是否為非活躍貼文（延遲追蹤或超過 3 小時）
+    isInactive: !post.hasEarlyData || post.ageMinutes > 180,
   }));
 
-  // 按互動領先指數排序（有資料的優先，沒資料的排後面）
-  const sortedData = [...allPostsWithMeta].sort((a, b) => {
-    // 有資料的排前面
+  // 分離活躍和非活躍貼文
+  const activePosts = allPostsWithMeta.filter((p) => !p.isInactive);
+  const inactivePosts = allPostsWithMeta.filter((p) => p.isInactive);
+
+  // 活躍貼文按互動領先指數排序
+  const sortedActivePosts = [...activePosts].sort((a, b) => {
     if (a.hasEnoughData && !b.hasEnoughData) return -1;
     if (!a.hasEnoughData && b.hasEnoughData) return 1;
-    // 都有資料時按 engagementLeadScore 排序
     if (a.hasEnoughData && b.hasEnoughData) {
       return (b.ignition?.engagementLeadScore || 0) - (a.ignition?.engagementLeadScore || 0);
     }
-    // 都沒資料時按發布時間排序（新的在前）
     return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
   });
+
+  // 非活躍貼文按發布時間排序（新的在前）
+  const sortedInactivePosts = [...inactivePosts].sort(
+    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  );
+
+  // 收折狀態
+  const [isInactiveExpanded, setIsInactiveExpanded] = useState(false);
 
   return (
     <Card>
@@ -900,16 +917,48 @@ function IgnitionCurveChart({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        {/* 小多圖 Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {sortedData.map((post) => {
-            // 資料不足時顯示等待/延遲提示
-            if (!post.hasEnoughData) {
-              const isDelayed = post.noDataReason === "delayed";
+      <CardContent className="pt-4">
+        {/* 活躍貼文（3 小時內且有早期資料） */}
+        {sortedActivePosts.length > 0 ? (
+          <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(320px,1fr))] xl:grid-cols-[repeat(3,minmax(320px,1fr))]">
+            {sortedActivePosts.map((post) => {
+              // 資料不足時顯示等待提示
+              if (!post.hasEnoughData) {
+                return (
+                  <div key={post.id} className="rounded-lg border p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="size-2.5 rounded-full"
+                          style={{ backgroundColor: post.color }}
+                        />
+                        <span className="max-w-32 truncate text-sm font-medium">
+                          {post.postText}
+                        </span>
+                      </div>
+                      <Badge variant="outline" className="text-xs border-border bg-muted text-muted-foreground">
+                        <Clock className="mr-1 size-3" />
+                        等待中
+                      </Badge>
+                    </div>
+                    <div className="flex h-24 items-center justify-center text-center">
+                      <div className="text-muted-foreground">
+                        <Clock className="mx-auto mb-1 size-6 opacity-30" />
+                        <p className="text-xs">資料累積中</p>
+                        <p className="text-[10px]">下次同步後更新</p>
+                      </div>
+                    </div>
+                    <div className="mt-2 text-center text-xs text-muted-foreground">
+                      發布於 {formatRelativeTime(post.ageMinutes)}
+                    </div>
+                  </div>
+                );
+              }
+
+              // 有資料時顯示圖表
+              const ignition = post.ignition!;
               return (
                 <div key={post.id} className="rounded-lg border p-3">
-                  {/* 標題列 */}
                   <div className="mb-2 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div
@@ -924,137 +973,116 @@ function IgnitionCurveChart({
                       variant="outline"
                       className={cn(
                         "text-xs",
-                        "border-border bg-muted text-muted-foreground"
+                        ignition.engagementLeadScore > 5
+                          ? "border-warning/30 bg-warning/10 text-warning"
+                          : ignition.engagementLeadScore > 0
+                            ? "border-primary/30 bg-primary/10 text-primary"
+                            : "border-border bg-muted text-muted-foreground"
                       )}
                     >
-                      <Clock className="mr-1 size-3" />
-                      {isDelayed ? "延遲追蹤" : "等待中"}
+                      {ignition.engagementLeadScore > 0 ? "+" : ""}
+                      {ignition.engagementLeadScore}
                     </Badge>
                   </div>
-                  {/* 提示訊息 */}
-                  <div className="flex h-24 items-center justify-center text-center">
-                    <div className="text-muted-foreground">
-                      <Clock className="mx-auto mb-1 size-6 opacity-30" />
-                      {isDelayed ? (
-                        <>
-                          <p className="text-xs">此貼文在加入追蹤前</p>
-                          <p className="text-xs">已超過 3 小時</p>
-                          <p className="mt-1 text-[10px] text-muted-foreground/70">無法回溯早期點火數據</p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-xs">資料累積中</p>
-                          <p className="text-[10px]">下次同步後更新</p>
-                        </>
-                      )}
-                    </div>
+
+                  <div className="h-24">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={ignition.dataPoints}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={STONE[200]} />
+                        <XAxis dataKey="timeLabel" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                        <YAxis hide domain={[0, 100]} />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload || payload.length === 0) return null;
+                            const data = payload[0].payload as IgnitionDataPoint;
+                            return (
+                              <div className="rounded border bg-background p-2 text-xs shadow">
+                                <p className="font-medium">{data.timeLabel}</p>
+                                <p className="text-warning">互動：{data.engagementPct.toFixed(1)}%</p>
+                                <p className="text-primary">曝光：{data.viewsPct.toFixed(1)}%</p>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Line type="monotone" dataKey="engagementPct" stroke={SEMANTIC_COLORS.warning} strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="viewsPct" stroke={ACCENT.DEFAULT} strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
-                  {/* 底部佔位 */}
-                  <div className="mt-2 text-center text-xs text-muted-foreground">
-                    發布於 {formatRelativeTime(post.ageMinutes)}
+
+                  <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+                    <span>互動高峰：{ignition.peakEngagementTime}</span>
+                    <span>曝光高峰：{ignition.peakViewsTime}</span>
                   </div>
                 </div>
               );
-            }
-
-            // 有資料時顯示圖表
-            const ignition = post.ignition!;
-            return (
-              <div key={post.id} className="rounded-lg border p-3">
-                {/* 標題列 */}
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="size-2.5 rounded-full"
-                      style={{ backgroundColor: post.color }}
-                    />
-                    <span className="max-w-32 truncate text-sm font-medium">
-                      {post.postText}
-                    </span>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-xs",
-                      ignition.engagementLeadScore > 5
-                        ? "border-warning/30 bg-warning/10 text-warning"
-                        : ignition.engagementLeadScore > 0
-                          ? "border-primary/30 bg-primary/10 text-primary"
-                          : "border-border bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {ignition.engagementLeadScore > 0 ? "+" : ""}
-                    {ignition.engagementLeadScore}
-                  </Badge>
-                </div>
-
-                {/* 迷你圖表 */}
-                <div className="h-24">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={ignition.dataPoints}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke={STONE[200]}
-                      />
-                      <XAxis
-                        dataKey="timeLabel"
-                        tick={{ fontSize: 10 }}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis hide domain={[0, 100]} />
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (!active || !payload || payload.length === 0) return null;
-                          const data = payload[0].payload as IgnitionDataPoint;
-                          return (
-                            <div className="rounded border bg-background p-2 text-xs shadow">
-                              <p className="font-medium">{data.timeLabel}</p>
-                              <p className="text-warning">
-                                互動：{data.engagementPct.toFixed(1)}%
-                              </p>
-                              <p className="text-primary">
-                                曝光：{data.viewsPct.toFixed(1)}%
-                              </p>
-                            </div>
-                          );
-                        }}
-                      />
-                      {/* 互動訊號（橙色） */}
-                      <Line
-                        type="monotone"
-                        dataKey="engagementPct"
-                        stroke={SEMANTIC_COLORS.warning}
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                      {/* 曝光增量（青色） */}
-                      <Line
-                        type="monotone"
-                        dataKey="viewsPct"
-                        stroke={ACCENT.DEFAULT}
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* 底部統計 */}
-                <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-                  <span>互動高峰：{ignition.peakEngagementTime}</span>
-                  <span>曝光高峰：{ignition.peakViewsTime}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+            })}
+          </div>
+        ) : (
+          <div className="flex h-24 items-center justify-center text-muted-foreground">
+            <p className="text-sm">目前沒有 3 小時內的活躍貼文</p>
+          </div>
+        )}
 
         {/* 說明文字 */}
         <p className="mt-4 text-center text-xs text-muted-foreground">
           橙色曲線在上方 = 互動領先曝光（正在點火） · 領先指數越高代表早期互動越強
         </p>
+
+        {/* 非活躍貼文（延遲追蹤或超過 3 小時）- 可收折 */}
+        {sortedInactivePosts.length > 0 && (
+          <Collapsible open={isInactiveExpanded} onOpenChange={setIsInactiveExpanded} className="mt-6">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between text-muted-foreground hover:text-foreground">
+                <span className="text-sm">
+                  延遲追蹤 / 超過 3 小時（{sortedInactivePosts.length} 篇）
+                </span>
+                <ChevronDown className={cn("size-4 transition-transform", isInactiveExpanded && "rotate-180")} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4">
+              <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(320px,1fr))] xl:grid-cols-[repeat(3,minmax(320px,1fr))]">
+                {sortedInactivePosts.map((post) => {
+                  const isDelayed = post.noDataReason === "delayed";
+                  return (
+                    <div key={post.id} className="rounded-lg border border-dashed p-3 opacity-70">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="size-2.5 rounded-full" style={{ backgroundColor: post.color }} />
+                          <span className="max-w-32 truncate text-sm font-medium">{post.postText}</span>
+                        </div>
+                        <Badge variant="outline" className="text-xs border-border bg-muted text-muted-foreground">
+                          <Clock className="mr-1 size-3" />
+                          {isDelayed ? "延遲追蹤" : "已超時"}
+                        </Badge>
+                      </div>
+                      <div className="flex h-24 items-center justify-center text-center">
+                        <div className="text-muted-foreground">
+                          <Clock className="mx-auto mb-1 size-6 opacity-30" />
+                          {isDelayed ? (
+                            <>
+                              <p className="text-xs">此貼文在加入追蹤前</p>
+                              <p className="text-xs">已超過 3 小時</p>
+                              <p className="mt-1 text-[10px] text-muted-foreground/70">無法回溯早期點火數據</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-xs">已超過點火觀察期</p>
+                              <p className="text-[10px]">請參考其他圖表追蹤成效</p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-2 text-center text-xs text-muted-foreground">
+                        發布於 {formatRelativeTime(post.ageMinutes)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </CardContent>
     </Card>
   );
@@ -1134,21 +1162,31 @@ function EarlySignalHeatmap({
   }
 
   // 所有貼文都顯示（有資料的顯示熱力格，沒資料的顯示等待/延遲提示）
-  const allPostsWithMeta = posts
-    .map((post) => ({
-      ...post,
-      postText: post.text.length > 12 ? post.text.slice(0, 12) + "..." : post.text || "(無文字)",
-      hasEnoughData: post.heatmap && post.heatmap.cells.length === 12,
-      // 區分「延遲追蹤」和「資料累積中」
-      noDataReason: !post.hasEarlyData ? "delayed" : "pending" as "delayed" | "pending",
-    }))
+  const allPostsWithMeta = posts.map((post) => ({
+    ...post,
+    postText: post.text.length > 12 ? post.text.slice(0, 12) + "..." : post.text || "(無文字)",
+    hasEnoughData: post.heatmap && post.heatmap.cells.length === 12,
+    // 區分「延遲追蹤」和「資料累積中」
+    noDataReason: !post.hasEarlyData ? "delayed" : "pending" as "delayed" | "pending",
+    // 是否為非活躍貼文（延遲追蹤或超過 3 小時）
+    isInactive: !post.hasEarlyData || post.ageMinutes > 180,
+  }));
+
+  // 分離活躍和非活躍貼文
+  const activePosts = allPostsWithMeta
+    .filter((p) => !p.isInactive)
     .sort((a, b) => {
-      // 有資料的排前面
       if (a.hasEnoughData && !b.hasEnoughData) return -1;
       if (!a.hasEnoughData && b.hasEnoughData) return 1;
-      // 都有資料時按 viralityScore 排序
       return b.viralityScore - a.viralityScore;
     });
+
+  const inactivePosts = allPostsWithMeta
+    .filter((p) => p.isInactive)
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+  // 收折狀態
+  const [isHeatmapInactiveExpanded, setIsHeatmapInactiveExpanded] = useState(false);
 
   return (
     <Card>
@@ -1192,90 +1230,120 @@ function EarlySignalHeatmap({
           </div>
         </div>
 
-        {/* 熱力圖主體 */}
-        <div className="space-y-1">
-          {allPostsWithMeta.map((post) => {
-            // 資料不足時顯示等待/延遲提示列
-            if (!post.hasEnoughData) {
-              const isDelayed = post.noDataReason === "delayed";
+        {/* 活躍貼文熱力圖 */}
+        {activePosts.length > 0 ? (
+          <div className="space-y-1">
+            {activePosts.map((post) => {
+              // 資料不足時顯示等待提示列
+              if (!post.hasEnoughData) {
+                return (
+                  <div key={post.id} className="flex items-center">
+                    <div className="w-28 shrink-0 truncate pr-2 text-sm text-muted-foreground" title={post.postText}>
+                      {post.postText}
+                    </div>
+                    <div className="flex flex-1 gap-0.5">
+                      {TIME_BUCKET_LABELS.map((_, i) => (
+                        <div key={i} className="flex-1">
+                          <div className="h-6 w-full rounded-sm bg-muted" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="w-20 shrink-0 text-center text-xs text-muted-foreground" title="資料累積中，下次同步後更新">
+                      <Clock className="inline size-3 mr-0.5" />
+                      等待中
+                    </div>
+                  </div>
+                );
+              }
+
+              // 有資料時顯示熱力圖
+              const heatmap = post.heatmap!;
+              const { label: heatTypeLabel, color: heatTypeColor } = HEAT_TYPE_CONFIG[heatmap.heatType];
+
               return (
                 <div key={post.id} className="flex items-center">
-                  {/* 貼文名稱 */}
-                  <div className="w-28 shrink-0 truncate pr-2 text-sm text-muted-foreground" title={post.postText}>
-                    {post.postText}
+                  <div className="w-28 shrink-0 truncate pr-2 text-sm" title={post.postText}>
+                    <span
+                      className={cn(
+                        post.viralityLevel === "viral" && "font-semibold text-destructive",
+                        post.viralityLevel === "excellent" && "font-medium text-warning"
+                      )}
+                    >
+                      {post.postText}
+                    </span>
                   </div>
-
-                  {/* 等待/延遲中的灰色格子 */}
                   <div className="flex flex-1 gap-0.5">
-                    {TIME_BUCKET_LABELS.map((_, i) => (
-                      <div key={i} className="flex-1">
-                        <div className="h-6 w-full rounded-sm bg-muted" />
+                    {heatmap.cells.map((cell) => (
+                      <div key={cell.bucketIndex} className="group relative flex-1">
+                        <div
+                          className="h-6 w-full rounded-sm transition-all hover:ring-2 hover:ring-warning"
+                          style={{ backgroundColor: getHeatmapColor(cell.intensity) }}
+                        />
+                        <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-xs text-background group-hover:block">
+                          {TIME_BUCKET_LABELS[cell.bucketIndex]}: {cell.viralityDelta.toFixed(1)}
+                        </div>
                       </div>
                     ))}
                   </div>
-
-                  {/* 狀態標籤 */}
-                  <div
-                    className="w-20 shrink-0 text-center text-xs text-muted-foreground"
-                    title={isDelayed ? "此貼文在加入追蹤前已超過 3 小時，無法追蹤早期訊號" : "資料累積中，下次同步後更新"}
-                  >
-                    <Clock className="inline size-3 mr-0.5" />
-                    {isDelayed ? "延遲追蹤" : "等待中"}
+                  <div className={cn("w-20 shrink-0 text-center text-xs font-medium", heatTypeColor)}>
+                    {heatTypeLabel}
                   </div>
                 </div>
               );
-            }
-
-            // 有資料時顯示熱力圖
-            const heatmap = post.heatmap!;
-            const { label: heatTypeLabel, color: heatTypeColor } = HEAT_TYPE_CONFIG[heatmap.heatType];
-
-            return (
-              <div key={post.id} className="flex items-center">
-                {/* 貼文名稱 */}
-                <div className="w-28 shrink-0 truncate pr-2 text-sm" title={post.postText}>
-                  <span
-                    className={cn(
-                      post.viralityLevel === "viral" && "font-semibold text-destructive",
-                      post.viralityLevel === "excellent" && "font-medium text-warning"
-                    )}
-                  >
-                    {post.postText}
-                  </span>
-                </div>
-
-                {/* 熱力格子 */}
-                <div className="flex flex-1 gap-0.5">
-                  {heatmap.cells.map((cell) => (
-                    <div
-                      key={cell.bucketIndex}
-                      className="group relative flex-1"
-                    >
-                      <div
-                        className="h-6 w-full rounded-sm transition-all hover:ring-2 hover:ring-warning"
-                        style={{ backgroundColor: getHeatmapColor(cell.intensity) }}
-                      />
-                      {/* Tooltip */}
-                      <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-xs text-background group-hover:block">
-                        {TIME_BUCKET_LABELS[cell.bucketIndex]}: {cell.viralityDelta.toFixed(1)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* 類型標籤 */}
-                <div className={cn("w-20 shrink-0 text-center text-xs font-medium", heatTypeColor)}>
-                  {heatTypeLabel}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+            })}
+          </div>
+        ) : (
+          <div className="flex h-16 items-center justify-center text-muted-foreground">
+            <p className="text-sm">目前沒有 3 小時內的活躍貼文</p>
+          </div>
+        )}
 
         {/* 說明文字 */}
         <p className="mt-4 text-center text-xs text-muted-foreground">
           顏色越深 = 該時段互動訊號越強 · 早熱型貼文更有爆紅潛力
         </p>
+
+        {/* 非活躍貼文（延遲追蹤或超過 3 小時）- 可收折 */}
+        {inactivePosts.length > 0 && (
+          <Collapsible open={isHeatmapInactiveExpanded} onOpenChange={setIsHeatmapInactiveExpanded} className="mt-6">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between text-muted-foreground hover:text-foreground">
+                <span className="text-sm">
+                  延遲追蹤 / 超過 3 小時（{inactivePosts.length} 篇）
+                </span>
+                <ChevronDown className={cn("size-4 transition-transform", isHeatmapInactiveExpanded && "rotate-180")} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4">
+              <div className="space-y-1 opacity-70">
+                {inactivePosts.map((post) => {
+                  const isDelayed = post.noDataReason === "delayed";
+                  return (
+                    <div key={post.id} className="flex items-center">
+                      <div className="w-28 shrink-0 truncate pr-2 text-sm text-muted-foreground" title={post.postText}>
+                        {post.postText}
+                      </div>
+                      <div className="flex flex-1 gap-0.5">
+                        {TIME_BUCKET_LABELS.map((_, i) => (
+                          <div key={i} className="flex-1">
+                            <div className="h-6 w-full rounded-sm bg-muted/50 border border-dashed border-muted-foreground/20" />
+                          </div>
+                        ))}
+                      </div>
+                      <div
+                        className="w-20 shrink-0 text-center text-xs text-muted-foreground"
+                        title={isDelayed ? "此貼文在加入追蹤前已超過 3 小時" : "已超過點火觀察期"}
+                      >
+                        <Clock className="inline size-3 mr-0.5" />
+                        {isDelayed ? "延遲追蹤" : "已超時"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </CardContent>
     </Card>
   );
@@ -1297,8 +1365,8 @@ function calculateQuadrantData(posts: TrackingPost[]): {
   data: QuadrantDataPoint[];
   midX: number;
   midY: number;
-  maxX: number;
-  maxY: number;
+  domainX: [number, number];
+  domainY: [number, number];
   minZ: number;
   maxZ: number;
 } {
@@ -1321,11 +1389,15 @@ function calculateQuadrantData(posts: TrackingPost[]): {
   const minZ = data.length > 0 ? Math.min(...data.map((d) => d.z)) : 0;
   const maxZ = data.length > 0 ? Math.max(...data.map((d) => d.z)) : 1;
 
-  // 中央分界線（範圍中點）
+  // 加上 15% 緩衝避免氣泡超出圖表（僅在最大值側）
+  const domainX: [number, number] = [0, maxX * 1.15];
+  const domainY: [number, number] = [0, maxY * 1.15];
+
+  // 中央分界線（資料範圍的中點）
   const midX = maxX / 2;
   const midY = maxY / 2;
 
-  return { data, midX, midY, maxX, maxY, minZ, maxZ };
+  return { data, midX, midY, domainX, domainY, minZ, maxZ };
 }
 
 // 根據象限位置決定顏色（曝光 vs 傳播力）- 使用 design-tokens
@@ -1365,7 +1437,7 @@ function QuadrantChart({
     );
   }
 
-  const { data, midX, midY, maxX, maxY, minZ, maxZ } = calculateQuadrantData(posts);
+  const { data, midX, midY, domainX, domainY, minZ, maxZ } = calculateQuadrantData(posts);
 
   if (data.length === 0) {
     return (
@@ -1413,14 +1485,15 @@ function QuadrantChart({
         </div>
       </CardHeader>
       <CardContent className="pt-2 px-3">
-        <div className="h-64">
+        <div className="h-80 mx-4">
           <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 5, right: 5, bottom: 25, left: 5 }}>
+            <ScatterChart margin={{ top: 20, right: 15, bottom: 25, left: 5 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 type="number"
                 dataKey="x"
                 name="曝光"
+                domain={domainX}
                 tick={{ fontSize: 9 }}
                 tickLine={false}
                 axisLine={false}
@@ -1431,11 +1504,12 @@ function QuadrantChart({
                 type="number"
                 dataKey="y"
                 name="傳播力"
+                domain={domainY}
                 tick={{ fontSize: 9 }}
                 tickLine={false}
                 axisLine={false}
-                width={28}
-                label={{ value: "傳播力", angle: -90, position: "insideLeft", fontSize: 10 }}
+                tickFormatter={(v) => v.toFixed(2)}
+                width={45}
               />
               <ZAxis
                 type="number"
@@ -1537,8 +1611,8 @@ interface ViewsRHatDataPoint {
 function calculateViewsRHatData(posts: TrackingPost[]): {
   data: ViewsRHatDataPoint[];
   midX: number;
-  maxX: number;
-  maxY: number;
+  domainX: [number, number];
+  domainY: [number, number];
   minZ: number;
   maxZ: number;
 } {
@@ -1559,9 +1633,15 @@ function calculateViewsRHatData(posts: TrackingPost[]): {
   const maxY = data.length > 0 ? Math.max(...data.map((d) => d.y), 2) : 2;
   const minZ = data.length > 0 ? Math.min(...data.map((d) => d.z)) : 0;
   const maxZ = data.length > 0 ? Math.max(...data.map((d) => d.z)) : 1;
+
+  // 加上 15% 緩衝避免氣泡超出圖表（僅在最大值側）
+  const domainX: [number, number] = [0, maxX * 1.15];
+  const domainY: [number, number] = [0, Math.max(maxY, 2) * 1.15];
+
+  // 中央分界線（資料範圍的中點）
   const midX = maxX / 2;
 
-  return { data, midX, maxX, maxY, minZ, maxZ };
+  return { data, midX, domainX, domainY, minZ, maxZ };
 }
 
 function getViewsRHatColor(x: number, y: number, midX: number): string {
@@ -1594,7 +1674,7 @@ function ViewsRHatQuadrantChart({
     );
   }
 
-  const { data, midX, maxX, maxY, minZ, maxZ } = calculateViewsRHatData(posts);
+  const { data, midX, domainX, domainY, minZ, maxZ } = calculateViewsRHatData(posts);
 
   if (data.length === 0) {
     return (
@@ -1643,14 +1723,15 @@ function ViewsRHatQuadrantChart({
         </div>
       </CardHeader>
       <CardContent className="pt-2 px-3">
-        <div className="h-64">
+        <div className="h-80 mx-4">
           <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 5, right: 5, bottom: 25, left: 5 }}>
+            <ScatterChart margin={{ top: 20, right: 15, bottom: 25, left: 5 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 type="number"
                 dataKey="x"
                 name="曝光"
+                domain={domainX}
                 tick={{ fontSize: 9 }}
                 tickLine={false}
                 axisLine={false}
@@ -1661,12 +1742,11 @@ function ViewsRHatQuadrantChart({
                 type="number"
                 dataKey="y"
                 name="擴散動態"
+                domain={domainY}
                 tick={{ fontSize: 9 }}
                 tickLine={false}
                 axisLine={false}
-                domain={[0, Math.max(maxY, 2)]}
-                width={28}
-                label={{ value: "擴散動態", angle: -90, position: "insideLeft", fontSize: 10 }}
+                width={45}
               />
               <ZAxis
                 type="number"
@@ -1678,17 +1758,12 @@ function ViewsRHatQuadrantChart({
               {/* 曝光中央分界 */}
               <ReferenceLine x={midX} stroke={STONE[300]} strokeWidth={1.5} />
               {/* 擴散動態 = 1.0 臨界線 */}
+              {/* 擴散動態臨界值 R̂=1.0：超過此線表示正在擴散 */}
               <ReferenceLine
                 y={RHAT_THRESHOLD}
                 stroke={SEMANTIC_COLORS.destructive}
                 strokeDasharray="4 4"
                 strokeWidth={1.5}
-                label={{
-                  value: "臨界值 1.0",
-                  position: "right",
-                  fontSize: 10,
-                  fill: SEMANTIC_COLORS.destructive,
-                }}
               />
               <Tooltip
                 content={({ active, payload }) => {
@@ -1696,12 +1771,12 @@ function ViewsRHatQuadrantChart({
                   const d = payload[0].payload as ViewsRHatDataPoint;
                   const quadrant =
                     d.x >= midX && d.y >= RHAT_THRESHOLD
-                      ? "🌊 大規模擴散中"
+                      ? "大規模擴散中"
                       : d.x < midX && d.y >= RHAT_THRESHOLD
-                        ? "🌱 剛開始擴散"
+                        ? "剛開始擴散"
                         : d.x >= midX && d.y < RHAT_THRESHOLD
-                          ? "🏔️ 已達峰值"
-                          : "❄️ 未能引起關注";
+                          ? "已達峰值"
+                          : "未能引起關注";
                   return (
                     <div className="rounded-lg border bg-background p-3 shadow-lg">
                       <p className="mb-2 font-medium">{d.postText}</p>
@@ -1755,26 +1830,26 @@ function TimeStatusBadge({ status }: { status: TimeStatus }) {
   const config = {
     golden: {
       label: "黃金期",
-      icon: "🔥",
+      Icon: Flame,
       className: "bg-destructive/10 text-destructive border-destructive/20",
     },
     early: {
       label: "早期",
-      icon: "⏰",
+      Icon: Clock,
       className: "bg-warning/10 text-warning border-warning/20",
     },
     tracking: {
       label: "追蹤中",
-      icon: "📊",
+      Icon: BarChart3,
       className: "bg-muted text-muted-foreground border-border",
     },
   };
 
-  const { label, icon, className } = config[status];
+  const { label, Icon, className } = config[status];
 
   return (
     <Badge variant="outline" className={cn("gap-1 text-xs", className)}>
-      <span>{icon}</span>
+      <Icon className="size-3" />
       {label}
     </Badge>
   );
@@ -2359,14 +2434,12 @@ export default function RadarPage() {
         reachRiskLevel: post.reachRiskLevel,
       }));
 
-      // API 回傳的 alerts 轉換為前端格式（加上 emoji）
+      // API 回傳的 alerts 轉換為前端格式
       const processedAlerts: PageAlert[] = data.alerts.map((alert) => ({
         id: alert.id,
         type: alert.type,
         postId: alert.postId,
-        message: alert.type === "viral"
-          ? `🔥 ${alert.message}`
-          : `⭐ ${alert.message}`,
+        message: alert.message,
       }));
 
       setPosts(processedPosts);
@@ -2486,7 +2559,7 @@ export default function RadarPage() {
           <AlertBanner alerts={alerts} onDismiss={dismissAlert} />
 
           {/* 摘要卡片 */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
             <SummaryCard
               title="追蹤中貼文"
               value={summary.totalPosts}
@@ -2528,7 +2601,7 @@ export default function RadarPage() {
           <EarlySignalHeatmap posts={posts} isLoading={isLoading} />
 
           {/* 四象限圖表區 */}
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
             <QuadrantChart posts={posts} isLoading={isLoading} />
             <ViewsRHatQuadrantChart posts={posts} isLoading={isLoading} />
           </div>
