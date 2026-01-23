@@ -20,6 +20,7 @@ import {
   BarChart3,
   FileText,
   PanelRightOpen,
+  Info,
 } from "lucide-react";
 import {
   AreaChart,
@@ -47,6 +48,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -254,7 +256,7 @@ function EngagementTrendChart({
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold">
-              {formatNumber(totalInteractions)}
+              {totalInteractions.toLocaleString()}
             </div>
             {interactionsGrowth !== undefined && (
               <div className="flex items-center justify-end gap-2">
@@ -330,7 +332,7 @@ function EngagementTrendChart({
                         <div className="space-y-1 text-sm">
                           <div className="flex items-center justify-between gap-4">
                             <span className="text-muted-foreground">互動數</span>
-                            <span className="font-medium">{formatNumber(point.totalInteractions)}</span>
+                            <span className="font-medium">{point.totalInteractions.toLocaleString()}</span>
                           </div>
                           <div className="flex items-center justify-between gap-4">
                             <span className="text-muted-foreground">互動率</span>
@@ -340,19 +342,19 @@ function EngagementTrendChart({
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div className="flex items-center gap-1">
                               <Heart className="size-3 text-primary" />
-                              <span>{formatNumber(point.likes)}</span>
+                              <span>{point.likes.toLocaleString()}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <MessageSquare className="size-3 text-primary" />
-                              <span>{formatNumber(point.replies)}</span>
+                              <span>{point.replies.toLocaleString()}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <Repeat2 className="size-3 text-primary/80" />
-                              <span>{formatNumber(point.reposts)}</span>
+                              <span>{point.reposts.toLocaleString()}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <Quote className="size-3 text-primary/60" />
-                              <span>{formatNumber(point.quotes)}</span>
+                              <span>{point.quotes.toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
@@ -482,8 +484,17 @@ function TagEngagementChart({
       </CardHeader>
       <CardContent>
         {!hasData ? (
-          <div className="flex h-[200px] items-center justify-center text-muted-foreground">
-            尚無已標籤的貼文
+          <div className="flex h-[200px] items-center justify-center">
+            <Alert className="max-w-sm">
+              <Info className="size-4" />
+              <AlertDescription>
+                尚未設定自訂標籤。前往{" "}
+                <Link href="/tags" className="font-medium underline underline-offset-4 hover:text-primary">
+                  標籤管理
+                </Link>{" "}
+                為貼文新增標籤，即可分析各標籤的互動效率。
+              </AlertDescription>
+            </Alert>
           </div>
         ) : (
           <ChartContainer
@@ -775,7 +786,7 @@ function QualityScoreBlock({
   const repostRatio = total > 0 ? (data.totalReposts / total) * 100 : 0;
 
   if (replyRatio < 10) suggestions.push("多發問題式內容，引發討論");
-  if (quoteRatio < 3) suggestions.push("嘗試發爭議性或啟發性觀點");
+  if (quoteRatio < 3) suggestions.push("嘗試發觀點鮮明或啟發性的內容");
   if (repostRatio < 5) suggestions.push("創作更多可分享的實用內容");
   if (suggestions.length === 0 && qualityScore < 60) {
     suggestions.push("嘗試多樣化內容類型，增加深度互動");
@@ -887,8 +898,17 @@ function ContentEffectBlock({
       </CardHeader>
       <CardContent>
         {sortedTags.length === 0 ? (
-          <div className="flex h-[180px] items-center justify-center text-muted-foreground">
-            尚無已標籤的貼文
+          <div className="flex h-[180px] items-center justify-center">
+            <Alert className="max-w-sm">
+              <Info className="size-4" />
+              <AlertDescription>
+                尚未設定自訂標籤。前往{" "}
+                <Link href="/tags" className="font-medium underline underline-offset-4 hover:text-primary">
+                  標籤管理
+                </Link>{" "}
+                為貼文新增標籤，即可分析什麼內容最能引發討論。
+              </AlertDescription>
+            </Alert>
           </div>
         ) : (
           <>
@@ -1913,6 +1933,7 @@ export default function EngagementPage() {
                   growth={interactionsGrowth}
                   icon={<Heart className="size-4" />}
                   isLoading={isLoading}
+                  format="fullNumber"
                   periodLabel={periodLabel}
                 />
                 <KPICard
@@ -1930,6 +1951,7 @@ export default function EngagementPage() {
                   growth={previousEngagementData ? calcGrowth(engagementData?.totalReplies || 0, previousEngagementData.totalReplies) : undefined}
                   icon={<MessageSquare className="size-4" />}
                   isLoading={isLoading}
+                  format="fullNumber"
                   periodLabel={periodLabel}
                 />
                 <KPICard
