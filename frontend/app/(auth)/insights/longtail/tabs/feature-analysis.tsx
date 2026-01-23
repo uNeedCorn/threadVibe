@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Image, Film, FileText, Layers } from "lucide-react";
+import Link from "next/link";
+import { Image, Film, FileText, Layers, Info } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -25,6 +26,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { WEEKDAY_NAMES, getHeatmapColor } from "@/lib/insights-utils";
 import { ACCENT } from "@/lib/design-tokens";
@@ -262,8 +264,17 @@ export function FeatureAnalysisTab({ data }: Props) {
           </CardHeader>
           <CardContent>
             {tagChartData.length === 0 ? (
-              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                暫無標籤數據
+              <div className="flex h-[300px] flex-col items-center justify-center gap-4">
+                <Alert className="max-w-sm">
+                  <Info className="size-4" />
+                  <AlertDescription>
+                    尚未設定自訂標籤。前往{" "}
+                    <Link href="/tags" className="font-medium underline underline-offset-4 hover:text-primary">
+                      標籤管理
+                    </Link>{" "}
+                    為貼文新增標籤，即可分析各標籤的長尾表現。
+                  </AlertDescription>
+                </Alert>
               </div>
             ) : (
               <ChartContainer config={chartConfig} className="h-[300px] w-full">

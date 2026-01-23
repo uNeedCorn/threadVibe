@@ -11,6 +11,7 @@ import {
   Film,
   FileText,
   Layers,
+  PanelRightOpen,
 } from "lucide-react";
 import {
   ScatterChart,
@@ -49,6 +50,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PostDetailPanel } from "@/components/posts/post-detail-panel";
+import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { cn } from "@/lib/utils";
 import { formatNumber, truncateText } from "@/lib/insights-utils";
 import {
@@ -68,13 +71,21 @@ type SortDirection = "asc" | "desc";
 
 export function EvergreenContentTab({ data }: Props) {
   const { posts, isLoading } = data;
+  const { selectedAccountId } = useSelectedAccount();
   const [sortKey, setSortKey] = useState<SortKey>("evergreenIndex");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [showAll, setShowAll] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [selectedPostIdForPanel, setSelectedPostIdForPanel] = useState<string | null>(null);
+
+  // 過濾掉常青指數為 0 的貼文
+  const filteredPosts = useMemo(() => {
+    return posts.filter((p) => p.evergreenIndex > 0);
+  }, [posts]);
 
   // 排序貼文
   const sortedPosts = useMemo(() => {
-    const sorted = [...posts].sort((a, b) => {
+    const sorted = [...filteredPosts].sort((a, b) => {
       let aVal: number;
       let bVal: number;
 
@@ -105,7 +116,7 @@ export function EvergreenContentTab({ data }: Props) {
     });
 
     return showAll ? sorted : sorted.slice(0, 10);
-  }, [posts, sortKey, sortDirection, showAll]);
+  }, [filteredPosts, sortKey, sortDirection, showAll]);
 
   // 散佈圖數據
   const scatterData = useMemo(() => {
@@ -233,18 +244,31 @@ export function EvergreenContentTab({ data }: Props) {
                   range={[40, 400]}
                 />
                 <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value, name) => {
-                        if (name === "x") return [`${value} 天`, "發布天數"];
-                        if (name === "y")
-                          return [formatNumber(value as number), "長尾曝光"];
-                        if (name === "z")
-                          return [formatNumber(value as number), "總曝光"];
-                        return [value, name];
-                      }}
-                    />
-                  }
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const data = payload[0].payload;
+                    return (
+                      <div className="rounded-lg border bg-background px-3 py-2 shadow-lg max-w-[280px]">
+                        <p className="mb-2 line-clamp-2 text-sm font-medium">
+                          {truncateText(data.text, 50)}
+                        </p>
+                        <div className="flex flex-col gap-1 text-sm">
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">發布天數</span>
+                            <span className="font-mono font-medium">{data.x} 天</span>
+                          </div>
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">長尾曝光</span>
+                            <span className="font-mono font-medium">{data.y.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">總曝光</span>
+                            <span className="font-mono font-medium">{data.z.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }}
                 />
                 <Scatter data={scatterData} fill={ACCENT.DEFAULT}>
                   {scatterData.map((entry, index) => (
@@ -384,11 +408,22 @@ export function EvergreenContentTab({ data }: Props) {
                           {index + 1}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-start gap-2">
+                          <div className="flex items-center gap-2">
                             {getMediaIcon(post.mediaType)}
-                            <span className="line-clamp-2 text-sm">
+                            <span className="line-clamp-2 text-sm flex-1">
                               {truncateText(post.text, 50)}
                             </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 shrink-0"
+                              onClick={() => {
+                                setSelectedPostIdForPanel(post.id);
+                                setIsPanelOpen(true);
+                              }}
+                            >
+                              <PanelRightOpen className="size-4" />
+                            </Button>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -443,7 +478,7 @@ export function EvergreenContentTab({ data }: Props) {
           </div>
 
           {/* 顯示更多按鈕 */}
-          {posts.length > 10 && (
+          {filteredPosts.length > 10 && (
             <div className="mt-4 flex justify-center">
               <Button
                 variant="outline"
@@ -458,7 +493,7 @@ export function EvergreenContentTab({ data }: Props) {
                 ) : (
                   <>
                     <ChevronDown className="mr-1 size-4" />
-                    顯示全部 ({posts.length} 篇)
+                    顯示全部 ({filteredPosts.length} 篇)
                   </>
                 )}
               </Button>
@@ -468,7 +503,7 @@ export function EvergreenContentTab({ data }: Props) {
       </Card>
 
       {/* 常青內容精選 */}
-      {posts.filter((p) => p.evergreenIndex > 0.3).length > 0 && (
+      {filteredPosts.filter((p) => p.evergreenIndex > 0.3).length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>常青內容精選</CardTitle>
@@ -478,7 +513,7 @@ export function EvergreenContentTab({ data }: Props) {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
-              {posts
+              {filteredPosts
                 .filter((p) => p.evergreenIndex > 0.3)
                 .sort((a, b) => b.evergreenIndex - a.evergreenIndex)
                 .slice(0, 3)
@@ -525,6 +560,14 @@ export function EvergreenContentTab({ data }: Props) {
           </CardContent>
         </Card>
       )}
+
+      {/* 貼文詳細面板 */}
+      <PostDetailPanel
+        open={isPanelOpen}
+        onOpenChange={setIsPanelOpen}
+        postId={selectedPostIdForPanel}
+        selectedAccountId={selectedAccountId}
+      />
     </div>
   );
 }
