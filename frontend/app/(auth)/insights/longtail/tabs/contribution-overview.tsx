@@ -213,10 +213,10 @@ export function ContributionOverviewTab({ data }: Props) {
                 暫無數據
               </div>
             ) : (
-              <div className="flex items-center gap-6">
+              <div className="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
                 <ChartContainer
                   config={pieChartConfig}
-                  className="h-[250px] flex-1"
+                  className="h-[200px] w-full sm:h-[250px] sm:w-auto sm:flex-1"
                 >
                   <PieChart>
                     <ChartTooltip
@@ -238,8 +238,8 @@ export function ContributionOverviewTab({ data }: Props) {
                       nameKey="name"
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
+                      innerRadius={50}
+                      outerRadius={75}
                       paddingAngle={2}
                     >
                       {pieData.map((entry) => (
@@ -252,7 +252,7 @@ export function ContributionOverviewTab({ data }: Props) {
                       y="45%"
                       textAnchor="middle"
                       dominantBaseline="middle"
-                      className="fill-foreground text-2xl font-bold"
+                      className="fill-foreground text-xl font-bold sm:text-2xl"
                     >
                       {longtailPercentage.toFixed(1)}%
                     </text>
@@ -269,15 +269,15 @@ export function ContributionOverviewTab({ data }: Props) {
                 </ChartContainer>
 
                 {/* 圖例 */}
-                <div className="flex flex-col gap-3 text-sm">
+                <div className="grid w-full grid-cols-2 gap-2 text-sm sm:flex sm:w-auto sm:shrink-0 sm:flex-col sm:gap-3">
                   {pieData.map((item) => (
                     <div key={item.name} className="flex items-center gap-2">
                       <div
                         className="size-3 shrink-0 rounded-full"
                         style={{ backgroundColor: item.fill }}
                       />
-                      <span className="text-muted-foreground">{item.label}</span>
-                      <span className="ml-auto font-medium">
+                      <span className="truncate text-muted-foreground">{item.label}</span>
+                      <span className="ml-auto shrink-0 font-medium">
                         {item.percentage}%
                       </span>
                     </div>
