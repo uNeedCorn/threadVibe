@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { TrendingUp, TrendingDown, Eye, Clock, BarChart3, Users, Trophy, AlertTriangle, Flame, Snowflake, ChevronDown, ChevronLeft, ChevronRight, Zap, Rocket, Scale, BarChart2, PanelRightOpen, Lightbulb, Target, Sparkles, CheckCircle2, FileText, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, Eye, Clock, BarChart3, Users, Trophy, AlertTriangle, Flame, Snowflake, ChevronDown, ChevronLeft, ChevronRight, Zap, Rocket, Scale, BarChart2, PanelRightOpen, Lightbulb, Target, Sparkles, CheckCircle2, FileText, Activity, Info } from "lucide-react";
 import { XAxis, YAxis, CartesianGrid, Area, AreaChart, BarChart, Bar, Cell, LabelList } from "recharts";
 import { createClient } from "@/lib/supabase/client";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
@@ -967,7 +968,7 @@ export default function ReachPage() {
                 {!isLoading && viewsStats && (
                   <div className="text-right">
                     <div className="text-2xl font-bold">
-                      {formatNumber(viewsStats.totalViews)}
+                      {viewsStats.totalViews.toLocaleString()}
                     </div>
                     <div className="flex items-center justify-end gap-2">
                       <span className="text-sm text-muted-foreground">
@@ -1008,7 +1009,7 @@ export default function ReachPage() {
                     <ChartTooltip
                       content={
                         <ChartTooltipContent
-                          formatter={(value) => [formatNumber(value as number), "新增曝光"]}
+                          formatter={(value) => [(value as number).toLocaleString(), "新增曝光"]}
                         />
                       }
                     />
@@ -1037,6 +1038,7 @@ export default function ReachPage() {
               growth={viewsStats?.growthRate}
               icon={<Eye className="size-4" />}
               isLoading={isLoading}
+              format="fullNumber"
               periodLabel={period === "week" ? "上週" : "上月"}
             />
             <KPICard
@@ -1052,6 +1054,7 @@ export default function ReachPage() {
               value={efficiencyStats?.avgViewsPerPost || 0}
               icon={<BarChart3 className="size-4" />}
               isLoading={isHeatmapLoading}
+              format="fullNumber"
               periodLabel={period === "week" ? "上週" : "上月"}
             />
             <KPICard
@@ -1063,6 +1066,8 @@ export default function ReachPage() {
             />
           </div>
 
+          {/* 最佳發文時段 + 標籤曝光效率 並排 */}
+          <div className="grid gap-4 md:grid-cols-2">
           {/* 最佳發文時段熱力圖 */}
           <Card>
             <CardHeader>
@@ -1244,12 +1249,22 @@ export default function ReachPage() {
                   </BarChart>
                 </ChartContainer>
               ) : (
-                <div className="flex h-[200px] items-center justify-center text-muted-foreground">
-                  尚無已標籤的貼文
+                <div className="flex h-[200px] items-center justify-center">
+                  <Alert className="max-w-sm">
+                    <Info className="size-4" />
+                    <AlertDescription>
+                      尚未設定自訂標籤。前往{" "}
+                      <Link href="/tags" className="font-medium underline underline-offset-4 hover:text-primary">
+                        標籤管理
+                      </Link>{" "}
+                      為貼文新增標籤，即可分析各標籤的曝光效率。
+                    </AlertDescription>
+                  </Alert>
                 </div>
               )}
             </CardContent>
           </Card>
+          </div>
 
           {/* Top/Flop 榜 */}
           <div className="grid gap-4 md:grid-cols-2">
@@ -1776,9 +1791,9 @@ function AlgorithmAnalysisBlock({
   if (recommendRatio > 50) {
     suggestion = "演算法正在積極推薦你的內容給非粉絲，保持目前的內容策略。";
   } else if (recommendRatio > 20) {
-    suggestion = "你有一定的推薦流量，可嘗試更多互動式或爭議性內容來提升推薦率。";
+    suggestion = "你有一定的推薦流量，可嘗試更多引發討論或觀點鮮明的內容來提升推薦率。";
   } else {
-    suggestion = "你的內容主要觸及自有粉絲，建議嘗試問題式或爭議性內容來獲得演算法推薦。";
+    suggestion = "你的內容主要觸及自有粉絲，建議嘗試提問式或觀點鮮明的內容來獲得演算法推薦。";
   }
 
   return (

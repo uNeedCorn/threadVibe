@@ -53,7 +53,7 @@ export function GrowthBadge({ value, className, size = "sm" }: GrowthBadgeProps)
 // KPICard Component
 // ============================================================================
 
-type KPIFormat = "number" | "percent" | "multiplier";
+type KPIFormat = "number" | "fullNumber" | "percent" | "multiplier";
 
 interface KPICardProps {
   title: string;
@@ -73,6 +73,8 @@ function formatKPIValue(value: number, format: KPIFormat): string {
       return `${value.toFixed(2)}%`;
     case "multiplier":
       return `${value.toFixed(1)}x`;
+    case "fullNumber":
+      return Math.round(value).toLocaleString();
     default:
       return formatNumber(value);
   }
