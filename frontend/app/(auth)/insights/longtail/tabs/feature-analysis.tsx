@@ -177,7 +177,12 @@ export function FeatureAnalysisTab({ data }: Props) {
       .fill(null)
       .map(() => Array(12).fill(0));
 
-    for (const post of posts) {
+    // 過濾掉沒有爆發期數據的貼文（沒有 first7dViews 無法準確計算長尾比例）
+    const validPosts = posts.filter(
+      (p) => p.daysSincePublish >= 7 && p.first7dViews > 0
+    );
+
+    for (const post of validPosts) {
       const date = new Date(post.publishedAt);
       const dayOfWeek = date.getDay();
       const hourBucket = Math.floor(date.getHours() / 2);
