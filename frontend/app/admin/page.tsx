@@ -32,14 +32,11 @@ export default function AdminPage() {
 
   // 載入所有 workspaces
   useEffect(() => {
-    console.log("[Admin] isAdmin:", isAdmin, "isCheckingAdmin:", isCheckingAdmin);
     if (!isAdmin) return;
 
     const fetchWorkspaces = async () => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("rpc_admin_list_all_workspaces");
-
-      console.log("[Admin] fetchWorkspaces result:", { data, error });
 
       if (!error && data) {
         setWorkspaces(data);

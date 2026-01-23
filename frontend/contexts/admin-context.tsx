@@ -59,8 +59,6 @@ export function AdminProvider({ children }: AdminProviderProps) {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("is_system_admin");
 
-      console.log("[AdminContext] is_system_admin result:", { data, error });
-
       if (!error && data === true) {
         setIsAdmin(true);
 
@@ -104,24 +102,16 @@ export function AdminProvider({ children }: AdminProviderProps) {
     const currentWorkspace = localStorage.getItem("currentWorkspaceId");
     const currentAccount = localStorage.getItem("currentThreadsAccountId");
 
-    console.log("[AdminContext] startImpersonation:", {
-      currentWorkspace,
-      currentAccount,
-      target,
-    });
-
     // 保存原本的 workspace/account（只在沒有保存過時才保存）
     // 確保不是已經在模擬中（避免覆蓋真正的原始值）
     const existingOriginalWorkspace = localStorage.getItem(ORIGINAL_WORKSPACE_KEY);
     if (!existingOriginalWorkspace && currentWorkspace && currentWorkspace !== target.workspaceId) {
       localStorage.setItem(ORIGINAL_WORKSPACE_KEY, currentWorkspace);
-      console.log("[AdminContext] Saved original workspace:", currentWorkspace);
     }
 
     const existingOriginalAccount = localStorage.getItem(ORIGINAL_ACCOUNT_KEY);
     if (!existingOriginalAccount && currentAccount && currentAccount !== target.accountId) {
       localStorage.setItem(ORIGINAL_ACCOUNT_KEY, currentAccount);
-      console.log("[AdminContext] Saved original account:", currentAccount);
     }
 
     setImpersonationTarget(target);
@@ -140,11 +130,6 @@ export function AdminProvider({ children }: AdminProviderProps) {
     // 恢復原本的 workspace/account
     const originalWorkspace = localStorage.getItem(ORIGINAL_WORKSPACE_KEY);
     const originalAccount = localStorage.getItem(ORIGINAL_ACCOUNT_KEY);
-
-    console.log("[AdminContext] stopImpersonation:", {
-      originalWorkspace,
-      originalAccount,
-    });
 
     if (originalWorkspace) {
       localStorage.setItem("currentWorkspaceId", originalWorkspace);
