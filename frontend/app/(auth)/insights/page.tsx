@@ -166,8 +166,6 @@ function getHeatmapColor(views: number, maxViews: number): string {
 }
 
 function formatNumber(v: number) {
-  if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
   return v.toLocaleString();
 }
 
@@ -189,17 +187,11 @@ function AccountProfileCard({
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-start gap-4">
-            <Skeleton className="size-16 rounded-full" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-4 w-24" />
-              <div className="mt-4">
-                <Skeleton className="h-12 w-32" />
-              </div>
-            </div>
-          </div>
+        <CardContent className="flex flex-col items-center px-4 py-2">
+          <Skeleton className="size-12 rounded-full" />
+          <Skeleton className="mt-2 h-4 w-28" />
+          <Skeleton className="mt-1 h-3 w-20" />
+          <Skeleton className="mt-2 h-5 w-32" />
         </CardContent>
       </Card>
     );
@@ -209,50 +201,46 @@ function AccountProfileCard({
 
   return (
     <Card>
-      <CardContent className="p-6">
-        <div className="flex items-start gap-4">
-          {/* 頭貼 */}
-          <Avatar className="size-16">
-            <AvatarImage src={account.profilePicUrl || undefined} alt={account.username} />
-            <AvatarFallback className="text-lg">
-              {account.username.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+      <CardContent className="flex flex-col items-center px-6 pt-1 pb-0 text-center">
+        {/* 頭貼 */}
+        <Avatar className="size-12">
+          <AvatarImage src={account.profilePicUrl || undefined} alt={account.username} />
+          <AvatarFallback className="text-sm">
+            {account.username.slice(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
 
-          <div className="min-w-0 flex-1">
-            {/* 帳號名稱 */}
-            <div className="min-w-0">
-              <h2 className="truncate text-lg font-semibold">
-                {account.name || account.username}
-              </h2>
-              <p className="truncate text-sm text-muted-foreground">@{account.username}</p>
+        {/* 帳號名稱 */}
+        <div className="mt-1 w-full min-w-0">
+          <h2 className="truncate text-sm font-semibold">
+            {account.name || account.username}
+          </h2>
+          <p className="truncate text-xs text-muted-foreground">@{account.username}</p>
+        </div>
+
+        {/* 追蹤數 */}
+        <div className="mt-3">
+          <p className="text-sm text-muted-foreground">追蹤者</p>
+          {account.currentFollowers === 0 ? (
+            <div className="text-center">
+              <span className="text-2xl font-bold text-muted-foreground">--</span>
+              <p className="mt-1 text-xs text-muted-foreground">
+                追蹤數需達到 100 才能顯示
+              </p>
             </div>
-
-            {/* 追蹤數 */}
-            <div className="mt-4">
-              <p className="text-sm text-muted-foreground">追蹤者</p>
-              {account.currentFollowers === 0 ? (
-                <div className="mt-1">
-                  <span className="text-2xl font-bold text-muted-foreground">--</span>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    追蹤數需達到 100 才能顯示，請加油！
-                  </p>
+          ) : (
+            <div className="flex flex-col items-center">
+              <span className="text-2xl font-bold">
+                {account.currentFollowers.toLocaleString()}
+              </span>
+              {typeof account.followersGrowth === "number" && !isNaN(account.followersGrowth) && account.followersGrowth !== 0 && (
+                <div className="mt-1 flex items-center gap-1">
+                  <GrowthBadgeSimple value={account.followersGrowth} />
+                  <span className="text-xs text-muted-foreground">vs {periodLabel}</span>
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">
-                      {formatNumber(account.currentFollowers)}
-                    </span>
-                    <GrowthBadgeSimple value={account.followersGrowth} />
-                  </div>
-                  {account.followersGrowth !== 0 && (
-                    <p className="text-xs text-muted-foreground">vs {periodLabel}</p>
-                  )}
-                </>
               )}
             </div>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -392,7 +380,7 @@ function PostCountChart({
             {periodTitle}尚無已標籤的發文
           </div>
         ) : (
-          <ChartContainer config={postCountChartConfig} className="h-[200px] w-full">
+          <ChartContainer config={postCountChartConfig} className="mt-4 h-[200px] w-full">
             <BarChart data={data} margin={{ left: 0, right: 12 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis
@@ -415,6 +403,7 @@ function PostCountChart({
               <Bar
                 dataKey="count"
                 radius={[4, 4, 0, 0]}
+                maxBarSize={60}
               >
                 {data.map((_, index) => (
                   <Cell
@@ -697,18 +686,18 @@ function TrendLineChart({
         {!hasData ? (
           <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-muted-foreground">
             <p>{periodTitle}尚無趨勢資料</p>
-            <p className="text-xs">需要同步貼文成效才能顯示趨勢圖</p>
+            <p className="text-xs">趨勢圖需要至少 2 {period === "week" ? "小時" : "天"}的數據才能顯示變化</p>
           </div>
         ) : (
           <div className="space-y-2">
             {/* 圖例 */}
             <div className="flex items-center justify-end gap-4 text-xs">
               <div className="flex items-center gap-1.5">
-                <div className="h-0.5 w-4 rounded bg-primary" />
+                <div className="h-0.5 w-4 rounded" style={{ backgroundColor: CHART_COLORS.chart1 }} />
                 <span className="text-muted-foreground">曝光數</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="h-0.5 w-4 rounded bg-warning" />
+                <div className="h-0.5 w-4 rounded" style={{ backgroundColor: CHART_COLORS.chart2 }} />
                 <span className="text-muted-foreground">互動率</span>
               </div>
             </div>
@@ -987,14 +976,14 @@ export default function InsightsOverviewPage() {
             .eq("workspace_threads_account_id", selectedAccountId)
             .gte("published_at", previousStart.toISOString())
             .lt("published_at", previousEnd.toISOString()),
-          // 帳號歷史 insights（取最舊的一筆作為上期對比）
+          // 帳號歷史 insights（取上期最後一筆作為對比基準）
           supabase
             .from("workspace_threads_account_insights_hourly")
             .select("followers_count, profile_views, bucket_ts")
             .eq("workspace_threads_account_id", selectedAccountId)
             .gte("bucket_ts", previousStart.toISOString())
             .lt("bucket_ts", previousEnd.toISOString())
-            .order("bucket_ts", { ascending: true })
+            .order("bucket_ts", { ascending: false })
             .limit(1),
           // 全時間貼文（用於計算 benchmark）
           supabase
@@ -1049,7 +1038,7 @@ export default function InsightsOverviewPage() {
 
         // 帳號資料
         if (account) {
-          const prevFollowers = previousInsight?.followers_count || account.current_followers_count;
+          const prevFollowers = previousInsight?.followers_count ?? account.current_followers_count;
 
           setAccountData({
             username: account.username,
@@ -1362,22 +1351,15 @@ export default function InsightsOverviewPage() {
               if (!trendMap[key]) continue;
 
               // 計算 delta（當前值 - 上一個時間桶的值）
+              // 沒有前一筆資料時跳過，避免歷史貼文匯入時數據集中在匯入日
               const prevMetric = i > 0 ? metrics[i - 1] : null;
-              const deltaViews = prevMetric
-                ? Math.max(0, (m.views || 0) - (prevMetric.views || 0))
-                : (m.views || 0);
-              const deltaLikes = prevMetric
-                ? Math.max(0, (m.likes || 0) - (prevMetric.likes || 0))
-                : (m.likes || 0);
-              const deltaReplies = prevMetric
-                ? Math.max(0, (m.replies || 0) - (prevMetric.replies || 0))
-                : (m.replies || 0);
-              const deltaReposts = prevMetric
-                ? Math.max(0, (m.reposts || 0) - (prevMetric.reposts || 0))
-                : (m.reposts || 0);
-              const deltaQuotes = prevMetric
-                ? Math.max(0, (m.quotes || 0) - (prevMetric.quotes || 0))
-                : (m.quotes || 0);
+              if (!prevMetric) continue;
+
+              const deltaViews = Math.max(0, (m.views || 0) - (prevMetric.views || 0));
+              const deltaLikes = Math.max(0, (m.likes || 0) - (prevMetric.likes || 0));
+              const deltaReplies = Math.max(0, (m.replies || 0) - (prevMetric.replies || 0));
+              const deltaReposts = Math.max(0, (m.reposts || 0) - (prevMetric.reposts || 0));
+              const deltaQuotes = Math.max(0, (m.quotes || 0) - (prevMetric.quotes || 0));
               const deltaInteractions = deltaLikes + deltaReplies + deltaReposts + deltaQuotes;
 
               trendMap[key].views += deltaViews;
@@ -1420,22 +1402,15 @@ export default function InsightsOverviewPage() {
               if (!trendMap[key]) continue;
 
               // 計算 delta（當前值 - 上一個時間桶的值）
+              // 沒有前一筆資料時跳過，避免歷史貼文匯入時數據集中在匯入日
               const prevMetric = i > 0 ? metrics[i - 1] : null;
-              const deltaViews = prevMetric
-                ? Math.max(0, (m.views || 0) - (prevMetric.views || 0))
-                : (m.views || 0);
-              const deltaLikes = prevMetric
-                ? Math.max(0, (m.likes || 0) - (prevMetric.likes || 0))
-                : (m.likes || 0);
-              const deltaReplies = prevMetric
-                ? Math.max(0, (m.replies || 0) - (prevMetric.replies || 0))
-                : (m.replies || 0);
-              const deltaReposts = prevMetric
-                ? Math.max(0, (m.reposts || 0) - (prevMetric.reposts || 0))
-                : (m.reposts || 0);
-              const deltaQuotes = prevMetric
-                ? Math.max(0, (m.quotes || 0) - (prevMetric.quotes || 0))
-                : (m.quotes || 0);
+              if (!prevMetric) continue;
+
+              const deltaViews = Math.max(0, (m.views || 0) - (prevMetric.views || 0));
+              const deltaLikes = Math.max(0, (m.likes || 0) - (prevMetric.likes || 0));
+              const deltaReplies = Math.max(0, (m.replies || 0) - (prevMetric.replies || 0));
+              const deltaReposts = Math.max(0, (m.reposts || 0) - (prevMetric.reposts || 0));
+              const deltaQuotes = Math.max(0, (m.quotes || 0) - (prevMetric.quotes || 0));
               const deltaInteractions = deltaLikes + deltaReplies + deltaReposts + deltaQuotes;
 
               trendMap[key].views += deltaViews;
@@ -1517,8 +1492,8 @@ export default function InsightsOverviewPage() {
       {/* 主要內容 */}
       {!hasNoAccounts && (
         <>
-          {/* 帳號資訊 + 本週貼文數 + 限流風險 + 發文時間表 (1:1:1:2) */}
-          <div className="grid gap-4 lg:grid-cols-5">
+          {/* 帳號資訊 + 本週貼文數 + 限流風險 + 發文時間表 */}
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-[minmax(200px,1fr)_minmax(160px,1fr)_minmax(160px,1fr)_minmax(320px,2fr)]">
             <AccountProfileCard
               account={accountData}
               isLoading={isLoading}
@@ -1527,15 +1502,15 @@ export default function InsightsOverviewPage() {
             <Card>
               <CardContent className="flex h-full flex-col justify-center p-6">
                 <p className="text-sm text-muted-foreground">{periodTitle}發文</p>
-                <div className="mt-2 flex items-baseline gap-2">
+                <div className="mt-2 flex items-baseline gap-1.5">
                   {isLoading ? (
-                    <Skeleton className="h-10 w-16" />
+                    <Skeleton className="h-8 w-16" />
                   ) : (
                     <>
-                      <span className="text-4xl font-bold">
+                      <span className="text-2xl font-bold">
                         {kpiData?.postsCount || 0}
                       </span>
-                      <span className="text-lg text-muted-foreground">篇</span>
+                      <span className="text-sm text-muted-foreground">篇</span>
                     </>
                   )}
                 </div>
@@ -1560,7 +1535,7 @@ export default function InsightsOverviewPage() {
               throttleRisk={throttleRisk}
               isLoading={isLoading}
             />
-            <div className="lg:col-span-2">
+            <div className="md:col-span-2 lg:col-span-1">
               <PostingHeatmap
                 data={heatmapData}
                 isLoading={isLoading}
@@ -1570,7 +1545,7 @@ export default function InsightsOverviewPage() {
           </div>
 
           {/* 發文統計圖表 */}
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-[repeat(auto-fit,minmax(400px,1fr))]">
             <PostCountChart
               data={postCountData}
               isLoading={isLoading}
@@ -1594,7 +1569,7 @@ export default function InsightsOverviewPage() {
           {/* 成效 KPI */}
           <div>
             <h2 className="mb-3 text-lg font-semibold">{periodTitle}成效</h2>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
               <KPICard
                 variant="simple"
                 title="總曝光數"
@@ -1641,7 +1616,7 @@ export default function InsightsOverviewPage() {
           {/* 互動明細 */}
           <div>
             <h2 className="mb-3 text-lg font-semibold">互動明細</h2>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
               <KPICard
                 variant="simple"
                 title="讚"
