@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { WorkspaceInitializer } from "@/components/workspace-initializer";
 import { SelectedAccountProviderWrapper } from "@/components/providers/selected-account-provider";
+import { ImpersonationBanner } from "@/components/admin/impersonation-banner";
 
 export default function AuthLayout({
   children,
@@ -11,6 +12,7 @@ export default function AuthLayout({
 }) {
   return (
     <SelectedAccountProviderWrapper>
+      <ImpersonationBanner />
       <div className="flex h-screen">
         {/* 從 URL 讀取並儲存 workspace_id */}
         <Suspense fallback={null}>

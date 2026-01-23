@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AdminProvider } from "@/contexts/admin-context";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,7 +23,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
-        {children}
+        <AdminProvider>{children}</AdminProvider>
       </NextThemesProvider>
     </QueryClientProvider>
   );
