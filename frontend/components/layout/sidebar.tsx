@@ -17,7 +17,7 @@ import {
   Radar,
   Activity,
   TreeDeciduous,
-  FileSpreadsheet,
+  // FileSpreadsheet, // 報表用，暫時隱藏
   FlaskConical,
   Shield,
   Coins,
@@ -28,6 +28,7 @@ import {
   CalendarClock,
   SquarePen,
   UserCog,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -65,6 +66,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   adminOnly?: boolean;
   badge?: string; // 額外標記（如：開發中）
+  previewMode?: boolean; // 測試中：非管理員可見但禁用
 }
 
 interface NavGroup {
@@ -83,6 +85,13 @@ const isNavGroup = (item: NavEntry): item is NavGroup => {
 
 // 主要導航項目
 const mainNavItems: NavEntry[] = [
+  {
+    title: "AI 週報",
+    href: "/ai-report",
+    icon: Sparkles,
+    badge: "測試中",
+    previewMode: true,
+  },
   {
     title: "成效洞察",
     icon: BarChart3,
@@ -145,11 +154,12 @@ const mainNavItems: NavEntry[] = [
     href: "/tags",
     icon: Tags,
   },
-  {
-    title: "報表",
-    href: "/reports",
-    icon: FileSpreadsheet,
-  },
+  // 報表 - 暫時隱藏，改用 AI 週報
+  // {
+  //   title: "報表",
+  //   href: "/reports",
+  //   icon: FileSpreadsheet,
+  // },
 ];
 
 // 管理員導航項目（固定在底部）
@@ -470,9 +480,30 @@ export function Sidebar() {
           // 一般導航項目
           const isActive = pathname.startsWith(item.href);
           const isAdminItem = item.adminOnly;
+          const isPreviewMode = item.previewMode;
+          const isDisabled = isPreviewMode && !isAdmin;
 
           // 收折模式：只顯示圖示
           if (isCollapsed) {
+            // previewMode 禁用狀態
+            if (isDisabled) {
+              return (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center justify-center rounded-lg p-2 cursor-not-allowed text-muted-foreground/50">
+                      <item.icon className="size-5" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <div className="text-center">
+                      <div>{item.title}</div>
+                      <div className="text-xs text-muted-foreground">管理員專屬功能</div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+
             return (
               <Tooltip key={item.href}>
                 <TooltipTrigger asChild>
@@ -481,12 +512,16 @@ export function Sidebar() {
                     className={cn(
                       "flex items-center justify-center rounded-lg p-2 transition-colors",
                       isActive
-                        ? isAdminItem
-                          ? "bg-orange-500 text-white"
-                          : "bg-primary text-primary-foreground"
-                        : isAdminItem
-                          ? "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
-                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        ? isPreviewMode
+                          ? "bg-violet-500 text-white"
+                          : isAdminItem
+                            ? "bg-orange-500 text-white"
+                            : "bg-primary text-primary-foreground"
+                        : isPreviewMode
+                          ? "text-violet-500 hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-950"
+                          : isAdminItem
+                            ? "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
+                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
                     <item.icon className="size-5" />
@@ -494,8 +529,28 @@ export function Sidebar() {
                 </TooltipTrigger>
                 <TooltipContent side="right">
                   {item.title}
-                  {item.badge && <span className="ml-1 text-orange-400">({item.badge})</span>}
+                  {item.badge && <span className="ml-1 text-violet-400">({item.badge})</span>}
                 </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          // previewMode 禁用狀態（展開模式）
+          if (isDisabled) {
+            return (
+              <Tooltip key={item.href}>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium cursor-not-allowed text-muted-foreground/50">
+                    <item.icon className="size-5" />
+                    {item.title}
+                    {item.badge && (
+                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right">管理員專屬功能</TooltipContent>
               </Tooltip>
             );
           }
@@ -507,12 +562,16 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                 isActive
-                  ? isAdminItem
-                    ? "bg-orange-500 text-white"
-                    : "bg-primary text-primary-foreground"
-                  : isAdminItem
-                    ? "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  ? isPreviewMode
+                    ? "bg-violet-500 text-white"
+                    : isAdminItem
+                      ? "bg-orange-500 text-white"
+                      : "bg-primary text-primary-foreground"
+                  : isPreviewMode
+                    ? "text-violet-500 hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-950"
+                    : isAdminItem
+                      ? "text-orange-500 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
               <item.icon className="size-5" />
@@ -522,7 +581,9 @@ export function Sidebar() {
                   "ml-auto text-[10px] px-1.5 py-0.5 rounded",
                   isActive
                     ? "bg-white/20 text-white"
-                    : "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+                    : isPreviewMode
+                      ? "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400"
+                      : "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
                 )}>
                   {item.badge}
                 </span>
