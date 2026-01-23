@@ -1416,18 +1416,18 @@ export default function ReachPage() {
             offset={offset}
           />
 
-          {/* 區塊 2：內容生命週期策略 */}
-          <ContentStrategyBlock
-            lifecycleAnalysis={lifecycleAnalysis}
-            isLoading={isLifecycleLoading}
-          />
-
-          {/* 區塊 3：演算法推薦分析 */}
-          <AlgorithmAnalysisBlock
-            efficiencyStats={efficiencyStats}
-            topPosts={topPosts}
-            isLoading={isLoading || isHeatmapLoading || isRankingLoading}
-          />
+          {/* 區塊 2：內容生命週期策略 + 演算法推薦分析 並排 */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <ContentStrategyBlock
+              lifecycleAnalysis={lifecycleAnalysis}
+              isLoading={isLifecycleLoading}
+            />
+            <AlgorithmAnalysisBlock
+              efficiencyStats={efficiencyStats}
+              topPosts={topPosts}
+              isLoading={isLoading || isHeatmapLoading || isRankingLoading}
+            />
+          </div>
 
           {/* 區塊 4：最佳發文策略 */}
           <PostingStrategyBlock
