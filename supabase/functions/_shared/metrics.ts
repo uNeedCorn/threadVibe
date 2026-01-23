@@ -24,6 +24,11 @@ export interface CalculatedRates {
   viralityScore: number;
 }
 
+export interface EngagementQuality {
+  discussionDepth: number;
+  shareWillingness: number;
+}
+
 export type RHatStatus = 'viral' | 'accelerating' | 'stable' | 'decaying' | 'fading' | 'insufficient' | 'emerging' | 'dormant';
 
 export interface RHatResult {
@@ -134,4 +139,35 @@ function getRHatStatus(rHat: number): RHatStatus {
   if (rHat >= 0.8) return 'stable';
   if (rHat >= 0.3) return 'decaying';
   return 'fading';
+}
+
+// ============================================
+// Engagement Quality Calculation
+// ============================================
+
+/**
+ * 計算互動品質指標
+ *
+ * - discussion_depth: 討論深度 = replies / (likes + replies)
+ *   表示互動中有多少比例是深度討論（回覆）而非淺層互動（按讚）
+ *
+ * - share_willingness: 傳播意願 = (reposts + quotes) / likes
+ *   表示按讚的人中有多少願意進一步分享
+ */
+export function calculateEngagementQuality(metrics: PostMetrics): EngagementQuality {
+  const { likes, replies, reposts, quotes } = metrics;
+
+  // 討論深度 = replies / (likes + replies)
+  // 當 likes + replies = 0 時，回傳 0
+  const discussionDepth =
+    likes + replies > 0 ? replies / (likes + replies) : 0;
+
+  // 傳播意願 = (reposts + quotes) / likes
+  // 當 likes = 0 時，回傳 0（避免除以零）
+  const shareWillingness = likes > 0 ? (reposts + quotes) / likes : 0;
+
+  return {
+    discussionDepth: Math.round(discussionDepth * 10000) / 10000,
+    shareWillingness: Math.round(shareWillingness * 10000) / 10000,
+  };
 }

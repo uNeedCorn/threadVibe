@@ -11,12 +11,20 @@ export interface TagResult {
   confidence: number;
 }
 
+export interface ContentFeaturesAi {
+  has_question: boolean;
+  question_type: 'direct' | 'rhetorical' | 'poll' | null;
+  has_cta: boolean;
+  cta_type: 'ask_opinion' | 'share' | 'comment' | 'click_link' | 'follow' | null;
+}
+
 export interface AiSuggestedTags {
   content_type: TagResult[];
   tone: TagResult[];
   intent: TagResult[];
   emotion: TagResult[];
   audience: TagResult[];
+  content_features: ContentFeaturesAi;
 }
 
 export interface GeminiUsage {
@@ -30,7 +38,7 @@ export interface GeminiResponse {
   usage: GeminiUsage;
 }
 
-const TAGGING_PROMPT = `你是一個內容分析專家，專門分析社群媒體貼文。請分析以下貼文內容，並從 5 個維度進行分類。
+const TAGGING_PROMPT = `你是一個內容分析專家，專門分析社群媒體貼文。請分析以下貼文內容，並從 5 個維度進行分類，同時識別內容特徵。
 
 每個維度請回傳信心度最高的前 3 個標籤，信心度範圍為 0-1（保留兩位小數）。
 
@@ -51,6 +59,23 @@ const TAGGING_PROMPT = `你是一個內容分析專家，專門分析社群媒�
 ### 5. 目標受眾 (audience)
 選項：新手入門、進階玩家、一般大眾、業界同行、忠實粉絲
 
+### 6. 內容特徵 (content_features)
+請分析以下特徵：
+- has_question: 貼文是否在詢問讀者意見或提出問題（包含隱性問句，如「不知道大家怎麼想」）
+- question_type: 問題類型
+  - direct: 直接提問（如「你覺得呢？」「有人試過嗎？」）
+  - rhetorical: 反問/修辭問句（如「這不是很棒嗎？」）
+  - poll: 投票選擇（如「A 還是 B？」）
+  - null: 無問句
+- has_cta: 是否有呼籲讀者採取行動
+- cta_type: CTA 類型
+  - ask_opinion: 徵求意見（如「留言告訴我」「想聽你的想法」）
+  - share: 分享/轉發（如「分享給朋友」「標記需要的人」）
+  - comment: 留言互動（如「留言+1」「底下留言」）
+  - click_link: 點擊連結（如「點擊連結」「看更多」）
+  - follow: 追蹤（如「記得追蹤」「開啟通知」）
+  - null: 無 CTA
+
 ## 回傳格式
 
 請以 JSON 格式回傳，結構如下：
@@ -63,7 +88,13 @@ const TAGGING_PROMPT = `你是一個內容分析專家，專門分析社群媒�
   "tone": [...],
   "intent": [...],
   "emotion": [...],
-  "audience": [...]
+  "audience": [...],
+  "content_features": {
+    "has_question": true,
+    "question_type": "direct",
+    "has_cta": true,
+    "cta_type": "ask_opinion"
+  }
 }
 
 ## 貼文內容

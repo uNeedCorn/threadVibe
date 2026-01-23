@@ -16,7 +16,8 @@ import {
   shouldSyncPost,
   getSyncFrequency,
 } from './tiered-storage.ts';
-import { calculateRates, PostMetrics } from './metrics.ts';
+import { calculateRates, calculateEngagementQuality, PostMetrics } from './metrics.ts';
+import { extractContentFeatures, contentFeaturesToDbUpdate } from './content-features.ts';
 
 // ============================================
 // Types
@@ -62,6 +63,9 @@ export async function syncPostsForAccount(
   const normalizedPosts = posts.map((post) => {
     const postType = post.is_reply ? 'reply' : post.is_quote_post ? 'quote' : 'original';
 
+    // Extract content features from post text
+    const contentFeatures = extractContentFeatures(post.text);
+
     return {
       workspace_threads_account_id: accountId,
       threads_post_id: post.id,
@@ -77,6 +81,8 @@ export async function syncPostsForAccount(
       is_reply: post.is_reply ?? false,
       replied_to_post_id: post.replied_to?.id ?? null,
       root_post_id: post.root_post?.id ?? null,
+      // Content features（本地計算，不需 AI）
+      ...contentFeaturesToDbUpdate(contentFeatures),
     };
   });
 
@@ -289,7 +295,10 @@ export async function syncMetricsForAccount(
           });
       }
 
-      // 6. Layer 3: 更新 Current（使用已計算的比率）
+      // 6. 計算互動品質
+      const quality = calculateEngagementQuality(metrics);
+
+      // 7. Layer 3: 更新 Current（使用已計算的比率和品質）
       await serviceClient
         .from('workspace_threads_posts')
         .update({
@@ -304,6 +313,8 @@ export async function syncMetricsForAccount(
           repost_rate: rates.repostRate,
           quote_rate: rates.quoteRate,
           virality_score: rates.viralityScore,
+          discussion_depth: quality.discussionDepth,
+          share_willingness: quality.shareWillingness,
           last_metrics_sync_at: now,
           last_sync_batch_at: syncBatchAt,
         })
