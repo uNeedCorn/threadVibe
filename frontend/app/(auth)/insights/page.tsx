@@ -956,7 +956,7 @@ export default function InsightsOverviewPage() {
         const days3Ago = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 
         // 並行查詢
-        const [accountRes, currentPostsRes, previousPostsRes, insightsRes, allPostsRes, hourlyMetricsRes, dailyMetricsRes, threeDayPostsRes] = await Promise.all([
+        const [accountRes, currentPostsRes, previousPostsRes, insightsRes, allPostsRes, hourlyMetricsRes, dailyMetricsRes, threeDayPostsRes, postTagsRes] = await Promise.all([
           // 帳號資料
           supabase
             .from("workspace_threads_accounts")
@@ -966,7 +966,7 @@ export default function InsightsOverviewPage() {
           // 當期貼文
           supabase
             .from("workspace_threads_posts")
-            .select("id, published_at, current_views, current_likes, current_replies, current_reposts, current_quotes, engagement_rate, ai_selected_tags")
+            .select("id, published_at, current_views, current_likes, current_replies, current_reposts, current_quotes, engagement_rate")
             .eq("workspace_threads_account_id", selectedAccountId)
             .gte("published_at", currentStart.toISOString()),
           // 上期貼文
@@ -1019,6 +1019,14 @@ export default function InsightsOverviewPage() {
             .eq("is_reply", false)
             .neq("media_type", "REPOST_FACADE")
             .gte("published_at", days3Ago.toISOString()),
+          // 當期貼文的自訂標籤
+          supabase
+            .from("workspace_threads_post_tags")
+            .select(`
+              post_id,
+              tag:workspace_threads_account_tags!inner(id, name)
+            `)
+            .in("post_id", postIds.length > 0 ? postIds : ["00000000-0000-0000-0000-000000000000"]),
         ]);
 
         const account = accountRes.data;
@@ -1029,6 +1037,15 @@ export default function InsightsOverviewPage() {
         const hourlyMetrics = hourlyMetricsRes.data || [];
         const dailyMetrics = dailyMetricsRes.data || [];
         const threeDayPosts = threeDayPostsRes.data || [];
+        const postTagsRaw = (postTagsRes.data || []) as Array<{
+          post_id: string;
+          tag: { id: string; name: string } | Array<{ id: string; name: string }>;
+        }>;
+        // Supabase JOIN 返回的 tag 可能是單個物件或陣列，統一處理
+        const postTags = postTagsRaw.map((pt) => ({
+          post_id: pt.post_id,
+          tag: Array.isArray(pt.tag) ? pt.tag[0] : pt.tag,
+        })).filter((pt) => pt.tag);
 
         // 計算成長率
         const calcGrowth = (current: number, previous: number) => {
@@ -1162,34 +1179,34 @@ export default function InsightsOverviewPage() {
           setBenchmarkData(null);
         }
 
-        // 計算發文統計圖表資料（按標籤分類）
+        // 計算發文統計圖表資料（按自訂標籤分類）
+        // 建立貼文 ID -> 標籤名稱陣列的對照表
+        const postTagsMap: Record<string, string[]> = {};
+        postTags.forEach((pt) => {
+          if (!postTagsMap[pt.post_id]) {
+            postTagsMap[pt.post_id] = [];
+          }
+          postTagsMap[pt.post_id].push(pt.tag.name);
+        });
+
         const tagCounts: Record<string, number> = {};
         const tagViews: Record<string, number> = {};
         let untaggedCount = 0;
         let untaggedViews = 0;
 
         currentPosts.forEach((post) => {
-          const selectedTags = post.ai_selected_tags as Record<string, string[]> | null;
+          const tags = postTagsMap[post.id] || [];
           const postViews = post.current_views || 0;
 
-          if (!selectedTags || Object.keys(selectedTags).length === 0) {
+          if (tags.length === 0) {
             // 沒有標籤的貼文
             untaggedCount++;
             untaggedViews += postViews;
           } else {
-            // 統計所有已選標籤
-            let hasTag = false;
-            for (const dimension of Object.keys(selectedTags)) {
-              const tags = selectedTags[dimension] || [];
-              for (const tag of tags) {
-                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-                tagViews[tag] = (tagViews[tag] || 0) + postViews;
-                hasTag = true;
-              }
-            }
-            if (!hasTag) {
-              untaggedCount++;
-              untaggedViews += postViews;
+            // 統計所有自訂標籤
+            for (const tag of tags) {
+              tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+              tagViews[tag] = (tagViews[tag] || 0) + postViews;
             }
           }
         });

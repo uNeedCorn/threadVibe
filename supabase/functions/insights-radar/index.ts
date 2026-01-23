@@ -739,18 +739,23 @@ Deno.serve(async (req) => {
     };
 
     // 生成提示
+    // 「爆紅中」需要同時滿足：
+    // 1. viralityLevel === 'viral'（傳播力高 + 正在擴散）
+    // 2. views >= 500（有足夠曝光量）
     const alerts: RadarAlert[] = [];
     for (const post of radarPosts) {
       const textPreview = post.text.length > 20 ? post.text.slice(0, 20) + '...' : post.text;
 
-      if (post.viralityScore >= 10) {
+      // 真正的「爆紅中」：viralityLevel 已包含 diffusion 判斷 + 曝光量門檻
+      if (post.viralityLevel === 'viral' && post.views >= 500) {
         alerts.push({
           id: `viral-${post.id}`,
           type: 'viral',
           postId: post.id,
-          message: `「${textPreview}」可能正在爆紅中！`,
+          message: `「${textPreview}」正在爆紅中！`,
         });
-      } else if (post.timeStatus === 'golden' && post.viralityScore >= 5) {
+      } else if (post.timeStatus === 'golden' && post.viralityLevel === 'excellent' && post.views >= 200) {
+        // 黃金期 + 表現優異 + 有一定曝光
         alerts.push({
           id: `excellent-${post.id}`,
           type: 'excellent',

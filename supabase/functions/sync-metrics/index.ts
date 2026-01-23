@@ -19,6 +19,7 @@ import { ThreadsApiClient, ThreadsPostInsights } from '../_shared/threads-api.ts
 import { checkRateLimit } from '../_shared/rate-limit.ts';
 import { isUuid } from '../_shared/validation.ts';
 import { jsonResponse, errorResponse, unauthorizedResponse, forbiddenResponse } from '../_shared/response.ts';
+import { calculateRates } from '../_shared/metrics.ts';
 
 // 批次處理設定
 const BATCH_SIZE = 10;
@@ -298,45 +299,4 @@ Deno.serve(async (req) => {
     return errorResponse(req, 'Failed to sync metrics', 500);
   }
 });
-
-/**
- * 計算所有比率指標
- */
-function calculateRates(metrics: Metrics) {
-  const { views, likes, replies, reposts, quotes, shares } = metrics;
-
-  if (views === 0) {
-    return {
-      engagementRate: 0,
-      replyRate: 0,
-      repostRate: 0,
-      quoteRate: 0,
-      viralityScore: 0,
-    };
-  }
-
-  // 互動率 = (likes + replies + reposts + quotes) / views * 100
-  const engagementRate = ((likes + replies + reposts + quotes) / views) * 100;
-
-  // 回覆率 = replies / views * 100
-  const replyRate = (replies / views) * 100;
-
-  // 轉發率 = reposts / views * 100
-  const repostRate = (reposts / views) * 100;
-
-  // 引用率 = quotes / views * 100
-  const quoteRate = (quotes / views) * 100;
-
-  // 病毒傳播分數（加權）
-  const spreadScore = reposts * 3 + quotes * 2.5 + shares * 3;
-  const engagementScore = likes + replies * 1.5;
-  const viralityScore = ((spreadScore * 2 + engagementScore) / views) * 100;
-
-  return {
-    engagementRate: Math.round(engagementRate * 10000) / 10000,
-    replyRate: Math.round(replyRate * 10000) / 10000,
-    repostRate: Math.round(repostRate * 10000) / 10000,
-    quoteRate: Math.round(quoteRate * 10000) / 10000,
-    viralityScore: Math.round(viralityScore * 100) / 100,
-  };
-}
+// calculateRates 已統一使用 _shared/metrics.ts

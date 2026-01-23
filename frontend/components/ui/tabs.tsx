@@ -7,10 +7,16 @@ import { cn } from "@/lib/utils"
 
 function Tabs({
   className,
+  id,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Root>) {
+  // 使用 useId() 產生穩定的 ID，避免 SSR hydration 不一致
+  const generatedId = React.useId()
+  const tabsId = id || generatedId
+
   return (
     <TabsPrimitive.Root
+      id={tabsId}
       data-slot="tabs"
       className={cn("flex flex-col gap-2", className)}
       {...props}
