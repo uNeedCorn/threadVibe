@@ -219,13 +219,13 @@ function AccountProfileCard({
             </AvatarFallback>
           </Avatar>
 
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             {/* 帳號名稱 */}
-            <div>
-              <h2 className="text-lg font-semibold">
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-semibold">
                 {account.name || account.username}
               </h2>
-              <p className="text-sm text-muted-foreground">@{account.username}</p>
+              <p className="truncate text-sm text-muted-foreground">@{account.username}</p>
             </div>
 
             {/* 追蹤數 */}

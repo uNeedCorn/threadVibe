@@ -128,6 +128,7 @@ export function useFullReportData(): UseFullReportDataReturn {
           )
         `)
         .eq("workspace_threads_account_id", accountId)
+        .neq("media_type", "REPOST_FACADE")
         .gte("published_at", startStr)
         .lte("published_at", endStr)
         .order("current_views", { ascending: false });
@@ -143,6 +144,7 @@ export function useFullReportData(): UseFullReportDataReturn {
         .from("workspace_threads_posts")
         .select("current_views, current_likes, current_replies, current_reposts, current_quotes")
         .eq("workspace_threads_account_id", accountId)
+        .neq("media_type", "REPOST_FACADE")
         .gte("published_at", prevStartDate.toISOString())
         .lte("published_at", prevEndDate.toISOString());
 

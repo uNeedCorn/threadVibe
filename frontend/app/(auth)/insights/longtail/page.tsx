@@ -150,6 +150,7 @@ export default function LongtailPage() {
           `
           )
           .eq("workspace_threads_account_id", selectedAccountId)
+          .neq("media_type", "REPOST_FACADE")
           .lt("published_at", sevenDaysAgo.toISOString())
           .order("published_at", { ascending: false });
 

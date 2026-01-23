@@ -437,6 +437,7 @@ export default function ReachPage() {
             workspace_threads_post_tags(tag_id)
           `)
           .eq("workspace_threads_account_id", selectedAccountId)
+          .neq("media_type", "REPOST_FACADE")
           .gte("published_at", dateStart.toISOString());
 
         if (postsError) {
@@ -671,6 +672,7 @@ export default function ReachPage() {
           .from("workspace_threads_posts")
           .select("id, published_at, current_views")
           .eq("workspace_threads_account_id", selectedAccountId)
+          .neq("media_type", "REPOST_FACADE")
           .gte("published_at", dateStart.toISOString());
 
         if (postsError) {
@@ -766,6 +768,7 @@ export default function ReachPage() {
           .from("workspace_threads_posts")
           .select("id, text, current_views, published_at")
           .eq("workspace_threads_account_id", selectedAccountId)
+          .neq("media_type", "REPOST_FACADE")
           .gte("published_at", dateStart.toISOString())
           .order("current_views", { ascending: false });
 
