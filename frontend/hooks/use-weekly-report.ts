@@ -378,19 +378,17 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
     try {
       const supabase = createClient();
 
-      // 計算數據累積天數（從第一筆貼文開始算）
-      const { data: firstPost } = await supabase
-        .from("workspace_threads_posts")
-        .select("published_at")
-        .eq("workspace_threads_account_id", accountId)
-        .order("published_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      // 計算數據累積天數（從帳號連結日期開始算）
+      const { data: account } = await supabase
+        .from("workspace_threads_accounts")
+        .select("created_at")
+        .eq("id", accountId)
+        .single();
 
-      if (firstPost?.published_at) {
-        const firstDate = new Date(firstPost.published_at);
+      if (account?.created_at) {
+        const connectedDate = new Date(account.created_at);
         const now = new Date();
-        const ageDays = (now.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24);
+        const ageDays = (now.getTime() - connectedDate.getTime()) / (1000 * 60 * 60 * 24);
         setDataAge(ageDays);
         setHasEnoughData(ageDays >= 1);
       } else {
