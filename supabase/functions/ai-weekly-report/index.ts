@@ -500,15 +500,17 @@ Deno.serve(async (req) => {
     }
 
     // 非管理員：每 7 天限制產生 1 份報告
+    // 注意：只有「已完成」的報告才扣點，刪除的報告仍然計入（因為 LLM API 已消耗）
     if (!isAdmin) {
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const { count: recentCount } = await serviceClient
+      const { count: completedCount } = await serviceClient
         .from('ai_weekly_reports')
         .select('id', { count: 'exact', head: true })
         .eq('workspace_threads_account_id', accountId)
+        .eq('status', 'completed')
         .gte('created_at', sevenDaysAgo);
 
-      if ((recentCount || 0) >= 1) {
+      if ((completedCount || 0) >= 1) {
         return errorResponse(
           req,
           '每 7 天只能產生 1 份報告。請稍後再試。',

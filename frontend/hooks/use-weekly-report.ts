@@ -555,21 +555,24 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
       );
 
       // 計算額度資訊
+      // 注意：只有「已完成」的報告才扣點，刪除的報告仍然計入（因為 LLM API 已消耗）
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - QUOTA_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 
-      // 找出 7 天內的報告數量（不含已刪除）
-      const recentReports = filteredData.filter(
-        (item) => new Date(item.created_at) >= sevenDaysAgo
+      // 找出 7 天內「已完成」的報告數量（含已刪除，因為 API 已消耗）
+      const completedReports = (data || []).filter(
+        (item) =>
+          item.status === "completed" &&
+          new Date(item.created_at) >= sevenDaysAgo
       );
 
-      const remaining = Math.max(0, QUOTA_LIMIT - recentReports.length);
+      const remaining = Math.max(0, QUOTA_LIMIT - completedReports.length);
 
       // 計算下次重置時間（最早報告的 created_at + 7 天）
       let nextResetAt: Date | null = null;
-      if (recentReports.length > 0 && remaining === 0) {
-        // 找出最早的報告（7 天內）
-        const sortedByCreatedAt = [...recentReports].sort(
+      if (completedReports.length > 0 && remaining === 0) {
+        // 找出最早的已完成報告（7 天內）
+        const sortedByCreatedAt = [...completedReports].sort(
           (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
         const earliestReport = sortedByCreatedAt[0];
