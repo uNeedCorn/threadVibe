@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { useWeeklyReport } from "@/hooks/use-weekly-report";
+import { useContentPatternReport } from "@/hooks/use-content-pattern-report";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { PageHeader } from "@/components/layout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -66,17 +67,16 @@ const REPORT_TYPES = {
     ],
   },
   content: {
-    label: "內容分析報告",
-    description: "深入分析貼文特徵與成效關聯",
+    label: "內容模式報告",
+    description: "分析指定期間貼文特徵，找出成功內容模式",
     icon: FileText,
     features: [
-      "內容類型效益比較",
-      "文字長度與成效關聯",
-      "問句/CTA 使用效益",
-      "標籤效益分析",
-      "高表現內容模式",
+      "內容格式效益排行",
+      "最佳內容長度區間",
+      "Emoji/問句/CTA 效益",
+      "AI 標籤效益分析",
+      "成功公式與失敗警示",
     ],
-    comingSoon: true,
   },
 } as const;
 
@@ -114,12 +114,15 @@ function formatDateForInput(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function getDefaultDateRange(): { startDate: string; endDate: string } {
+function getDefaultDateRange(type: "insights" | "content" = "insights"): { startDate: string; endDate: string } {
   const now = new Date();
   const endDate = new Date(now);
   endDate.setDate(now.getDate() - 1);
   const startDate = new Date(endDate);
-  startDate.setDate(endDate.getDate() - 6);
+
+  // 洞察報告預設 7 天，內容模式報告預設 90 天
+  const defaultDays = type === "content" ? 89 : 6;
+  startDate.setDate(endDate.getDate() - defaultDays);
 
   return {
     startDate: formatDateForInput(startDate),
@@ -130,34 +133,53 @@ function getDefaultDateRange(): { startDate: string; endDate: string } {
 export default function AIReportPage() {
   const { selectedAccountId } = useSelectedAccount();
   const { isAdmin } = useCurrentUser();
+
+  // 報告類型選擇
+  const [reportType, setReportType] = useState<ReportType>("insights");
+  const selectedReportType = REPORT_TYPES[reportType];
+
+  // 洞察報告 hook
+  const insightsReport = useWeeklyReport(selectedAccountId);
+
+  // 內容模式報告 hook
+  const contentReport = useContentPatternReport(selectedAccountId);
+
+  // 根據報告類型選擇對應的 hook 資料
+  const currentHook = reportType === "insights" ? insightsReport : contentReport;
   const {
     isLoading,
     isGenerating,
     error,
     hasEnoughData,
     dataAge,
-    history,
     quota,
-    generateReport,
-    fetchLatestReport,
-    fetchReportHistory,
-    deleteReport,
-  } = useWeeklyReport(selectedAccountId);
+  } = currentHook;
 
-  // 報告類型選擇
-  const [reportType, setReportType] = useState<ReportType>("insights");
-  const selectedReportType = REPORT_TYPES[reportType];
+  // 合併歷史報告（顯示所有類型）
+  const history = [
+    ...insightsReport.history.map(item => ({ ...item, reportType: "insights" as const })),
+    ...contentReport.history.map(item => ({ ...item, reportType: "content" as const })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   // 日期區間選擇
-  const defaultRange = getDefaultDateRange();
-  const [startDate, setStartDate] = useState(defaultRange.startDate);
-  const [endDate, setEndDate] = useState(defaultRange.endDate);
+  const defaultInsightsRange = getDefaultDateRange("insights");
+  const defaultContentRange = getDefaultDateRange("content");
+  const [insightsStartDate, setInsightsStartDate] = useState(defaultInsightsRange.startDate);
+  const [insightsEndDate, setInsightsEndDate] = useState(defaultInsightsRange.endDate);
+  const [contentStartDate, setContentStartDate] = useState(defaultContentRange.startDate);
+  const [contentEndDate, setContentEndDate] = useState(defaultContentRange.endDate);
+
+  // 根據報告類型選擇對應的日期
+  const startDate = reportType === "insights" ? insightsStartDate : contentStartDate;
+  const endDate = reportType === "insights" ? insightsEndDate : contentEndDate;
+  const setStartDate = reportType === "insights" ? setInsightsStartDate : setContentStartDate;
+  const setEndDate = reportType === "insights" ? setInsightsEndDate : setContentEndDate;
 
   // 進度條模擬
   const [progress, setProgress] = useState(0);
 
-  // 計算選擇的天數
-  const MAX_DAYS = 30;
+  // 計算選擇的天數（洞察報告最多 30 天，內容模式報告最多 90 天）
+  const MAX_DAYS = reportType === "insights" ? 30 : 90;
   const selectedDays = startDate && endDate
     ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1
     : 0;
@@ -166,10 +188,12 @@ export default function AIReportPage() {
   // 頁面載入時取得歷史紀錄
   useEffect(() => {
     if (selectedAccountId) {
-      fetchLatestReport();
-      fetchReportHistory();
+      insightsReport.fetchLatestReport();
+      insightsReport.fetchReportHistory();
+      contentReport.fetchLatestReport();
+      contentReport.fetchReportHistory();
     }
-  }, [selectedAccountId, fetchLatestReport, fetchReportHistory]);
+  }, [selectedAccountId]);
 
   // 追蹤上一次的 isGenerating 狀態
   const [wasGenerating, setWasGenerating] = useState(false);
@@ -194,21 +218,39 @@ export default function AIReportPage() {
       // 產生完成後刷新歷史列表
       if (wasGenerating) {
         setWasGenerating(false);
-        fetchReportHistory();
+        insightsReport.fetchReportHistory();
+        contentReport.fetchReportHistory();
       }
     }
-  }, [isGenerating, wasGenerating, fetchReportHistory]);
+  }, [isGenerating, wasGenerating]);
 
   // 產生報告（非同步模式，輪詢完成後自動刷新列表）
   const handleGenerateReport = async () => {
-    await generateReport(startDate, endDate);
-    // 立即刷新一次，顯示 generating 狀態
-    fetchReportHistory();
+    if (reportType === "insights") {
+      await insightsReport.generateReport(startDate, endDate);
+      insightsReport.fetchReportHistory();
+    } else {
+      await contentReport.generateReport({ startDate, endDate });
+      contentReport.fetchReportHistory();
+    }
+  };
+
+  // 刪除報告
+  const handleDeleteReport = async (reportId: string, itemReportType: string) => {
+    if (itemReportType === "insights") {
+      await insightsReport.deleteReport(reportId);
+    } else {
+      await contentReport.deleteReport(reportId);
+    }
   };
 
   // 開啟報告（新分頁）
-  const openReport = (reportId: string) => {
-    window.open(`/ai-report/${reportId}`, "_blank");
+  const openReport = (reportId: string, itemReportType: string) => {
+    if (itemReportType === "content") {
+      window.open(`/ai-report/content/${reportId}`, "_blank");
+    } else {
+      window.open(`/ai-report/${reportId}`, "_blank");
+    }
   };
 
   // 未選擇帳號
@@ -284,7 +326,6 @@ export default function AIReportPage() {
             <div className="flex flex-wrap gap-3">
               {Object.entries(REPORT_TYPES).map(([key, type]) => {
                 const isSelected = reportType === key;
-                const isDisabled = "comingSoon" in type && type.comingSoon;
                 const IconComponent = type.icon;
 
                 return (
@@ -292,8 +333,8 @@ export default function AIReportPage() {
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        onClick={() => !isDisabled && setReportType(key as ReportType)}
-                        disabled={isDisabled || isLoading || isGenerating}
+                        onClick={() => setReportType(key as ReportType)}
+                        disabled={isLoading || isGenerating}
                         className={cn(
                           "relative flex items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-all",
                           "hover:border-primary/50 hover:bg-accent/50",
@@ -322,9 +363,6 @@ export default function AIReportPage() {
                         {/* 標題 */}
                         <div>
                           <h3 className="text-sm font-medium">{type.label}</h3>
-                          {isDisabled && (
-                            <span className="text-xs text-muted-foreground">即將推出</span>
-                          )}
                         </div>
                       </button>
                     </TooltipTrigger>
@@ -353,34 +391,69 @@ export default function AIReportPage() {
                 <Calendar className="size-4 text-muted-foreground" />
                 分析期間
               </div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="startDate" className="sr-only">開始日期</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="h-9 w-[130px] bg-background"
-                  disabled={isLoading || isGenerating}
-                />
-                <span className="text-muted-foreground">至</span>
-                <Label htmlFor="endDate" className="sr-only">結束日期</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="h-9 w-[130px] bg-background"
-                  disabled={isLoading || isGenerating}
-                />
-              </div>
-              <Badge variant={isDateRangeValid ? "secondary" : "destructive"} className="font-normal">
-                {selectedDays > 0 ? (
-                  selectedDays > MAX_DAYS
-                    ? `${selectedDays} 天（最多 ${MAX_DAYS} 天）`
-                    : `${selectedDays} 天`
-                ) : startDate > endDate ? '日期範圍無效' : '選擇日期'}
-              </Badge>
+              {reportType === "insights" ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="startDate" className="sr-only">開始日期</Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="h-9 w-[130px] bg-background"
+                      disabled={isLoading || isGenerating}
+                    />
+                    <span className="text-muted-foreground">至</span>
+                    <Label htmlFor="endDate" className="sr-only">結束日期</Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="h-9 w-[130px] bg-background"
+                      disabled={isLoading || isGenerating}
+                    />
+                  </div>
+                  <Badge variant={isDateRangeValid ? "secondary" : "destructive"} className="font-normal">
+                    {selectedDays > 0 ? (
+                      selectedDays > MAX_DAYS
+                        ? `${selectedDays} 天（最多 ${MAX_DAYS} 天）`
+                        : `${selectedDays} 天`
+                    ) : startDate > endDate ? '日期範圍無效' : '選擇日期'}
+                  </Badge>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="contentStartDate" className="sr-only">開始日期</Label>
+                    <Input
+                      id="contentStartDate"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="h-9 w-[130px] bg-background"
+                      disabled={isLoading || isGenerating}
+                    />
+                    <span className="text-muted-foreground">至</span>
+                    <Label htmlFor="contentEndDate" className="sr-only">結束日期</Label>
+                    <Input
+                      id="contentEndDate"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="h-9 w-[130px] bg-background"
+                      disabled={isLoading || isGenerating}
+                    />
+                  </div>
+                  <Badge variant={isDateRangeValid ? "secondary" : "destructive"} className="font-normal">
+                    {selectedDays > 0 ? (
+                      selectedDays > MAX_DAYS
+                        ? `${selectedDays} 天（最多 ${MAX_DAYS} 天）`
+                        : `${selectedDays} 天`
+                    ) : startDate > endDate ? '日期範圍無效' : '選擇日期'}
+                  </Badge>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-4">
@@ -391,14 +464,14 @@ export default function AIReportPage() {
                   <div className="flex items-center gap-1.5">
                     <span className="text-muted-foreground">數據累積</span>
                     <Badge
-                      variant={dataAge >= 7 ? "secondary" : "outline"}
+                      variant={dataAge >= (reportType === "content" ? 30 : 7) ? "secondary" : "outline"}
                       className="font-medium"
                     >
                       {Math.floor(dataAge)} 天
                     </Badge>
-                    {dataAge < 7 && (
+                    {dataAge < (reportType === "content" ? 30 : 7) && (
                       <span className="text-xs text-muted-foreground">
-                        （建議 7 天以上）
+                        （建議 {reportType === "content" ? 30 : 7} 天以上）
                       </span>
                     )}
                   </div>
@@ -436,7 +509,7 @@ export default function AIReportPage() {
               </div>
               <Button
                 onClick={handleGenerateReport}
-                disabled={isGenerating || isLoading || !isDateRangeValid || (!isAdmin && quota.remaining <= 0) || ("comingSoon" in selectedReportType && selectedReportType.comingSoon)}
+                disabled={isGenerating || isLoading || !isDateRangeValid || (!isAdmin && quota.remaining <= 0)}
                 size="lg"
               >
                 {isGenerating ? (
@@ -540,7 +613,7 @@ export default function AIReportPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => openReport(item.id)}
+                          onClick={() => openReport(item.id, item.reportType)}
                           disabled={item.status !== "completed"}
                         >
                           <ExternalLink className="size-4 mr-1" />
@@ -566,7 +639,7 @@ export default function AIReportPage() {
                             <AlertDialogFooter>
                               <AlertDialogCancel>取消</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => deleteReport(item.id)}
+                                onClick={() => handleDeleteReport(item.id, item.reportType)}
                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                               >
                                 刪除

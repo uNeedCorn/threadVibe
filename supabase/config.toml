@@ -37,6 +37,9 @@ verify_jwt = false
 [functions.ai-weekly-report]
 verify_jwt = false
 
+[functions.content-pattern-report]
+verify_jwt = false
+
 [functions.migrate-legacy-metrics]
 verify_jwt = false
 
