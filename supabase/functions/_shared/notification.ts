@@ -63,6 +63,62 @@ export async function notifyTest(): Promise<TelegramResult> {
 }
 
 /**
+ * 新使用者註冊通知
+ */
+export async function notifyNewUser(options: {
+  email: string;
+  displayName?: string;
+  workspaceName?: string;
+}): Promise<TelegramResult> {
+  const credentials = getTelegramCredentials();
+  if (!credentials) {
+    return { success: false, error: 'Telegram credentials not configured' };
+  }
+
+  const { email, displayName, workspaceName } = options;
+
+  let message = `👤 *新使用者註冊*\n\n`;
+  message += `*Email:* ${escapeMarkdown(email)}\n`;
+  if (displayName) {
+    message += `*名稱:* ${escapeMarkdown(displayName)}\n`;
+  }
+  if (workspaceName) {
+    message += `*工作區:* ${escapeMarkdown(workspaceName)}\n`;
+  }
+  message += `*時間:* ${new Date().toISOString()}`;
+
+  return await sendTelegram(credentials, message);
+}
+
+/**
+ * Threads 帳號連結通知
+ */
+export async function notifyThreadsConnected(options: {
+  username: string;
+  followersCount?: number;
+  workspaceId?: string;
+  isNewConnection?: boolean;
+}): Promise<TelegramResult> {
+  const credentials = getTelegramCredentials();
+  if (!credentials) {
+    return { success: false, error: 'Telegram credentials not configured' };
+  }
+
+  const { username, followersCount, isNewConnection = true } = options;
+  const emoji = isNewConnection ? '🔗' : '🔄';
+  const action = isNewConnection ? '連結' : '重新連結';
+
+  let message = `${emoji} *Threads 帳號${action}*\n\n`;
+  message += `*帳號:* @${escapeMarkdown(username)}\n`;
+  if (followersCount !== undefined) {
+    message += `*粉絲數:* ${followersCount.toLocaleString()}\n`;
+  }
+  message += `*時間:* ${new Date().toISOString()}`;
+
+  return await sendTelegram(credentials, message);
+}
+
+/**
  * 發送 Telegram 訊息
  */
 export interface TelegramResult {

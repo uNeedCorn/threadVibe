@@ -82,6 +82,27 @@ export async function GET(request: Request) {
           }
 
           workspaceId = newWorkspace.id;
+
+          // 發送新使用者通知（非阻塞）
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (supabaseUrl && serviceRoleKey) {
+            fetch(`${supabaseUrl}/functions/v1/user-events`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${serviceRoleKey}`,
+              },
+              body: JSON.stringify({
+                event: "new_user",
+                data: {
+                  email: user.email,
+                  displayName: displayName,
+                  workspaceName: newWorkspace.name,
+                },
+              }),
+            }).catch((err) => console.warn("Notification failed:", err));
+          }
         }
 
         // 新使用者導向設定頁

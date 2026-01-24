@@ -16,6 +16,7 @@ import { createServiceClient } from '../_shared/supabase.ts';
 import { encrypt } from '../_shared/crypto.ts';
 import { ThreadsApiClient } from '../_shared/threads-api.ts';
 import { verifyStateDetailed } from '../_shared/oauth-state.ts';
+import { notifyThreadsConnected } from '../_shared/notification.ts';
 
 const THREADS_APP_ID = Deno.env.get('THREADS_APP_ID');
 const THREADS_APP_SECRET = Deno.env.get('THREADS_APP_SECRET');
@@ -253,6 +254,14 @@ Deno.serve(async (req) => {
       console.error('Token insert error:', tokenError);
       return redirectWithError('Failed to save access token');
     }
+
+    // 發送 Telegram 通知（非阻塞）
+    notifyThreadsConnected({
+      username: profile.username,
+      followersCount: insights.followers_count,
+      workspaceId,
+      isNewConnection: true,
+    }).catch((err) => console.warn('[callback] Notification failed:', err));
 
     // 成功導回 Frontend
     const successUrl = getFrontendSettingsUrl();
