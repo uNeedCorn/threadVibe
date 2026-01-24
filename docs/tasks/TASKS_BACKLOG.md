@@ -38,6 +38,95 @@
 
 ---
 
+### 人設調性分析報告
+
+**狀態**：待實作
+**提出日期**：2026-01-24
+**類型**：AI 分析報告
+**依賴**：需先實作「帳號設定」功能（人設/調性/目標客群設定）
+
+**核心問題**：我的內容是否符合我想要的形象？
+
+**報告內容**：
+```
+🎭 人設調性報告
+├── 調性一致性分數（整體符合度 %）
+├── 偏離人設的貼文標記與說明
+├── 受眾匹配度分析（用語難度、主題相關性）
+├── 內容缺口分析（該講但沒講的主題）
+└── 個人化改善建議
+```
+
+**前置需求**：
+1. 帳號設定功能
+   - 人設選擇（教育者、分享者、意見領袖等）
+   - 調性選擇（專業正式、輕鬆幽默、勵志溫暖等）
+   - 目標客群設定（職場新鮮人、專業人士、學生等）
+2. AI 分析能力（Claude）
+
+**產出頻率**：月度 / 季度
+
+**目標用戶**：進階用戶、品牌經營者
+
+---
+
+### 互動深度分析報告
+
+**狀態**：待實作
+**提出日期**：2026-01-24
+**類型**：AI 分析報告
+**依賴**：需實作回覆內容抓取 + 情感分析
+
+**核心問題**：我的粉絲在想什麼？
+
+**報告內容**：
+```
+💬 互動深度報告
+├── 回覆情感分布（正面/負面/中性 比例）
+├── 熱門討論話題 Top 5
+├── 粉絲常問問題 Top 5
+├── 負評警示與建議回應方式
+└── 內容靈感（從回覆挖掘的新主題）
+```
+
+**前置需求**：
+1. 回覆內容抓取
+   - Threads API 回覆端點整合
+   - 抽樣策略（高互動貼文優先 / Top 20%）
+   - 儲存策略（全文 vs 僅情感標籤）
+2. 情感分析 AI（可用現有 Gemini 或 Claude）
+
+**資料表設計預想**：
+```sql
+-- 方案 A：輕量版（僅統計）
+ALTER TABLE workspace_threads_posts ADD COLUMN
+  reply_sentiment JSONB;
+  -- { positive: 12, negative: 2, neutral: 5, top_keywords: ["好棒", "謝謝"] }
+
+-- 方案 B：完整版（存回覆）
+CREATE TABLE workspace_threads_post_replies (
+  id UUID PRIMARY KEY,
+  workspace_threads_post_id UUID REFERENCES workspace_threads_posts(id),
+  threads_reply_id TEXT,
+  text TEXT,
+  sentiment TEXT, -- positive/negative/neutral
+  sentiment_score NUMERIC,
+  author_username TEXT,
+  created_at TIMESTAMPTZ
+);
+```
+
+**產出頻率**：週度 / 月度
+
+**目標用戶**：品牌經營者、Agency
+
+**API 成本考量**：
+- 每則回覆需額外 API 呼叫
+- 情感分析需 LLM 成本
+- 建議採用抽樣策略控制成本
+
+---
+
 ### 發文追蹤雷達 - 行為建議指引
 
 **優先級**：中
