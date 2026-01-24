@@ -442,7 +442,7 @@ export default function ScheduledPage() {
 
       {/* 清單視圖 - 使用 Tabs */}
       {viewMode === "list" && (
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as StatusTabValue)}>
+        <Tabs id="scheduled-status-tabs" value={activeTab} onValueChange={(v) => setActiveTab(v as StatusTabValue)}>
           <TabsList className="mb-6">
             <TabsTrigger value="scheduled" className="gap-2">
               <Clock className="size-4" />

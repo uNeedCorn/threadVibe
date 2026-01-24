@@ -90,7 +90,6 @@ const mainNavItems: NavEntry[] = [
     href: "/ai-report",
     icon: Sparkles,
     badge: "測試中",
-    previewMode: true,
   },
   {
     title: "成效洞察",

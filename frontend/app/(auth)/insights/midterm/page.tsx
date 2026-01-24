@@ -2122,7 +2122,7 @@ export default function MidtermPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs id="midterm-tabs" value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview" className="gap-2">
             <Activity className="size-4" />

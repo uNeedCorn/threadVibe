@@ -50,16 +50,19 @@ export function HealthCheckClient() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setIsAuthenticated(!!session);
-        if (session && pageState === "landing") {
-          setPageState("form");
-        } else if (!session) {
+        // 只在未登入或從 landing 頁面登入時切換狀態
+        // 不要覆蓋 result 狀態
+        if (!session) {
           setPageState("landing");
+        } else {
+          setPageState((prev) => (prev === "landing" ? "form" : prev));
         }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, [pageState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogin = async () => {
     HealthCheckAnalytics.clickLogin();
@@ -76,9 +79,11 @@ export function HealthCheckClient() {
     newResult: HealthCheckResult,
     newRateLimit: RateLimitInfo
   ) => {
+    console.log("[HealthCheck] handleSubmitResult called:", { newResult, newRateLimit });
     setResult(newResult);
     setRateLimit(newRateLimit);
     setPageState("result");
+    console.log("[HealthCheck] pageState set to 'result'");
     HealthCheckAnalytics.viewResult(newResult.max.status);
   };
 

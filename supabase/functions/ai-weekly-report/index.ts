@@ -21,7 +21,14 @@ interface RequestBody {
   weekStart?: string; // YYYY-MM-DD 格式
   weekEnd?: string;   // YYYY-MM-DD 格式
   timezone?: string;  // IANA timezone (e.g., 'Asia/Taipei')
+  model?: 'sonnet' | 'opus'; // 模型選擇
 }
+
+// 模型 ID 對應
+const MODEL_IDS: Record<string, string> = {
+  sonnet: 'claude-sonnet-4-20250514',
+  opus: 'claude-opus-4-5-20251101',
+};
 
 // ============================================================================
 // 數據快照類型定義
@@ -224,6 +231,10 @@ interface ReportContent {
 
 const SYSTEM_PROMPT = `你是一位資深社群行銷教練，專精 Threads 平台策略。你的任務是分析週度數據並產生洞察報告。
 
+## ⚠️ 絕對禁止事項
+
+**絕對不可使用「VFR」這個術語！** 無論在任何情況下，都必須使用「觸及倍數」來表達相同概念。這是強制性規定，違反將導致報告無效。
+
 ## 報告結構原則
 
 **重要：只有「頂部總結」可以給行動建議，其他區塊只能給「發現/洞察」。**
@@ -320,7 +331,7 @@ const SYSTEM_PROMPT = `你是一位資深社群行銷教練，專精 Threads 平
 3. 發現要基於提供的數據，不要憑空編造
 4. **嚴禁使用「VFR」這個術語**，一律使用「觸及倍數」來表達
 5. **如果沒有提供「與前一期間比較」的數據**：
-   - `key_metrics` 中不要加入 `change` 欄位
+   - key_metrics 中不要加入 change 欄位
    - 不要在分析中提及「成長」「下降」「變化」等比較用語
    - 專注於描述本期的絕對數據表現
 
@@ -372,6 +383,62 @@ Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
+  // 驗證使用者（共用邏輯）
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return unauthorizedResponse(req, 'Missing authorization header');
+  }
+
+  const anonClient = createAnonClient(authHeader);
+  const user = await getAuthenticatedUser(anonClient);
+  if (!user) {
+    return unauthorizedResponse(req, 'Invalid token');
+  }
+
+  const serviceClient = createServiceClient();
+
+  // ============================================================================
+  // DELETE: 軟刪除報告
+  // ============================================================================
+  if (req.method === 'DELETE') {
+    try {
+      const { reportId } = await req.json();
+
+      if (!reportId) {
+        return errorResponse(req, 'reportId is required');
+      }
+
+      // 檢查報告是否存在且使用者有權限
+      const { data: report, error: reportError } = await anonClient
+        .from('ai_weekly_reports')
+        .select('id')
+        .eq('id', reportId)
+        .maybeSingle();
+
+      if (reportError || !report) {
+        return errorResponse(req, '找不到此報告或無權限', 404);
+      }
+
+      // 軟刪除
+      const { error: deleteError } = await serviceClient
+        .from('ai_weekly_reports')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', reportId);
+
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+
+      return jsonResponse(req, { success: true });
+    } catch (error) {
+      console.error('Delete report error:', error);
+      return errorResponse(req, error instanceof Error ? error.message : '刪除失敗', 500);
+    }
+  }
+
+  // ============================================================================
+  // POST: 產生報告
+  // ============================================================================
   if (req.method !== 'POST') {
     return errorResponse(req, 'Method not allowed', 405);
   }
@@ -382,28 +449,13 @@ Deno.serve(async (req) => {
       return errorResponse(req, 'ANTHROPIC_API_KEY not configured', 500, 'CONFIG_ERROR');
     }
 
-    // 驗證使用者
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return unauthorizedResponse(req, 'Missing authorization header');
-    }
-
-    const anonClient = createAnonClient(authHeader);
-    const user = await getAuthenticatedUser(anonClient);
-    if (!user) {
-      return unauthorizedResponse(req, 'Invalid token');
-    }
-
-    // 驗證是否為系統管理員
-    const serviceClient = createServiceClient();
+    // 檢查是否為系統管理員
     const isAdmin = await isSystemAdmin(serviceClient, user.id);
-    if (!isAdmin) {
-      return forbiddenResponse(req, '此功能目前僅限管理員使用');
-    }
 
     // 解析請求
     const body: RequestBody = await req.json();
-    const { accountId, weekStart, weekEnd: weekEndParam, timezone = 'Asia/Taipei' } = body;
+    const { accountId, weekStart, weekEnd: weekEndParam, timezone = 'Asia/Taipei', model = 'opus' } = body;
+    const modelId = MODEL_IDS[model] || MODEL_IDS.opus;
 
     if (!accountId) {
       return errorResponse(req, 'accountId is required');
@@ -446,22 +498,23 @@ Deno.serve(async (req) => {
       return errorResponse(req, `Account not found: ${accountId}`, 404);
     }
 
-    // 檢查本月產生次數限制（每帳號每月 5 份）
-    const MONTHLY_LIMIT = 5;
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const { count: monthlyCount } = await serviceClient
-      .from('ai_weekly_reports')
-      .select('id', { count: 'exact', head: true })
-      .eq('workspace_threads_account_id', accountId)
-      .gte('created_at', thisMonthStart);
+    // 非管理員：每 7 天限制產生 1 份報告
+    if (!isAdmin) {
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { count: recentCount } = await serviceClient
+        .from('ai_weekly_reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('workspace_threads_account_id', accountId)
+        .gte('created_at', sevenDaysAgo);
 
-    if ((monthlyCount || 0) >= MONTHLY_LIMIT) {
-      return errorResponse(
-        req,
-        `已達本月報告上限（${MONTHLY_LIMIT} 份）。下個月將重置額度。`,
-        429,
-        'MONTHLY_LIMIT_REACHED'
-      );
+      if ((recentCount || 0) >= 1) {
+        return errorResponse(
+          req,
+          '每 7 天只能產生 1 份報告。請稍後再試。',
+          429,
+          'RATE_LIMIT_EXCEEDED'
+        );
+      }
     }
 
     // 檢查是否有正在產生中的報告
@@ -487,6 +540,7 @@ Deno.serve(async (req) => {
         week_start: weekStartStr,
         week_end: weekEndStr,
         status: 'generating',
+        model_name: modelId,
       })
       .select('id')
       .single();
@@ -496,68 +550,90 @@ Deno.serve(async (req) => {
     }
     const reportId = newReport.id;
 
-    try {
-      // 聚合週數據
-      const dataSnapshot = await aggregateWeeklyData(serviceClient, accountId, weekStartStr, weekEndStr, timezone);
+    // 背景處理函數
+    const processReport = async () => {
+      try {
+        // 聚合週數據
+        const dataSnapshot = await aggregateWeeklyData(serviceClient, accountId, weekStartStr, weekEndStr, timezone);
 
-      // 建構 User Prompt
-      const userPrompt = buildUserPrompt(dataSnapshot);
+        // 建構 User Prompt
+        const userPrompt = buildUserPrompt(dataSnapshot);
 
-      // 呼叫 Claude API
-      const claude = new ClaudeClient(ANTHROPIC_API_KEY);
-      const result = await claude.generateWeeklyReport<ReportContent>(SYSTEM_PROMPT, userPrompt);
+        // 呼叫 Claude API
+        const claude = new ClaudeClient(ANTHROPIC_API_KEY, modelId);
+        const result = await claude.generateWeeklyReport<ReportContent>(SYSTEM_PROMPT, userPrompt);
 
-      // 更新報告
-      await serviceClient
-        .from('ai_weekly_reports')
-        .update({
-          status: 'completed',
-          report_content: result.content,
-          data_snapshot: dataSnapshot,
+        // 更新報告
+        await serviceClient
+          .from('ai_weekly_reports')
+          .update({
+            status: 'completed',
+            report_content: result.content,
+            data_snapshot: dataSnapshot,
+            input_tokens: result.usage.input_tokens,
+            output_tokens: result.usage.output_tokens,
+            generated_at: new Date().toISOString(),
+          })
+          .eq('id', reportId);
+
+        // 記錄 LLM 使用量
+        await serviceClient.from('llm_usage_logs').insert({
+          workspace_id: account.workspace_id,
+          workspace_threads_account_id: accountId,
+          model_name: modelId,
           input_tokens: result.usage.input_tokens,
           output_tokens: result.usage.output_tokens,
-          generated_at: new Date().toISOString(),
-        })
-        .eq('id', reportId);
+          total_tokens: result.usage.input_tokens + result.usage.output_tokens,
+          purpose: 'weekly_report',
+          metadata: {
+            report_id: reportId,
+            week_start: weekStartStr,
+            week_end: weekEndStr,
+          },
+        });
 
-      // 記錄 LLM 使用量
-      await serviceClient.from('llm_usage_logs').insert({
-        workspace_id: account.workspace_id,
-        workspace_threads_account_id: accountId,
-        model_name: 'claude-sonnet-4-20250514',
-        input_tokens: result.usage.input_tokens,
-        output_tokens: result.usage.output_tokens,
-        total_tokens: result.usage.input_tokens + result.usage.output_tokens,
-        purpose: 'weekly_report',
-        metadata: {
-          report_id: reportId,
-          week_start: weekStartStr,
-          week_end: weekEndStr,
-        },
-      });
+        console.log(`Report ${reportId} completed successfully`);
+      } catch (error) {
+        console.error(`Report ${reportId} failed:`, error);
 
-      return jsonResponse(req, {
-        reportId,
-        status: 'completed',
-        report: result.content,
-        dataSnapshot,
-      });
-    } catch (error) {
-      // 更新報告狀態為 failed
-      await serviceClient
-        .from('ai_weekly_reports')
-        .update({
-          status: 'failed',
-          error_message: error instanceof Error ? error.message : 'Unknown error',
-        })
-        .eq('id', reportId);
+        // 內部錯誤訊息（僅記錄到資料庫供管理員除錯）
+        const internalError = error instanceof Error ? error.message : 'Unknown error';
 
-      throw error;
+        // 使用者可見的錯誤訊息（不暴露 API 細節）
+        const userFacingError = '報告產生失敗，請稍後再試';
+
+        // 更新報告狀態為 failed
+        await serviceClient
+          .from('ai_weekly_reports')
+          .update({
+            status: 'failed',
+            error_message: userFacingError,
+            // 內部錯誤記錄到 metadata（僅管理員可見）
+          })
+          .eq('id', reportId);
+      }
+    };
+
+    // 使用 EdgeRuntime.waitUntil 在背景執行（不阻塞回應）
+    // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(processReport());
+    } else {
+      // Fallback: 直接執行（不等待）
+      processReport().catch(console.error);
     }
+
+    // 立即回傳報告 ID，讓前端輪詢狀態
+    return jsonResponse(req, {
+      reportId,
+      status: 'generating',
+    });
   } catch (error) {
+    // 詳細錯誤記錄到 console（僅伺服器端可見）
     console.error('AI weekly report error:', error);
-    const errorMsg = error instanceof Error ? error.message : 'Failed to generate report';
-    return errorResponse(req, `Error: ${errorMsg}`, 500);
+    // 返回通用錯誤訊息給前端
+    return errorResponse(req, '報告產生失敗，請稍後再試', 500);
   }
 });
 

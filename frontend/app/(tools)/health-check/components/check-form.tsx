@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Activity, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PostInputList } from "./post-input-list";
 import { HealthCheckAnalytics } from "../lib/analytics";
@@ -19,6 +19,7 @@ interface CheckFormProps {
 }
 
 export function CheckForm({ onSubmitResult, initialRateLimit }: CheckFormProps) {
+  const [threadsId, setThreadsId] = useState("");
   const [followers, setFollowers] = useState("");
   const [posts, setPosts] = useState<{ id: string; views: string }[]>([
     { id: crypto.randomUUID(), views: "" },
@@ -30,11 +31,11 @@ export function CheckForm({ onSubmitResult, initialRateLimit }: CheckFormProps) 
 
   // 追蹤開始填寫
   useEffect(() => {
-    if (!hasStarted && (followers || posts.some((p) => p.views))) {
+    if (!hasStarted && (threadsId || followers || posts.some((p) => p.views))) {
       setHasStarted(true);
       HealthCheckAnalytics.startForm();
     }
-  }, [followers, posts, hasStarted]);
+  }, [threadsId, followers, posts, hasStarted]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +84,7 @@ export function CheckForm({ onSubmitResult, initialRateLimit }: CheckFormProps) 
             Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
+            threadsId: threadsId.trim() || undefined,
             followers: followersNum,
             posts: validPosts,
           }),
@@ -90,6 +92,7 @@ export function CheckForm({ onSubmitResult, initialRateLimit }: CheckFormProps) 
       );
 
       const data = await response.json();
+      console.log("[HealthCheck] API response:", { status: response.status, data });
 
       if (!response.ok) {
         if (response.status === 429) {
@@ -102,6 +105,7 @@ export function CheckForm({ onSubmitResult, initialRateLimit }: CheckFormProps) 
         return;
       }
 
+      console.log("[HealthCheck] Calling onSubmitResult with:", data.result, data.rateLimit);
       onSubmitResult(data.result, data.rateLimit);
     } catch {
       setError("網路錯誤，請稍後再試");
@@ -110,11 +114,20 @@ export function CheckForm({ onSubmitResult, initialRateLimit }: CheckFormProps) 
   };
 
   const remainingChecks = initialRateLimit?.remaining ?? 3;
+  const maxChecks = 3;
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-16">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
+      <Card className="relative w-full max-w-lg overflow-hidden border-primary/20">
+        {/* Top gradient decoration bar */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
+
+        <CardHeader className="pt-8">
+          <div className="flex justify-center mb-4">
+            <div className="flex items-center justify-center size-12 rounded-full bg-primary/10">
+              <Activity className="size-6 text-primary" />
+            </div>
+          </div>
           <CardTitle className="text-2xl text-center">
             Threads 健康檢測
           </CardTitle>
@@ -125,13 +138,42 @@ export function CheckForm({ onSubmitResult, initialRateLimit }: CheckFormProps) 
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* 剩餘次數 */}
-            <div className="text-center text-sm text-muted-foreground">
-              今日剩餘檢測次數：
-              <span className="font-semibold text-foreground">
-                {remainingChecks}
-              </span>{" "}
-              次
+            {/* 剩餘次數 - 圓點進度指示器 */}
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                今日剩餘檢測次數
+              </span>
+              <div className="flex items-center gap-2">
+                {Array.from({ length: maxChecks }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`size-3 rounded-full transition-colors ${
+                      i < remainingChecks
+                        ? "bg-primary"
+                        : "bg-muted-foreground/20"
+                    }`}
+                  />
+                ))}
+                <span className="ml-2 text-sm font-medium">
+                  {remainingChecks}/{maxChecks}
+                </span>
+              </div>
+            </div>
+
+            {/* Threads ID */}
+            <div className="space-y-2">
+              <Label htmlFor="threadsId">Threads ID</Label>
+              <Input
+                id="threadsId"
+                type="text"
+                placeholder="例如：postlyzer"
+                value={threadsId}
+                onChange={(e) => setThreadsId(e.target.value)}
+                disabled={isSubmitting}
+              />
+              <p className="text-xs text-muted-foreground">
+                選填，輸入你的 Threads 帳號 ID（不含 @）
+              </p>
             </div>
 
             {/* 粉絲數 */}
@@ -198,7 +240,7 @@ export function CheckForm({ onSubmitResult, initialRateLimit }: CheckFormProps) 
             {/* 提交按鈕 */}
             <Button
               type="submit"
-              className="w-full"
+              className="group w-full"
               size="lg"
               disabled={isSubmitting || remainingChecks <= 0}
             >
@@ -210,7 +252,10 @@ export function CheckForm({ onSubmitResult, initialRateLimit }: CheckFormProps) 
               ) : remainingChecks <= 0 ? (
                 "今日次數已用完"
               ) : (
-                "開始檢測"
+                <>
+                  開始檢測
+                  <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" />
+                </>
               )}
             </Button>
           </form>

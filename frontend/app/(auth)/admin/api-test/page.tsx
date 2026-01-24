@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TelegramTest } from "./components/telegram-test";
 
 // Supabase 測試結果
 interface LatencyResult {
@@ -400,6 +401,9 @@ export default function ApiTestPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Telegram 通知測試 */}
+        <TelegramTest />
 
         {/* 測試設定 */}
       <Card>

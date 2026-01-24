@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 // ============================================================================
@@ -225,16 +225,8 @@ export interface ReportHistoryItem {
   weekEnd: string;
   status: "pending" | "generating" | "completed" | "failed";
   generatedAt: string | null;
-}
-
-// ============================================================================
-// 額度類型
-// ============================================================================
-
-export interface MonthlyQuota {
-  used: number;
-  limit: number;
-  remaining: number;
+  createdAt: string;
+  reportType: string;
 }
 
 // ============================================================================
@@ -249,15 +241,17 @@ interface UseWeeklyReportReturn {
   hasEnoughData: boolean;
   dataAge: number | null;
   history: ReportHistoryItem[];
-  monthlyQuota: MonthlyQuota | null;
   generateReport: (startDate?: string, endDate?: string) => Promise<void>;
   fetchLatestReport: () => Promise<void>;
   fetchReportHistory: () => Promise<void>;
   selectReport: (reportId: string) => Promise<void>;
-  fetchMonthlyQuota: () => Promise<void>;
+  deleteReport: (reportId: string) => Promise<void>;
 }
 
-const MONTHLY_LIMIT = 5;
+// 輪詢間隔（毫秒）
+const POLL_INTERVAL = 3000;
+// 最大輪詢次數（3 秒 x 60 = 3 分鐘）
+const MAX_POLL_COUNT = 60;
 
 export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn {
   const [report, setReport] = useState<WeeklyReport | null>(null);
@@ -267,7 +261,92 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
   const [hasEnoughData, setHasEnoughData] = useState(true);
   const [dataAge, setDataAge] = useState<number | null>(null);
   const [history, setHistory] = useState<ReportHistoryItem[]>([]);
-  const [monthlyQuota, setMonthlyQuota] = useState<MonthlyQuota | null>(null);
+
+  // 輪詢相關
+  const [pollingReportId, setPollingReportId] = useState<string | null>(null);
+  const pollCountRef = useRef(0);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 輪詢報告狀態
+  const pollReportStatus = useCallback(async (reportId: string): Promise<boolean> => {
+    try {
+      const supabase = createClient();
+      const { data, error: fetchError } = await supabase
+        .from("ai_weekly_reports")
+        .select("id, week_start, week_end, status, report_content, data_snapshot, generated_at, error_message")
+        .eq("id", reportId)
+        .single();
+
+      if (fetchError) {
+        console.error("Poll report status error:", fetchError);
+        return false;
+      }
+
+      if (data) {
+        if (data.status === "completed") {
+          setReport({
+            id: data.id,
+            weekStart: data.week_start,
+            weekEnd: data.week_end,
+            status: "completed",
+            report: data.report_content,
+            dataSnapshot: data.data_snapshot,
+            generatedAt: data.generated_at,
+            errorMessage: null,
+          });
+          return true; // 完成，停止輪詢
+        } else if (data.status === "failed") {
+          setError(data.error_message || "報告產生失敗");
+          return true; // 失敗，停止輪詢
+        }
+      }
+
+      return false; // 繼續輪詢
+    } catch (err) {
+      console.error("Poll report status error:", err);
+      return false;
+    }
+  }, []);
+
+  // 輪詢 Effect
+  useEffect(() => {
+    if (!pollingReportId) return;
+
+    pollCountRef.current = 0;
+
+    const poll = async () => {
+      pollCountRef.current += 1;
+
+      const shouldStop = await pollReportStatus(pollingReportId);
+
+      if (shouldStop || pollCountRef.current >= MAX_POLL_COUNT) {
+        // 停止輪詢
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        setPollingReportId(null);
+        setIsGenerating(false);
+
+        if (pollCountRef.current >= MAX_POLL_COUNT) {
+          setError("報告產生超時，請稍後重新查詢");
+        }
+      }
+    };
+
+    // 立即執行一次
+    poll();
+
+    // 設定輪詢
+    pollIntervalRef.current = setInterval(poll, POLL_INTERVAL);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [pollingReportId, pollReportStatus]);
 
   // 取得最新報告
   const fetchLatestReport = useCallback(async () => {
@@ -390,18 +469,11 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
           if (result.code === "INSUFFICIENT_DATA") {
             setHasEnoughData(false);
           }
-          if (result.code === "MONTHLY_LIMIT_REACHED") {
-            // 刷新額度顯示
-            setMonthlyQuota({
-              used: MONTHLY_LIMIT,
-              limit: MONTHLY_LIMIT,
-              remaining: 0,
-            });
-          }
           throw new Error(result.error || "產生報告失敗");
         }
 
         if (result.status === "completed" && result.report) {
+          // 同步模式完成（舊版 API 相容）
           setReport({
             id: result.reportId,
             weekStart: result.dataSnapshot?.period?.start || "",
@@ -412,31 +484,24 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
             generatedAt: new Date().toISOString(),
             errorMessage: null,
           });
-          // 更新額度（使用量 +1）
-          setMonthlyQuota((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  used: prev.used + 1,
-                  remaining: Math.max(0, prev.remaining - 1),
-                }
-              : null
-          );
-        } else if (result.status === "generating") {
-          // 報告正在產生中，稍後重新查詢
-          setReport((prev) => prev ? { ...prev, status: "generating" } : null);
+          setIsGenerating(false);
+        } else if (result.status === "generating" && result.reportId) {
+          // 非同步模式：開始輪詢
+          setPollingReportId(result.reportId);
+          // isGenerating 保持 true，由輪詢完成後設為 false
+        } else {
+          setIsGenerating(false);
         }
       } catch (err) {
         console.error("Generate weekly report error:", err);
         setError(err instanceof Error ? err.message : "產生報告失敗");
-      } finally {
         setIsGenerating(false);
       }
     },
     [accountId]
   );
 
-  // 取得歷史報告列表
+  // 取得歷史報告列表（排除已刪除的）
   const fetchReportHistory = useCallback(async () => {
     if (!accountId) {
       setHistory([]);
@@ -445,25 +510,32 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
 
     try {
       const supabase = createClient();
+
+      // 查詢時排除已刪除的報告（deleted_at 為 NULL 或欄位不存在）
       const { data, error: fetchError } = await supabase
         .from("ai_weekly_reports")
-        .select("id, week_start, week_end, status, generated_at, created_at")
+        .select("id, week_start, week_end, status, generated_at, created_at, report_type, deleted_at")
         .eq("workspace_threads_account_id", accountId)
         .order("created_at", { ascending: false })
         .limit(20);
 
       if (fetchError) {
-        console.error("Fetch report history error:", fetchError);
+        console.error("Fetch report history error:", fetchError.message || JSON.stringify(fetchError), fetchError.code);
         return;
       }
 
+      // 過濾掉已刪除的報告
+      const filteredData = (data || []).filter(item => !item.deleted_at);
+
       setHistory(
-        (data || []).map((item) => ({
+        filteredData.map((item) => ({
           id: item.id,
           weekStart: item.week_start,
           weekEnd: item.week_end,
           status: item.status,
           generatedAt: item.generated_at,
+          createdAt: item.created_at,
+          reportType: item.report_type || "insights",
         }))
       );
     } catch (err) {
@@ -508,41 +580,40 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
     }
   }, []);
 
-  // 取得本月額度
-  const fetchMonthlyQuota = useCallback(async () => {
-    if (!accountId) {
-      setMonthlyQuota(null);
-      return;
-    }
-
+  // 軟刪除報告
+  const deleteReport = useCallback(async (reportId: string) => {
     try {
       const supabase = createClient();
-      const now = new Date();
-      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-        .toISOString()
-        .split("T")[0];
+      const { data: { session } } = await supabase.auth.getSession();
 
-      const { count, error: countError } = await supabase
-        .from("ai_weekly_reports")
-        .select("id", { count: "exact", head: true })
-        .eq("workspace_threads_account_id", accountId)
-        .gte("created_at", `${thisMonthStart}T00:00:00Z`);
-
-      if (countError) {
-        console.error("Fetch monthly quota error:", countError);
-        return;
+      if (!session?.access_token) {
+        throw new Error("請先登入");
       }
 
-      const used = count || 0;
-      setMonthlyQuota({
-        used,
-        limit: MONTHLY_LIMIT,
-        remaining: Math.max(0, MONTHLY_LIMIT - used),
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-weekly-report`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ reportId }),
+        }
+      );
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "刪除報告失敗");
+      }
+
+      // 刷新歷史列表
+      fetchReportHistory();
     } catch (err) {
-      console.error("Fetch monthly quota error:", err);
+      console.error("Delete report error:", err);
+      setError(err instanceof Error ? err.message : "刪除報告失敗");
     }
-  }, [accountId]);
+  }, [fetchReportHistory]);
 
   return {
     report,
@@ -552,11 +623,10 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
     hasEnoughData,
     dataAge,
     history,
-    monthlyQuota,
     generateReport,
     fetchLatestReport,
     fetchReportHistory,
     selectReport,
-    fetchMonthlyQuota,
+    deleteReport,
   };
 }

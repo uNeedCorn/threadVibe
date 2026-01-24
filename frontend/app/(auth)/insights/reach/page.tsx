@@ -887,7 +887,7 @@ export default function ReachPage() {
         </div>
         <div className="flex items-center gap-3">
           {/* 週/月切換 */}
-          <Tabs value={period} onValueChange={(v) => { setPeriod(v as Period); setOffset(0); }}>
+          <Tabs id="reach-period-tabs" value={period} onValueChange={(v) => { setPeriod(v as Period); setOffset(0); }}>
             <TabsList>
               <TabsTrigger value="week">週</TabsTrigger>
               <TabsTrigger value="month">月</TabsTrigger>
@@ -920,7 +920,7 @@ export default function ReachPage() {
       </div>
 
       {/* View Mode Tabs - 報告/洞察切換 */}
-      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+      <Tabs id="reach-view-tabs" value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
         <TabsList className="h-10 border bg-muted/50 p-1">
           <TabsTrigger value="report" className="h-8 px-4 data-[state=active]:bg-background data-[state=active]:shadow">
             <BarChart3 className="mr-1.5 size-4" />

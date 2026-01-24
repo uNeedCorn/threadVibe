@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, BarChart3, RefreshCw, Bell } from "lucide-react";
+import { ArrowRight, BarChart3, RefreshCw } from "lucide-react";
 import { HealthCheckAnalytics } from "../lib/analytics";
 
 const features = [
   { icon: BarChart3, text: "完整成效儀表板" },
   { icon: RefreshCw, text: "自動同步數據" },
-  { icon: Bell, text: "異常通知提醒" },
 ];
 
 export function WaitlistCta() {

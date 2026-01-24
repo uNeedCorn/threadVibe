@@ -8,7 +8,7 @@
  */
 
 import { createServiceClient } from '../_shared/supabase.ts';
-import { notifyNewUser, notifyThreadsConnected } from '../_shared/notification.ts';
+import { notifyNewUser, notifyThreadsConnected, notifyTest } from '../_shared/notification.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,6 +60,10 @@ Deno.serve(async (req) => {
           workspaceId: data.workspaceId,
           isNewConnection: data.isNewConnection ?? true,
         });
+        break;
+
+      case 'test':
+        result = await notifyTest();
         break;
 
       default:

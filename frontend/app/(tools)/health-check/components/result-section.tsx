@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RefreshCw, TrendingUp, Zap, Clock, Snowflake } from "lucide-react";
 import { StatusBadge } from "./status-badge";
 import { WaitlistCta } from "./waitlist-cta";
+import { cn } from "@/lib/utils";
 import type { HealthCheckResult, RateLimitInfo } from "./health-check-client";
 
 interface ResultSectionProps {
@@ -35,11 +36,38 @@ const metricCards = [
   },
 ];
 
+// 根據整體狀態獲取背景樣式
+function getOverallStatus(result: HealthCheckResult): "normal" | "warning" | "danger" {
+  const statuses = [result.cumulative.status, result.max.status, result.latest.status];
+  if (statuses.includes("danger")) return "danger";
+  if (statuses.includes("warning")) return "warning";
+  return "normal";
+}
+
+const statusBgClasses = {
+  normal: "bg-gradient-to-b from-green-50/50 to-transparent dark:from-green-950/20",
+  warning: "bg-gradient-to-b from-yellow-50/50 to-transparent dark:from-yellow-950/20",
+  danger: "bg-gradient-to-b from-red-50/50 to-transparent dark:from-red-950/20",
+};
+
+const statusBorderClasses = {
+  normal: "border-green-200 dark:border-green-800/50",
+  warning: "border-yellow-200 dark:border-yellow-800/50",
+  danger: "border-red-200 dark:border-red-800/50",
+};
+
+const statusIndicatorClasses = {
+  normal: "bg-green-500",
+  warning: "bg-yellow-500",
+  danger: "bg-red-500",
+};
+
 export function ResultSection({ result, rateLimit, onTryAgain }: ResultSectionProps) {
   const remainingChecks = rateLimit?.remaining ?? 0;
+  const overallStatus = getOverallStatus(result);
 
   return (
-    <div className="min-h-screen px-4 py-16">
+    <div className={cn("min-h-screen px-4 py-16", statusBgClasses[overallStatus])}>
       <div className="max-w-2xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -66,20 +94,36 @@ export function ResultSection({ result, rateLimit, onTryAgain }: ResultSectionPr
         <div className="grid gap-4 md:grid-cols-3">
           {metricCards.map((card) => {
             const metric = result[card.key];
+            const metricStatus = metric.status as "normal" | "warning" | "danger";
             return (
-              <Card key={card.key}>
-                <CardHeader className="pb-2">
+              <Card
+                key={card.key}
+                className={cn(
+                  "relative overflow-hidden",
+                  statusBorderClasses[metricStatus]
+                )}
+              >
+                {/* Top status indicator bar */}
+                <div
+                  className={cn(
+                    "absolute top-0 left-0 right-0 h-1",
+                    statusIndicatorClasses[metricStatus]
+                  )}
+                />
+                <CardHeader className="pb-2 pt-5">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <card.icon className="size-4" />
                     <span className="text-sm">{card.title}</span>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="text-3xl font-bold">{metric.value}x</span>
-                    <StatusBadge status={metric.status} label={metric.label} />
+                  <div className="space-y-2">
+                    <div className="text-3xl font-bold tabular-nums">
+                      {metric.value}x
+                    </div>
+                    <StatusBadge status={metric.status} label={metric.label} size="sm" />
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground mt-2">
                     {card.description}
                   </p>
                 </CardContent>
@@ -89,7 +133,7 @@ export function ResultSection({ result, rateLimit, onTryAgain }: ResultSectionPr
         </div>
 
         {/* 結論 */}
-        <Card>
+        <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
           <CardHeader>
             <CardTitle className="text-lg">分析結論</CardTitle>
           </CardHeader>
@@ -98,14 +142,16 @@ export function ResultSection({ result, rateLimit, onTryAgain }: ResultSectionPr
 
             {result.recommendations.length > 0 && (
               <div>
-                <h4 className="font-medium mb-2">建議行動</h4>
-                <ul className="space-y-2">
+                <h4 className="font-medium mb-3">建議行動</h4>
+                <ul className="space-y-3">
                   {result.recommendations.map((rec, index) => (
                     <li
                       key={index}
-                      className="flex items-start gap-2 text-sm text-muted-foreground"
+                      className="flex items-start gap-3 text-sm text-muted-foreground"
                     >
-                      <span className="text-primary">•</span>
+                      <span className="flex-shrink-0 flex items-center justify-center size-5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                        {index + 1}
+                      </span>
                       {rec}
                     </li>
                   ))}

@@ -1484,7 +1484,7 @@ export default function InsightsOverviewPage() {
         title="總覽"
         description={`${periodTitle}成效概覽，快速掌握帳號表現`}
         actions={
-          <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
+          <Tabs id="overview-period-tabs" value={period} onValueChange={(v) => setPeriod(v as Period)}>
             <TabsList>
               <TabsTrigger value="week">本週</TabsTrigger>
               <TabsTrigger value="month">本月</TabsTrigger>
