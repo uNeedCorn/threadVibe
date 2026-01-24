@@ -68,12 +68,29 @@ export async function updateSession(request: NextRequest) {
     "/scheduled",
     "/tags",
     "/admin",
+    "/ai-report",
+  ];
+
+  // 需要 Threads 帳號才能存取的路由
+  const requiresThreadsAccount = [
+    "/dashboard",
+    "/posts",
+    "/insights",
+    "/reports",
+    "/scheduled",
+    "/tags",
+    "/ai-report",
   ];
 
   const isProtectedRoute = protectedPrefixes.some(prefix =>
     pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
+  const isThreadsRequiredRoute = requiresThreadsAccount.some(prefix =>
+    pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
   const isLoginPage = pathname === "/login_2026Q1";
+  const isSettingsPage = pathname === "/settings" || pathname.startsWith("/settings/");
+  const isAdminPage = pathname === "/admin" || pathname.startsWith("/admin/");
 
   // 未登入且在受保護路由 → 導向登入頁
   if (!user && isProtectedRoute) {
@@ -82,17 +99,33 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 已登入且在登入頁 → 導向 Dashboard 或設定頁
-  if (user && isLoginPage) {
-    // 檢查是否有連結 Threads 帳號
-    const { data: accounts } = await supabase
-      .from("workspace_threads_accounts")
-      .select("id")
-      .limit(1);
+  // 已登入的情況
+  if (user) {
+    // 在登入頁 → 導向 Dashboard 或設定頁
+    if (isLoginPage) {
+      const { data: accounts } = await supabase
+        .from("workspace_threads_accounts")
+        .select("id")
+        .limit(1);
 
-    const url = request.nextUrl.clone();
-    url.pathname = accounts && accounts.length > 0 ? "/dashboard" : "/settings";
-    return NextResponse.redirect(url);
+      const url = request.nextUrl.clone();
+      url.pathname = accounts && accounts.length > 0 ? "/dashboard" : "/settings";
+      return NextResponse.redirect(url);
+    }
+
+    // 在需要 Threads 帳號的頁面，但沒有連結帳號 → 導向設定頁
+    if (isThreadsRequiredRoute && !isSettingsPage && !isAdminPage) {
+      const { data: accounts } = await supabase
+        .from("workspace_threads_accounts")
+        .select("id")
+        .limit(1);
+
+      if (!accounts || accounts.length === 0) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/settings";
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   return supabaseResponse;
