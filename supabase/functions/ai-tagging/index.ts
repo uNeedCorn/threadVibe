@@ -53,7 +53,8 @@ Deno.serve(async (req) => {
     }
 
     if (!GEMINI_API_KEY) {
-      return errorResponse(req, 'GEMINI_API_KEY not configured', 500);
+      console.error('GEMINI_API_KEY not configured');
+      return errorResponse(req, '系統設定錯誤', 500);
     }
 
     const serviceClient = createServiceClient();

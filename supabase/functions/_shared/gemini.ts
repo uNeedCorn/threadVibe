@@ -137,8 +137,9 @@ export class GeminiClient {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Gemini API error: ${response.status} - ${error}`);
+      const errorBody = await response.text();
+      console.error('Gemini API error:', { status: response.status, body: errorBody });
+      throw new Error('AI 服務暫時無法使用');
     }
 
     const data = await response.json();
@@ -146,11 +147,18 @@ export class GeminiClient {
     // 解析回應
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!content) {
-      throw new Error('No content in Gemini response');
+      console.error('No content in Gemini response:', data);
+      throw new Error('AI 回應格式錯誤');
     }
 
     // 解析 JSON 回應
-    const tags = JSON.parse(content) as AiSuggestedTags;
+    let tags: AiSuggestedTags;
+    try {
+      tags = JSON.parse(content) as AiSuggestedTags;
+    } catch (parseError) {
+      console.error('Failed to parse Gemini response as JSON:', { content: content.slice(0, 500), error: parseError });
+      throw new Error('AI 回應格式錯誤');
+    }
 
     // 取得 usage
     const usage: GeminiUsage = {

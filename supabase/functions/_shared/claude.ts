@@ -47,8 +47,9 @@ export class ClaudeClient {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Claude API error: ${response.status} - ${error}`);
+      const errorBody = await response.text();
+      console.error('Claude API error:', { status: response.status, body: errorBody });
+      throw new Error('AI 服務暫時無法使用');
     }
 
     const data = await response.json();
@@ -89,8 +90,9 @@ export class ClaudeClient {
         content: parsed,
         usage: result.usage,
       };
-    } catch {
-      throw new Error(`Failed to parse Claude response as JSON: ${jsonStr.slice(0, 200)}...`);
+    } catch (parseError) {
+      console.error('Failed to parse Claude response as JSON:', { response: jsonStr.slice(0, 500), error: parseError });
+      throw new Error('AI 回應格式錯誤');
     }
   }
 }

@@ -295,6 +295,6 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('API test error:', error);
-    return errorResponse(req, `API test failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 500);
+    return errorResponse(req, 'API 測試失敗，請稍後再試', 500);
   }
 });

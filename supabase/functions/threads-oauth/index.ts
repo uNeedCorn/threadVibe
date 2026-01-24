@@ -24,12 +24,14 @@ Deno.serve(async (req) => {
 
   try {
     if (!SUPABASE_URL) {
-      return errorResponse(req, 'SUPABASE_URL not configured', 500, 'CONFIG_ERROR');
+      console.error('SUPABASE_URL not configured');
+      return errorResponse(req, '系統設定錯誤，請聯繫管理員', 500);
     }
     try {
       new URL(SUPABASE_URL);
     } catch {
-      return errorResponse(req, 'SUPABASE_URL is invalid', 500, 'CONFIG_ERROR');
+      console.error('SUPABASE_URL is invalid');
+      return errorResponse(req, '系統設定錯誤，請聯繫管理員', 500);
     }
 
     const url = new URL(req.url);
@@ -41,7 +43,8 @@ Deno.serve(async (req) => {
     }
 
     if (!THREADS_APP_ID) {
-      return errorResponse(req, 'THREADS_APP_ID not configured', 500, 'CONFIG_ERROR');
+      console.error('THREADS_APP_ID not configured');
+      return errorResponse(req, '系統設定錯誤，請聯繫管理員', 500);
     }
 
     // 驗證使用者

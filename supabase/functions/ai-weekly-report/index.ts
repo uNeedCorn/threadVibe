@@ -432,7 +432,7 @@ Deno.serve(async (req) => {
       return jsonResponse(req, { success: true });
     } catch (error) {
       console.error('Delete report error:', error);
-      return errorResponse(req, error instanceof Error ? error.message : '刪除失敗', 500);
+      return errorResponse(req, '刪除失敗，請稍後再試', 500);
     }
   }
 
@@ -446,7 +446,8 @@ Deno.serve(async (req) => {
   try {
     // 驗證 API Key
     if (!ANTHROPIC_API_KEY) {
-      return errorResponse(req, 'ANTHROPIC_API_KEY not configured', 500, 'CONFIG_ERROR');
+      console.error('ANTHROPIC_API_KEY not configured');
+      return errorResponse(req, '系統設定錯誤，請聯繫管理員', 500);
     }
 
     // 檢查是否為系統管理員
@@ -495,7 +496,7 @@ Deno.serve(async (req) => {
 
     if (accountError || !account) {
       console.error('Account query error:', { accountId, accountError });
-      return errorResponse(req, `Account not found: ${accountId}`, 404);
+      return errorResponse(req, '找不到此帳號', 404);
     }
 
     // 非管理員：每 7 天限制產生 1 份報告
