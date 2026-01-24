@@ -177,6 +177,16 @@ export default function AIReportPage() {
         badge={{ label: "測試中", variant: "info" }}
       />
 
+      {/* 新帳號提醒 */}
+      {dataAge !== null && dataAge < 7 && (
+        <Alert>
+          <Clock className="size-4" />
+          <AlertDescription>
+            此帳號數據僅累積 {Math.floor(dataAge)} 天，建議累積滿 7 天後再產生報告，以獲得更準確的分析結果。
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* 報告控制區 */}
       <div className="flex items-center gap-3 flex-wrap">
         {/* 日期區間選擇 */}

@@ -157,7 +157,7 @@ export function DataOverviewSection({ data }: Props) {
                     )}
                     <span>
                       {stat.change >= 0 ? "+" : ""}
-                      {stat.change.toFixed(1)}% vs 上週
+                      {stat.change.toFixed(1)}% vs 前期
                     </span>
                   </div>
                 )}
