@@ -262,8 +262,32 @@ const POLL_INTERVAL = 3000;
 const MAX_POLL_COUNT = 60;
 
 // 額度常數
-const QUOTA_PERIOD_DAYS = 7; // 每 7 天
-const QUOTA_LIMIT = 1; // 可產生 1 份
+const QUOTA_LIMIT = 2; // 每週可產生 2 份（兩種報告共用）
+
+// 計算本週一 00:00（台北時間）
+function getThisMonday(): Date {
+  const now = new Date();
+  // 轉換為台北時間
+  const taipeiOffset = 8 * 60; // UTC+8
+  const localOffset = now.getTimezoneOffset();
+  const taipeiTime = new Date(now.getTime() + (taipeiOffset + localOffset) * 60 * 1000);
+
+  const day = taipeiTime.getDay(); // 0 = Sunday, 1 = Monday, ...
+  const diff = day === 0 ? 6 : day - 1; // 計算距離週一的天數
+
+  const monday = new Date(taipeiTime);
+  monday.setDate(taipeiTime.getDate() - diff);
+  monday.setHours(0, 0, 0, 0);
+
+  // 轉回 UTC
+  return new Date(monday.getTime() - (taipeiOffset + localOffset) * 60 * 1000);
+}
+
+// 計算下週一 00:00（台北時間）
+function getNextMonday(): Date {
+  const thisMonday = getThisMonday();
+  return new Date(thisMonday.getTime() + 7 * 24 * 60 * 60 * 1000);
+}
 
 export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn {
   const [report, setReport] = useState<WeeklyReport | null>(null);
@@ -527,10 +551,12 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
       const supabase = createClient();
 
       // 查詢時排除已刪除的報告（deleted_at 為 NULL 或欄位不存在）
+      // 只查詢 insights 類型（或舊報告沒有 report_type）
       const { data, error: fetchError } = await supabase
         .from("ai_weekly_reports")
         .select("id, week_start, week_end, status, generated_at, created_at, report_type, deleted_at")
         .eq("workspace_threads_account_id", accountId)
+        .or("report_type.is.null,report_type.eq.insights")
         .order("created_at", { ascending: false })
         .limit(20);
 
@@ -554,32 +580,22 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
         }))
       );
 
-      // 計算額度資訊
-      // 注意：只有「已完成」的報告才扣點，刪除的報告仍然計入（因為 LLM API 已消耗）
-      const now = new Date();
-      const sevenDaysAgo = new Date(now.getTime() - QUOTA_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+      // 計算額度資訊（每週一重置，兩種報告共用 2 點）
+      // 需要查詢「所有類型」的報告來計算共用配額
+      const thisMonday = getThisMonday();
 
-      // 找出 7 天內「已完成」的報告數量（含已刪除，因為 API 已消耗）
-      const completedReports = (data || []).filter(
-        (item) =>
-          item.status === "completed" &&
-          new Date(item.created_at) >= sevenDaysAgo
-      );
+      const { data: allReports } = await supabase
+        .from("ai_weekly_reports")
+        .select("id, status, created_at")
+        .eq("workspace_threads_account_id", accountId)
+        .eq("status", "completed")
+        .gte("created_at", thisMonday.toISOString());
 
-      const remaining = Math.max(0, QUOTA_LIMIT - completedReports.length);
+      const completedCount = (allReports || []).length;
+      const remaining = Math.max(0, QUOTA_LIMIT - completedCount);
 
-      // 計算下次重置時間（最早報告的 created_at + 7 天）
-      let nextResetAt: Date | null = null;
-      if (completedReports.length > 0 && remaining === 0) {
-        // 找出最早的已完成報告（7 天內）
-        const sortedByCreatedAt = [...completedReports].sort(
-          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
-        const earliestReport = sortedByCreatedAt[0];
-        nextResetAt = new Date(
-          new Date(earliestReport.created_at).getTime() + QUOTA_PERIOD_DAYS * 24 * 60 * 60 * 1000
-        );
-      }
+      // 下次重置時間 = 下週一 00:00（台北時間）
+      const nextResetAt = remaining === 0 ? getNextMonday() : null;
 
       setQuota({
         remaining,
