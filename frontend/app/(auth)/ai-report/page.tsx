@@ -137,6 +137,7 @@ export default function AIReportPage() {
     hasEnoughData,
     dataAge,
     history,
+    quota,
     generateReport,
     fetchLatestReport,
     fetchReportHistory,
@@ -382,15 +383,34 @@ export default function AIReportPage() {
               </Badge>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
+              {/* 額度資訊（非管理員顯示） */}
               {!isAdmin && (
-                <span className="text-xs text-muted-foreground">
-                  每 7 天可產生 1 份
-                </span>
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground">剩餘點數</span>
+                    <Badge variant={quota.remaining > 0 ? "secondary" : "outline"} className="font-medium">
+                      {quota.remaining} / {quota.total}
+                    </Badge>
+                  </div>
+                  {quota.nextResetAt && (
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Clock className="size-3.5" />
+                      <span>
+                        {new Date(quota.nextResetAt).toLocaleDateString("zh-TW", {
+                          month: "numeric",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })} 重置
+                      </span>
+                    </div>
+                  )}
+                </div>
               )}
               <Button
                 onClick={handleGenerateReport}
-                disabled={isGenerating || isLoading || !isDateRangeValid || ("comingSoon" in selectedReportType && selectedReportType.comingSoon)}
+                disabled={isGenerating || isLoading || !isDateRangeValid || (!isAdmin && quota.remaining <= 0) || ("comingSoon" in selectedReportType && selectedReportType.comingSoon)}
                 size="lg"
               >
                 {isGenerating ? (

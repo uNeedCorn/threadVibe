@@ -233,6 +233,13 @@ export interface ReportHistoryItem {
 // Hook
 // ============================================================================
 
+// 額度資訊
+export interface QuotaInfo {
+  remaining: number; // 剩餘點數
+  total: number; // 總點數
+  nextResetAt: Date | null; // 下次重置時間
+}
+
 interface UseWeeklyReportReturn {
   report: WeeklyReport | null;
   isLoading: boolean;
@@ -241,6 +248,7 @@ interface UseWeeklyReportReturn {
   hasEnoughData: boolean;
   dataAge: number | null;
   history: ReportHistoryItem[];
+  quota: QuotaInfo;
   generateReport: (startDate?: string, endDate?: string) => Promise<void>;
   fetchLatestReport: () => Promise<void>;
   fetchReportHistory: () => Promise<void>;
@@ -253,6 +261,10 @@ const POLL_INTERVAL = 3000;
 // 最大輪詢次數（3 秒 x 60 = 3 分鐘）
 const MAX_POLL_COUNT = 60;
 
+// 額度常數
+const QUOTA_PERIOD_DAYS = 7; // 每 7 天
+const QUOTA_LIMIT = 1; // 可產生 1 份
+
 export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn {
   const [report, setReport] = useState<WeeklyReport | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -261,6 +273,11 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
   const [hasEnoughData, setHasEnoughData] = useState(true);
   const [dataAge, setDataAge] = useState<number | null>(null);
   const [history, setHistory] = useState<ReportHistoryItem[]>([]);
+  const [quota, setQuota] = useState<QuotaInfo>({
+    remaining: QUOTA_LIMIT,
+    total: QUOTA_LIMIT,
+    nextResetAt: null,
+  });
 
   // 輪詢相關
   const [pollingReportId, setPollingReportId] = useState<string | null>(null);
@@ -538,6 +555,36 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
           reportType: item.report_type || "insights",
         }))
       );
+
+      // 計算額度資訊
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - QUOTA_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+
+      // 找出 7 天內的報告數量（不含已刪除）
+      const recentReports = filteredData.filter(
+        (item) => new Date(item.created_at) >= sevenDaysAgo
+      );
+
+      const remaining = Math.max(0, QUOTA_LIMIT - recentReports.length);
+
+      // 計算下次重置時間（最早報告的 created_at + 7 天）
+      let nextResetAt: Date | null = null;
+      if (recentReports.length > 0 && remaining === 0) {
+        // 找出最早的報告（7 天內）
+        const sortedByCreatedAt = [...recentReports].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        const earliestReport = sortedByCreatedAt[0];
+        nextResetAt = new Date(
+          new Date(earliestReport.created_at).getTime() + QUOTA_PERIOD_DAYS * 24 * 60 * 60 * 1000
+        );
+      }
+
+      setQuota({
+        remaining,
+        total: QUOTA_LIMIT,
+        nextResetAt,
+      });
     } catch (err) {
       console.error("Fetch report history error:", err);
     }
@@ -623,6 +670,7 @@ export function useWeeklyReport(accountId: string | null): UseWeeklyReportReturn
     hasEnoughData,
     dataAge,
     history,
+    quota,
     generateReport,
     fetchLatestReport,
     fetchReportHistory,
