@@ -134,10 +134,20 @@ Deno.serve(async (req) => {
         // 呼叫 Gemini API
         const result = await gemini.analyzePost(postData.text);
 
-        // 更新貼文 AI 標籤
+        // 提取 content_features
+        const contentFeatures = result.tags.content_features || {};
+
+        // 更新貼文 AI 標籤 + 內容特徵欄位
         await serviceClient
           .from('workspace_threads_posts')
-          .update({ ai_suggested_tags: result.tags })
+          .update({
+            ai_suggested_tags: result.tags,
+            // 同步寫入獨立欄位（方便查詢）
+            has_question: contentFeatures.has_question ?? false,
+            question_type: contentFeatures.question_type ?? null,
+            has_cta: contentFeatures.has_cta ?? false,
+            cta_type: contentFeatures.cta_type ?? null,
+          })
           .eq('id', job.post_id);
 
         // 記錄 LLM 使用量
