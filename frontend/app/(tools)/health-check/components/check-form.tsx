@@ -96,7 +96,6 @@ export function CheckForm({ onSubmitResult, initialRateLimit, source = DEFAULT_S
       );
 
       const data = await response.json();
-      console.log("[HealthCheck] API response:", { status: response.status, data });
 
       if (!response.ok) {
         if (response.status === 429) {
@@ -109,7 +108,6 @@ export function CheckForm({ onSubmitResult, initialRateLimit, source = DEFAULT_S
         return;
       }
 
-      console.log("[HealthCheck] Calling onSubmitResult with:", data.result, data.rateLimit);
       onSubmitResult(data.result, data.rateLimit);
     } catch {
       setError("網路錯誤，請稍後再試");

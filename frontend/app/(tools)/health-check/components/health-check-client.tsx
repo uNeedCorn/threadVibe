@@ -79,11 +79,9 @@ export function HealthCheckClient() {
     newResult: HealthCheckResult,
     newRateLimit: RateLimitInfo
   ) => {
-    console.log("[HealthCheck] handleSubmitResult called:", { newResult, newRateLimit });
     setResult(newResult);
     setRateLimit(newRateLimit);
     setPageState("result");
-    console.log("[HealthCheck] pageState set to 'result'");
     HealthCheckAnalytics.viewResult(newResult.max.status);
   };
 
