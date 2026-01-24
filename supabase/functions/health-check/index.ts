@@ -31,6 +31,7 @@ interface RequestBody {
   threadsId?: string;
   followers: number;
   posts: PostInput[];
+  source?: string;
 }
 
 interface StatusResult {
@@ -150,6 +151,11 @@ function generateRecommendations(ctx: RecommendationContext): string[] {
       recommendations.push('嘗試不同內容形式：圖文、純文字、限時動態');
       recommendations.push('觀察哪些主題獲得較多互動，加強該方向');
     }
+
+    // 觸及偏低時，提醒檢視內容策略
+    if (result.latest.value < THRESHOLD_LOW || avgViews < followers * 0.5) {
+      recommendations.push('若持續成效不佳，建議重新檢視內容策略與品質，評估是否需要調整方向');
+    }
   }
 
   return recommendations;
@@ -228,7 +234,7 @@ Deno.serve(async (req) => {
       return errorResponse(req, validationError, 400);
     }
 
-    const { threadsId, followers, posts } = body;
+    const { threadsId, followers, posts, source } = body;
 
     // 計算觸及倍數
     const postVfrs = posts.map(p => Math.round(p.views / followers));
@@ -285,6 +291,7 @@ Deno.serve(async (req) => {
       latest_vfr: latestVfr,
       latest_status: latestStatus,
       in_cooldown: inCooldown,
+      source: source || 'Threads 限流測試器',
     });
 
     const response: HealthCheckResponse = {

@@ -158,6 +158,11 @@ export function ResultSection({ result, rateLimit, onTryAgain }: ResultSectionPr
                 </ul>
               </div>
             )}
+
+            {/* 免責說明 */}
+            <p className="text-xs text-muted-foreground/70 pt-2 border-t border-dashed">
+              * 此為基於公開數據的預估推算建議，不代表 Threads 官方判斷，僅供參考。
+            </p>
           </CardContent>
         </Card>
 

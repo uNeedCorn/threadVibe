@@ -16,9 +16,12 @@ import type { HealthCheckResult, RateLimitInfo } from "./health-check-client";
 interface CheckFormProps {
   onSubmitResult: (result: HealthCheckResult, rateLimit: RateLimitInfo) => void;
   initialRateLimit: RateLimitInfo | null;
+  source?: string;
 }
 
-export function CheckForm({ onSubmitResult, initialRateLimit }: CheckFormProps) {
+const DEFAULT_SOURCE = "Threads 限流測試器";
+
+export function CheckForm({ onSubmitResult, initialRateLimit, source = DEFAULT_SOURCE }: CheckFormProps) {
   const [threadsId, setThreadsId] = useState("");
   const [followers, setFollowers] = useState("");
   const [posts, setPosts] = useState<{ id: string; views: string }[]>([
@@ -87,6 +90,7 @@ export function CheckForm({ onSubmitResult, initialRateLimit }: CheckFormProps) 
             threadsId: threadsId.trim() || undefined,
             followers: followersNum,
             posts: validPosts,
+            source,
           }),
         }
       );

@@ -204,6 +204,11 @@ const adminNavGroup: NavGroup = {
       href: "/admin/waitlist",
       icon: ClipboardList,
     },
+    {
+      title: "活動名單",
+      href: "/admin/health-check-leads",
+      icon: Activity,
+    },
   ],
 };
 
