@@ -384,30 +384,34 @@ export default function AIReportPage() {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* 額度資訊（非管理員顯示） */}
-              {!isAdmin && (
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-muted-foreground">剩餘點數</span>
+              {/* 額度資訊 */}
+              <div className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">剩餘點數</span>
+                  {isAdmin ? (
+                    <Badge variant="secondary" className="font-medium">
+                      無限制
+                    </Badge>
+                  ) : (
                     <Badge variant={quota.remaining > 0 ? "secondary" : "outline"} className="font-medium">
                       {quota.remaining} / {quota.total}
                     </Badge>
-                  </div>
-                  {quota.nextResetAt && (
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <Clock className="size-3.5" />
-                      <span>
-                        {new Date(quota.nextResetAt).toLocaleDateString("zh-TW", {
-                          month: "numeric",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })} 重置
-                      </span>
-                    </div>
                   )}
                 </div>
-              )}
+                {!isAdmin && quota.nextResetAt && (
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Clock className="size-3.5" />
+                    <span>
+                      {new Date(quota.nextResetAt).toLocaleDateString("zh-TW", {
+                        month: "numeric",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })} 重置
+                    </span>
+                  </div>
+                )}
+              </div>
               <Button
                 onClick={handleGenerateReport}
                 disabled={isGenerating || isLoading || !isDateRangeValid || (!isAdmin && quota.remaining <= 0) || ("comingSoon" in selectedReportType && selectedReportType.comingSoon)}
