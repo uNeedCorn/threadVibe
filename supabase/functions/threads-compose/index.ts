@@ -60,6 +60,7 @@ interface ComposeRequest {
   link_attachment?: string;
   reply_control?: ReplyControl;
   scheduled_at?: string;
+  tag_ids?: string[];
 }
 
 interface ThreadsApiResponse {
@@ -450,6 +451,7 @@ Deno.serve(async (req) => {
           publish_type: 'scheduled',
           publish_status: 'scheduled',
           scheduled_at: scheduled_at, // 保留以便向後相容
+          tag_ids: body.tag_ids || [],
           created_by: user.id,
         })
         .select('id')
@@ -626,6 +628,7 @@ Deno.serve(async (req) => {
         publish_status: 'published',
         threads_post_id: postId,
         published_at: detailData.timestamp || new Date().toISOString(),
+        tag_ids: body.tag_ids || [],
         created_by: user.id,
       });
 

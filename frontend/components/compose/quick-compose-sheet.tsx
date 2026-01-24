@@ -561,6 +561,7 @@ export function QuickComposeSheet({ open, onOpenChange }: QuickComposeSheetProps
           text: text.trim(),
           media_type: "TEXT",
           scheduled_at: scheduledAt || undefined,
+          tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
         },
       });
 
@@ -570,15 +571,6 @@ export function QuickComposeSheet({ open, onOpenChange }: QuickComposeSheetProps
 
       if (!data?.success) {
         throw new Error(data?.error || "發布失敗");
-      }
-
-      // 發文成功後，關聯預選的帳號標籤
-      if (selectedTagIds.length > 0 && data.post_id) {
-        const tagInserts = selectedTagIds.map((tagId) => ({
-          post_id: data.post_id,
-          tag_id: tagId,
-        }));
-        await supabase.from("workspace_threads_post_tags").insert(tagInserts);
       }
 
       if (scheduledAt) {

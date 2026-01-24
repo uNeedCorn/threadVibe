@@ -298,19 +298,12 @@ function ComposePageContent() {
           topic_tag: topicTag.trim() || undefined,
           link_attachment: linkAttachment.trim() || undefined,
           scheduled_at: scheduledAt || undefined,
+          tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
         },
       });
 
       if (fnError) throw new Error(fnError.message);
       if (!data?.success) throw new Error(data?.error || "發布失敗");
-
-      if (selectedTagIds.length > 0 && data.post_id) {
-        const tagInserts = selectedTagIds.map((tagId) => ({
-          post_id: data.post_id,
-          tag_id: tagId,
-        }));
-        await supabase.from("workspace_threads_post_tags").insert(tagInserts);
-      }
 
       // 重置表單
       resetForm();

@@ -177,7 +177,11 @@ Deno.serve(async (req) => {
               job_type: 'sync_posts',
               status: 'completed',
               completed_at: new Date().toISOString(),
-              metadata: { synced_count: postsResult.synced_count, enqueue_count: postsResult.enqueue_count },
+              metadata: {
+                synced_count: postsResult.synced_count,
+                enqueue_count: postsResult.enqueue_count,
+                tags_copied_count: postsResult.tags_copied_count,
+              },
             });
 
             // 2. 同步貼文成效（三層式）

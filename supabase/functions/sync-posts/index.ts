@@ -161,11 +161,24 @@ Deno.serve(async (req) => {
 
       let enqueueCount = 0;
       let deletedCount = 0;
+      let tagsCopiedCount = 0;
 
       // 建立 Threads API 回傳的貼文 ID 集合
       const threadsPostIds = new Set(posts.map((p) => p.id));
 
       if (normalizedPosts.length > 0) {
+        // Step 1: 查詢現有貼文的 threads_post_id（用於識別新貼文）
+        const { data: existingPosts } = await serviceClient
+          .from('workspace_threads_posts')
+          .select('threads_post_id')
+          .eq('workspace_threads_account_id', workspace_threads_account_id);
+
+        const existingIds = new Set(existingPosts?.map((p) => p.threads_post_id) || []);
+        const newThreadsPostIds = posts
+          .filter((p) => !existingIds.has(p.id))
+          .map((p) => p.id);
+
+        // Step 2: Upsert 貼文
         const { error: upsertError } = await serviceClient
           .from('workspace_threads_posts')
           .upsert(normalizedPosts, {
@@ -173,6 +186,60 @@ Deno.serve(async (req) => {
           });
 
         if (upsertError) throw upsertError;
+
+        // Step 3: 對於新貼文，從 outbound_posts 複製標籤
+        if (newThreadsPostIds.length > 0) {
+          // 查詢 outbound_posts 中有標籤的記錄
+          const { data: outboundWithTags } = await serviceClient
+            .from('workspace_threads_outbound_posts')
+            .select('threads_post_id, tag_ids')
+            .eq('workspace_threads_account_id', workspace_threads_account_id)
+            .in('threads_post_id', newThreadsPostIds)
+            .not('tag_ids', 'eq', '{}');
+
+          if (outboundWithTags && outboundWithTags.length > 0) {
+            // 查詢新貼文的 UUID（post.id）
+            const { data: newPostsData } = await serviceClient
+              .from('workspace_threads_posts')
+              .select('id, threads_post_id')
+              .eq('workspace_threads_account_id', workspace_threads_account_id)
+              .in('threads_post_id', outboundWithTags.map((o) => o.threads_post_id));
+
+            if (newPostsData) {
+              // 建立 threads_post_id → post.id 的對照
+              const postIdMap = new Map(
+                newPostsData.map((p) => [p.threads_post_id, p.id])
+              );
+
+              // 準備 post_tags 插入資料
+              const tagInserts: Array<{ post_id: string; tag_id: string }> = [];
+              for (const outbound of outboundWithTags) {
+                const postId = postIdMap.get(outbound.threads_post_id);
+                if (postId && outbound.tag_ids) {
+                  for (const tagId of outbound.tag_ids) {
+                    tagInserts.push({ post_id: postId, tag_id: tagId });
+                  }
+                }
+              }
+
+              if (tagInserts.length > 0) {
+                const { error: tagError } = await serviceClient
+                  .from('workspace_threads_post_tags')
+                  .upsert(tagInserts, {
+                    onConflict: 'post_id,tag_id',
+                    ignoreDuplicates: true,
+                  });
+
+                if (tagError) {
+                  console.error('Failed to copy tags from outbound_posts:', tagError);
+                } else {
+                  tagsCopiedCount = tagInserts.length;
+                  console.log(`sync-posts: Copied ${tagsCopiedCount} tags from outbound_posts`);
+                }
+              }
+            }
+          }
+        }
 
         // 查詢需要 AI tagging 的貼文（尚未分析的）
         const { data: postsNeedTagging } = await serviceClient
@@ -252,6 +319,7 @@ Deno.serve(async (req) => {
             synced_count: normalizedPosts.length,
             enqueue_count: enqueueCount,
             deleted_count: deletedCount,
+            tags_copied_count: tagsCopiedCount,
           },
         })
         .eq('id', syncLog?.id);
@@ -260,6 +328,7 @@ Deno.serve(async (req) => {
         success: true,
         synced_count: normalizedPosts.length,
         enqueue_count: enqueueCount,
+        tags_copied_count: tagsCopiedCount,
         deleted_count: deletedCount,
       });
 
