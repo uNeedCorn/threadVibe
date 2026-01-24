@@ -116,7 +116,7 @@ export function DataOverviewSection({ data }: Props) {
           </div>
           <div>
             <h2 className="text-lg font-semibold tracking-tight">數據概覽</h2>
-            <p className="text-[13px] text-muted-foreground">本週關鍵指標一覽</p>
+            <p className="text-[13px] text-muted-foreground">本期關鍵指標一覽</p>
           </div>
         </div>
 

@@ -86,7 +86,7 @@ const isNavGroup = (item: NavEntry): item is NavGroup => {
 // 主要導航項目
 const mainNavItems: NavEntry[] = [
   {
-    title: "AI 週報",
+    title: "AI 洞察報告",
     href: "/ai-report",
     icon: Sparkles,
     badge: "測試中",
@@ -154,7 +154,7 @@ const mainNavItems: NavEntry[] = [
     href: "/tags",
     icon: Tags,
   },
-  // 報表 - 暫時隱藏，改用 AI 週報
+  // 報表 - 暫時隱藏，改用 AI 洞察報告
   // {
   //   title: "報表",
   //   href: "/reports",
@@ -173,6 +173,11 @@ const adminNavGroup: NavGroup = {
       title: "帳號模擬",
       href: "/admin",
       icon: UserCog,
+    },
+    {
+      title: "演算法監測",
+      href: "/admin/algorithm-monitor",
+      icon: Activity,
     },
     {
       title: "帳號觀測",
@@ -361,6 +366,7 @@ export function Sidebar() {
             width={189}
             height={43}
             className="h-11 w-auto"
+            priority
           />
         )}
       </div>

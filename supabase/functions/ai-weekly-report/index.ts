@@ -1,5 +1,5 @@
 /**
- * AI Weekly Report - 產生 AI 週報分析
+ * AI Weekly Report - 產生 AI 洞察報告
  *
  * POST /ai-weekly-report
  * Headers: Authorization: Bearer <USER_JWT>
@@ -139,7 +139,7 @@ interface WeeklyDataSnapshot {
     avg_views: number;
     avg_engagement: number;
   }>;
-  // 上週對比
+  // 前一期間對比
   previous_week: {
     total_views: number;
     total_interactions: number;
@@ -251,7 +251,7 @@ const SYSTEM_PROMPT = `你是一位資深社群行銷教練，專精 Threads 平
 - 說明依據（來自哪個發現）
 
 範例：
-✓「下週三、五晚上 8:30 發文 2 篇，參考本週表現最好的問答格式」
+✓「下週三、五晚上 8:30 發文 2 篇，參考本期表現最好的問答格式」
 ✗「建議優化發文時間」（太籠統）
 
 ## 回應格式
@@ -261,7 +261,7 @@ const SYSTEM_PROMPT = `你是一位資深社群行銷教練，專精 Threads 平
 {
   "executive_summary": {
     "overall_rating": "excellent" | "good" | "average" | "needs_improvement",
-    "one_line_summary": "一句話總結本週表現（正向框架，先肯定再指出機會）",
+    "one_line_summary": "一句話總結本期表現（正向框架，先肯定再指出機會）",
     "key_metrics": [
       { "label": "指標名稱", "value": "數值", "change": "+15%" }
     ],
@@ -309,9 +309,9 @@ const SYSTEM_PROMPT = `你是一位資深社群行銷教練，專精 Threads 平
 3. **不批評**：用「機會」取代「問題」，用「可以更好」取代「不好」
 
 範例：
-✓「本週曝光成長 25%，週四的貼文表現特別亮眼。」
+✓「本期曝光成長 25%，週四的貼文表現特別亮眼。」
 ✓「互動率維持在 4.2%，其中問答型內容的回覆數是平均的 3 倍。」
-✗「本週表現不佳，互動率下降了...」
+✗「本期表現不佳，互動率下降了...」
 
 ## 重要限制
 
@@ -569,14 +569,14 @@ function buildUserPrompt(data: WeeklyDataSnapshot): string {
 - 用戶名稱：@${data.account.username}
 - 顯示名稱：${data.account.name}
 - 目前粉絲數：${data.account.followers_count.toLocaleString()}
-- 本週粉絲成長：${data.account.followers_growth >= 0 ? '+' : ''}${data.account.followers_growth.toLocaleString()}`);
+- 本期粉絲成長：${data.account.followers_growth >= 0 ? '+' : ''}${data.account.followers_growth.toLocaleString()}`);
 
   // 分析期間
   sections.push(`## 分析期間
 ${data.period.start} ~ ${data.period.end}`);
 
-  // 本週整體表現
-  sections.push(`## 本週整體表現
+  // 本期整體表現
+  sections.push(`## 本期整體表現
 - 發文數：${data.summary.post_count}
 - 總曝光：${data.summary.total_views.toLocaleString()}
 - 總互動：${data.summary.total_interactions.toLocaleString()}
@@ -587,15 +587,15 @@ ${data.period.start} ~ ${data.period.end}`);
 - 互動率：${(data.summary.engagement_rate * 100).toFixed(2)}%
 - 傳播力：${(data.summary.avg_virality_score * 100).toFixed(2)}%`);
 
-  // 與上週比較
+  // 與前一期間比較
   if (data.previous_week) {
     const viewsChange = ((data.summary.total_views - data.previous_week.total_views) / (data.previous_week.total_views || 1) * 100);
     const interactionsChange = ((data.summary.total_interactions - data.previous_week.total_interactions) / (data.previous_week.total_interactions || 1) * 100);
     const followersChange = data.account.followers_count - data.previous_week.followers_count;
 
-    sections.push(`## 與上週比較
-- 曝光變化：${viewsChange >= 0 ? '+' : ''}${viewsChange.toFixed(1)}%（上週 ${data.previous_week.total_views.toLocaleString()}）
-- 互動變化：${interactionsChange >= 0 ? '+' : ''}${interactionsChange.toFixed(1)}%（上週 ${data.previous_week.total_interactions.toLocaleString()}）
+    sections.push(`## 與前一期間比較
+- 曝光變化：${viewsChange >= 0 ? '+' : ''}${viewsChange.toFixed(1)}%（前期 ${data.previous_week.total_views.toLocaleString()}）
+- 互動變化：${interactionsChange >= 0 ? '+' : ''}${interactionsChange.toFixed(1)}%（前期 ${data.previous_week.total_interactions.toLocaleString()}）
 - 粉絲變化：${followersChange >= 0 ? '+' : ''}${followersChange.toLocaleString()}`);
   }
 
@@ -794,7 +794,7 @@ async function aggregateWeeklyData(
   const followersGrowth = (endInsight?.followers_count ?? account.current_followers_count) -
     (startInsight?.followers_count ?? account.current_followers_count);
 
-  // 取得本週貼文
+  // 取得本期貼文
   const { data: posts, error: postsError } = await supabase
     .from('workspace_threads_posts')
     .select(`
@@ -949,11 +949,16 @@ async function aggregateWeeklyData(
     avg_engagement: stats.views > 0 ? stats.interactions / stats.views : 0,
   }));
 
-  // 上週數據
-  const prevWeekStart = new Date(weekStart);
-  prevWeekStart.setDate(prevWeekStart.getDate() - 7);
-  const prevWeekEnd = new Date(weekEnd);
-  prevWeekEnd.setDate(prevWeekEnd.getDate() - 7);
+  // 前一期間數據（根據當前選擇的期間長度動態計算）
+  const periodDays = Math.ceil(
+    (new Date(weekEnd).getTime() - new Date(weekStart).getTime()) / (1000 * 60 * 60 * 24)
+  ) + 1; // +1 因為包含首尾兩天
+
+  const prevWeekEnd = new Date(weekStart);
+  prevWeekEnd.setDate(prevWeekEnd.getDate() - 1); // 前一期間結束 = 當前期間開始的前一天
+  const prevWeekStart = new Date(prevWeekEnd);
+  prevWeekStart.setDate(prevWeekEnd.getDate() - periodDays + 1); // 往前推相同天數
+
   const prevWeekStartStr = prevWeekStart.toISOString().split('T')[0];
   const prevWeekEndStr = prevWeekEnd.toISOString().split('T')[0];
 

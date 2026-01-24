@@ -43,7 +43,7 @@ interface Props {
 const ratingConfig = {
   excellent: {
     label: "表現優異",
-    description: "本週表現卓越，持續保持！",
+    description: "本期表現卓越，持續保持！",
     icon: TrendingUp,
     color: "text-emerald-600 dark:text-emerald-400",
     bgGradient: "from-emerald-500/20 via-emerald-500/10 to-transparent",
@@ -53,7 +53,7 @@ const ratingConfig = {
   },
   good: {
     label: "表現良好",
-    description: "本週表現穩定，繼續努力！",
+    description: "本期表現穩定，繼續努力！",
     icon: TrendingUp,
     color: "text-blue-600 dark:text-blue-400",
     bgGradient: "from-blue-500/20 via-blue-500/10 to-transparent",
@@ -63,7 +63,7 @@ const ratingConfig = {
   },
   average: {
     label: "表現普通",
-    description: "本週表現平穩，仍有進步空間",
+    description: "本期表現平穩，仍有進步空間",
     icon: Minus,
     color: "text-amber-600 dark:text-amber-400",
     bgGradient: "from-amber-500/20 via-amber-500/10 to-transparent",
@@ -73,7 +73,7 @@ const ratingConfig = {
   },
   needs_improvement: {
     label: "待加強",
-    description: "本週需要更多努力，加油！",
+    description: "本期需要更多努力，加油！",
     icon: TrendingDown,
     color: "text-rose-600 dark:text-rose-400",
     bgGradient: "from-rose-500/20 via-rose-500/10 to-transparent",
@@ -139,9 +139,9 @@ export function ExecutiveSummarySection({ data, period }: Props) {
               <Sparkles className="size-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold tracking-tight">週報摘要</h2>
+              <h2 className="text-lg font-semibold tracking-tight">洞察摘要</h2>
               <p className="text-[13px] text-muted-foreground">
-                AI 為您分析本週表現
+                AI 為您分析本期表現
               </p>
             </div>
           </div>

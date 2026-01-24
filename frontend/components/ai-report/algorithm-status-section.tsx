@@ -197,7 +197,7 @@ export function AlgorithmStatusSection({ data, snapshot }: Props) {
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="size-4 text-muted-foreground" />
                   <span className="text-[14px] font-medium text-muted-foreground">
-                    本週無爆發事件
+                    本期無爆發事件
                   </span>
                 </div>
                 <p className="text-[13px] text-muted-foreground">

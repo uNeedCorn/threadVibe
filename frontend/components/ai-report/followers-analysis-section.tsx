@@ -91,7 +91,7 @@ export function FollowersAnalysisSection({ data, snapshot }: Props) {
                 : "bg-rose-500/10 border-rose-500/30"
             )}
           >
-            <div className="text-[12px] text-muted-foreground mb-1">本週成長</div>
+            <div className="text-[12px] text-muted-foreground mb-1">本期成長</div>
             <div className="flex items-center gap-2">
               {isPositiveGrowth ? (
                 <TrendingUp className="size-5 text-emerald-500" />

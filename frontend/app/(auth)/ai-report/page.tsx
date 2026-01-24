@@ -89,6 +89,13 @@ export default function AIReportPage() {
   const [startDate, setStartDate] = useState(defaultRange.startDate);
   const [endDate, setEndDate] = useState(defaultRange.endDate);
 
+  // 計算選擇的天數
+  const MAX_DAYS = 30;
+  const selectedDays = startDate && endDate
+    ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1
+    : 0;
+  const isDateRangeValid = selectedDays > 0 && selectedDays <= MAX_DAYS && startDate <= endDate;
+
   // 頁面載入時取得最新報告、歷史紀錄和額度
   useEffect(() => {
     if (selectedAccountId && isAdmin) {
@@ -103,7 +110,7 @@ export default function AIReportPage() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="AI 週報"
+          title="AI 洞察報告"
           description="結合 AI 分析與圖表的帳號營運洞察報告"
           badge={{ label: "測試中", variant: "info" }}
         />
@@ -111,7 +118,7 @@ export default function AIReportPage() {
           <AlertCircle className="size-4" />
           <AlertTitle>管理員專屬功能</AlertTitle>
           <AlertDescription>
-            AI 週報功能目前僅開放給管理員測試。如需使用此功能，請聯繫管理員。
+            AI 洞察報告功能目前僅開放給管理員測試。如需使用此功能，請聯繫管理員。
           </AlertDescription>
         </Alert>
       </div>
@@ -123,7 +130,7 @@ export default function AIReportPage() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="AI 週報"
+          title="AI 洞察報告"
           description="結合 AI 分析與圖表的帳號營運洞察報告"
           badge={{ label: "測試中", variant: "info" }}
         />
@@ -142,7 +149,7 @@ export default function AIReportPage() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="AI 週報"
+          title="AI 洞察報告"
           description="結合 AI 分析與圖表的帳號營運洞察報告"
           badge={{ label: "測試中", variant: "info" }}
         />
@@ -150,7 +157,7 @@ export default function AIReportPage() {
           <Clock className="size-4" />
           <AlertTitle>數據累積中</AlertTitle>
           <AlertDescription>
-            AI 週報需要至少 1 天的數據才能產生。
+            AI 洞察報告需要至少 1 天的數據才能產生。
             {dataAge !== null && dataAge < 1 && (
               <span className="block mt-1 text-muted-foreground">
                 目前尚未累積足夠數據。
@@ -165,7 +172,7 @@ export default function AIReportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="AI 週報"
+        title="AI 洞察報告"
         description="結合 AI 分析與圖表的帳號營運洞察報告"
         badge={{ label: "測試中", variant: "info" }}
       />
@@ -196,11 +203,19 @@ export default function AIReportPage() {
               disabled={isLoading || isGenerating}
             />
           </div>
+          {/* 天數提示 */}
+          <span className={`text-sm ${isDateRangeValid ? 'text-muted-foreground' : 'text-destructive'}`}>
+            {selectedDays > 0 ? (
+              selectedDays > MAX_DAYS
+                ? `${selectedDays} 天（最多 ${MAX_DAYS} 天）`
+                : `${selectedDays} 天`
+            ) : startDate > endDate ? '日期範圍無效' : ''}
+          </span>
         </div>
 
         <Button
           onClick={() => generateReport(startDate, endDate)}
-          disabled={isGenerating || isLoading || (monthlyQuota?.remaining === 0)}
+          disabled={isGenerating || isLoading || !isDateRangeValid || (monthlyQuota?.remaining === 0)}
         >
           {isGenerating ? (
             <>
@@ -378,9 +393,9 @@ export default function AIReportPage() {
       {!isLoading && !isGenerating && !report && (
         <Alert>
           <Sparkles className="size-4" />
-          <AlertTitle>尚無週報</AlertTitle>
+          <AlertTitle>尚無報告</AlertTitle>
           <AlertDescription>
-            點擊「產生報告」按鈕來產生您的第一份 AI 週報分析。
+            點擊「產生報告」按鈕來產生您的第一份 AI 洞察報告。
           </AlertDescription>
         </Alert>
       )}

@@ -145,7 +145,7 @@ export function ContentStrategySection({ data, topPosts }: Props) {
           <div className="rounded-2xl border bg-gradient-to-br from-background to-muted/20 p-4">
             <div className="flex items-center gap-2 mb-4">
               <Crown className="size-4 text-amber-500" />
-              <h3 className="text-[14px] font-semibold">本週熱門貼文</h3>
+              <h3 className="text-[14px] font-semibold">本期熱門貼文</h3>
             </div>
             <div className="space-y-3">
               {topPosts.slice(0, 3).map((post, idx) => {
