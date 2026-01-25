@@ -444,29 +444,8 @@ export default function AIReportPage() {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* 額度與數據資訊 */}
+              {/* 額度資訊 */}
               <div className="flex items-center gap-4 text-sm">
-                {/* 數據累積天數 */}
-                {dataAge !== null && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-muted-foreground">數據累積</span>
-                    <Badge
-                      variant={dataAge >= (reportType === "content" ? 30 : 7) ? "secondary" : "outline"}
-                      className="font-medium"
-                    >
-                      {Math.floor(dataAge)} 天
-                    </Badge>
-                    {dataAge < (reportType === "content" ? 30 : 7) && (
-                      <span className="text-xs text-muted-foreground">
-                        （建議 {reportType === "content" ? 30 : 7} 天以上）
-                      </span>
-                    )}
-                  </div>
-                )}
-                {/* 分隔線 */}
-                {dataAge !== null && (
-                  <div className="h-4 w-px bg-border" />
-                )}
                 {/* 剩餘點數 */}
                 <div className="flex items-center gap-1.5">
                   <span className="text-muted-foreground">剩餘點數</span>
