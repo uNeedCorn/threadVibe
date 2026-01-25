@@ -72,13 +72,49 @@ interface ScheduledPost {
   topic_tag: string | null;
 }
 
+interface SyncedPost {
+  id: string;
+  text: string | null;
+  media_type: string;
+  published_at: string;
+  threads_post_id: string;
+  current_views: number;
+  current_likes: number;
+  is_reply: boolean;
+}
+
 interface Profile {
   id: string;
   display_name: string | null;
 }
 
+// 統一的貼文資料（含來源標記）
+type PostSource = "scheduled" | "synced";
+
+interface UnifiedPost {
+  id: string;
+  text: string | null;
+  media_type: string;
+  displayDate: string; // 用於日曆顯示的日期
+  publish_status: string;
+  created_at: string;
+  published_at: string | null;
+  threads_post_id: string | null;
+  error_message: string | null;
+  created_by: string | null;
+  topic_tag: string | null;
+  source: PostSource;
+  // 同步貼文的額外資料
+  current_views?: number;
+  current_likes?: number;
+}
+
 // 合併後的貼文資料
 interface ScheduledPostWithCreator extends ScheduledPost {
+  creatorName: string | null;
+}
+
+interface UnifiedPostWithCreator extends UnifiedPost {
   creatorName: string | null;
 }
 
@@ -88,15 +124,34 @@ type ViewMode = "list" | "calendar";
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof Clock; color: string }> = {
   scheduled: { label: "排程中", variant: "secondary", icon: Clock, color: SCHEDULE_STATUS_COLORS.scheduled },
   publishing: { label: "發布中", variant: "default", icon: Loader2, color: SCHEDULE_STATUS_COLORS.publishing },
-  published: { label: "已發布", variant: "outline", icon: Send, color: SCHEDULE_STATUS_COLORS.published },
+  published: { label: "排程發布", variant: "outline", icon: Send, color: SCHEDULE_STATUS_COLORS.published }, // 綠色 - 排程後發布
+  immediate: { label: "立即發布", variant: "outline", icon: Send, color: "#8b5cf6" }, // 紫色 - Compose 立即發布
   failed: { label: "發布失敗", variant: "destructive", icon: AlertCircle, color: SCHEDULE_STATUS_COLORS.failed },
   cancelled: { label: "已取消", variant: "outline", icon: Trash2, color: SCHEDULE_STATUS_COLORS.cancelled },
+  synced: { label: "直接發布", variant: "outline", icon: Send, color: "#6366f1" }, // indigo - Threads App 發布
 };
+
+// 判斷是否為立即發布（scheduled_at 與 created_at 差距小於 5 分鐘）
+function isImmediatePublish(scheduledAt: string, createdAt: string): boolean {
+  const scheduled = new Date(scheduledAt).getTime();
+  const created = new Date(createdAt).getTime();
+  const diffMinutes = (scheduled - created) / (1000 * 60);
+  return diffMinutes < 5;
+}
+
+// 取得顯示用的狀態（區分排程發布 vs 立即發布）
+function getDisplayStatus(post: { publish_status: string; displayDate: string; created_at: string; source: PostSource }): string {
+  if (post.source === "synced") return "synced";
+  if (post.publish_status === "published") {
+    return isImmediatePublish(post.displayDate, post.created_at) ? "immediate" : "published";
+  }
+  return post.publish_status;
+}
 
 export default function ScheduledPage() {
   const { selectedAccount, isLoading: isLoadingAccount } = useSelectedAccountContext();
-  const [posts, setPosts] = useState<ScheduledPostWithCreator[]>([]);
-  const [allPosts, setAllPosts] = useState<ScheduledPostWithCreator[]>([]); // 日曆用：所有狀態
+  const [posts, setPosts] = useState<UnifiedPostWithCreator[]>([]);
+  const [allPosts, setAllPosts] = useState<UnifiedPostWithCreator[]>([]); // 日曆用：所有狀態
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [activeTab, setActiveTab] = useState<StatusTabValue>("scheduled");
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
@@ -114,12 +169,16 @@ export default function ScheduledPage() {
 
   // 查詢 profiles 並合併到貼文資料
   const fetchPostsWithProfiles = useCallback(async (
-    postsData: ScheduledPost[]
-  ): Promise<ScheduledPostWithCreator[]> => {
+    postsData: UnifiedPost[]
+  ): Promise<UnifiedPostWithCreator[]> => {
     if (postsData.length === 0) return [];
 
     const supabase = createClient();
-    const userIds = [...new Set(postsData.map(p => p.created_by))];
+    const userIds = [...new Set(postsData.map(p => p.created_by).filter(Boolean))] as string[];
+
+    if (userIds.length === 0) {
+      return postsData.map(post => ({ ...post, creatorName: null }));
+    }
 
     const { data: profiles } = await supabase
       .from("profiles")
@@ -133,11 +192,11 @@ export default function ScheduledPage() {
 
     return postsData.map(post => ({
       ...post,
-      creatorName: profileMap.get(post.created_by) || null,
+      creatorName: post.created_by ? profileMap.get(post.created_by) || null : null,
     }));
   }, []);
 
-  // 載入所有排程貼文（日曆視圖用）
+  // 載入所有貼文（日曆視圖用）- 包含排程貼文和同步貼文
   useEffect(() => {
     if (!selectedAccount) {
       setAllPosts([]);
@@ -146,25 +205,87 @@ export default function ScheduledPage() {
 
     async function fetchAllPosts() {
       const supabase = createClient();
-      const { data, error } = await supabase
+
+      // 1. 取得排程貼文
+      const { data: outboundData, error: outboundError } = await supabase
         .from("workspace_threads_outbound_posts")
         .select("id, text, media_type, scheduled_at, publish_status, created_at, published_at, threads_post_id, error_message, created_by, topic_tag")
         .eq("workspace_threads_account_id", selectedAccount!.id)
         .is("deleted_at", null)
         .order("scheduled_at", { ascending: true });
 
-      if (error) {
-        console.error("Error fetching all posts:", error);
-      } else {
-        const postsWithCreators = await fetchPostsWithProfiles(data || []);
-        setAllPosts(postsWithCreators);
+      if (outboundError) {
+        console.error("Error fetching outbound posts:", outboundError);
       }
+
+      // 2. 取得同步貼文（只取非回覆的貼文）
+      const { data: syncedData, error: syncedError } = await supabase
+        .from("workspace_threads_posts")
+        .select("id, text, media_type, published_at, threads_post_id, current_views, current_likes, is_reply")
+        .eq("workspace_threads_account_id", selectedAccount!.id)
+        .eq("is_reply", false)
+        .order("published_at", { ascending: false });
+
+      if (syncedError) {
+        console.error("Error fetching synced posts:", syncedError);
+      }
+
+      // 3. 取得已發布排程貼文的 threads_post_id，用於去重
+      const outboundThreadsIds = new Set(
+        (outboundData || [])
+          .filter(p => p.threads_post_id)
+          .map(p => p.threads_post_id)
+      );
+
+      // 4. 轉換為統一格式
+      const outboundUnified: UnifiedPost[] = (outboundData || []).map(post => ({
+        id: post.id,
+        text: post.text,
+        media_type: post.media_type,
+        displayDate: post.scheduled_at,
+        publish_status: post.publish_status,
+        created_at: post.created_at,
+        published_at: post.published_at,
+        threads_post_id: post.threads_post_id,
+        error_message: post.error_message,
+        created_by: post.created_by,
+        topic_tag: post.topic_tag,
+        source: "scheduled" as PostSource,
+      }));
+
+      // 過濾掉已經在 outbound 中的貼文（透過 threads_post_id 去重）
+      const syncedUnified: UnifiedPost[] = (syncedData || [])
+        .filter(post => !outboundThreadsIds.has(post.threads_post_id))
+        .map(post => ({
+          id: post.id,
+          text: post.text,
+          media_type: post.media_type,
+          displayDate: post.published_at,
+          publish_status: "synced",
+          created_at: post.published_at,
+          published_at: post.published_at,
+          threads_post_id: post.threads_post_id,
+          error_message: null,
+          created_by: null,
+          topic_tag: null,
+          source: "synced" as PostSource,
+          current_views: post.current_views,
+          current_likes: post.current_likes,
+        }));
+
+      // 5. 合併並排序
+      const allUnified = [...outboundUnified, ...syncedUnified].sort((a, b) =>
+        new Date(a.displayDate).getTime() - new Date(b.displayDate).getTime()
+      );
+
+      const postsWithCreators = await fetchPostsWithProfiles(allUnified);
+      setAllPosts(postsWithCreators);
     }
 
     fetchAllPosts();
   }, [selectedAccount, fetchPostsWithProfiles]);
 
-  // 載入篩選後的排程貼文（清單視圖用）
+  // 載入篩選後的貼文（清單視圖用）
   useEffect(() => {
     if (!selectedAccount || viewMode === "calendar") {
       return;
@@ -174,35 +295,113 @@ export default function ScheduledPage() {
       setIsLoadingPosts(true);
       const supabase = createClient();
 
-      let statusFilter: string[];
-      switch (activeTab) {
-        case "scheduled":
-          statusFilter = ["scheduled", "publishing"];
-          break;
-        case "published":
-          statusFilter = ["published"];
-          break;
-        case "failed":
-          statusFilter = ["failed", "cancelled"];
-          break;
-        default:
-          statusFilter = ["scheduled"];
-      }
+      if (activeTab === "scheduled") {
+        // 排程中：只從 outbound_posts 取
+        const { data, error } = await supabase
+          .from("workspace_threads_outbound_posts")
+          .select("id, text, media_type, scheduled_at, publish_status, created_at, published_at, threads_post_id, error_message, created_by, topic_tag")
+          .eq("workspace_threads_account_id", selectedAccount!.id)
+          .is("deleted_at", null)
+          .in("publish_status", ["scheduled", "publishing"])
+          .order("scheduled_at", { ascending: true });
 
-      const { data, error } = await supabase
-        .from("workspace_threads_outbound_posts")
-        .select("id, text, media_type, scheduled_at, publish_status, created_at, published_at, threads_post_id, error_message, created_by, topic_tag")
-        .eq("workspace_threads_account_id", selectedAccount!.id)
-        .is("deleted_at", null)
-        .in("publish_status", statusFilter)
-        .order("scheduled_at", { ascending: activeTab === "scheduled" });
+        if (error) {
+          console.error("Error fetching posts:", error);
+          toast.error("載入排程貼文失敗");
+        } else {
+          const unified: UnifiedPost[] = (data || []).map(post => ({
+            ...post,
+            displayDate: post.scheduled_at,
+            source: "scheduled" as PostSource,
+          }));
+          const postsWithCreators = await fetchPostsWithProfiles(unified);
+          setPosts(postsWithCreators);
+        }
+      } else if (activeTab === "published") {
+        // 已發布：從兩個表取並合併
+        const [outboundResult, syncedResult] = await Promise.all([
+          supabase
+            .from("workspace_threads_outbound_posts")
+            .select("id, text, media_type, scheduled_at, publish_status, created_at, published_at, threads_post_id, error_message, created_by, topic_tag")
+            .eq("workspace_threads_account_id", selectedAccount!.id)
+            .is("deleted_at", null)
+            .eq("publish_status", "published")
+            .order("published_at", { ascending: false }),
+          supabase
+            .from("workspace_threads_posts")
+            .select("id, text, media_type, published_at, threads_post_id, current_views, current_likes, is_reply")
+            .eq("workspace_threads_account_id", selectedAccount!.id)
+            .eq("is_reply", false)
+            .order("published_at", { ascending: false }),
+        ]);
 
-      if (error) {
-        console.error("Error fetching posts:", error);
-        toast.error("載入排程貼文失敗");
-      } else {
-        const postsWithCreators = await fetchPostsWithProfiles(data || []);
+        if (outboundResult.error) {
+          console.error("Error fetching outbound posts:", outboundResult.error);
+        }
+        if (syncedResult.error) {
+          console.error("Error fetching synced posts:", syncedResult.error);
+        }
+
+        // 去重：排除已在 outbound 中的貼文
+        const outboundThreadsIds = new Set(
+          (outboundResult.data || [])
+            .filter(p => p.threads_post_id)
+            .map(p => p.threads_post_id)
+        );
+
+        const outboundUnified: UnifiedPost[] = (outboundResult.data || []).map(post => ({
+          ...post,
+          displayDate: post.published_at || post.scheduled_at,
+          source: "scheduled" as PostSource,
+        }));
+
+        const syncedUnified: UnifiedPost[] = (syncedResult.data || [])
+          .filter(post => !outboundThreadsIds.has(post.threads_post_id))
+          .map(post => ({
+            id: post.id,
+            text: post.text,
+            media_type: post.media_type,
+            displayDate: post.published_at,
+            publish_status: "synced",
+            created_at: post.published_at,
+            published_at: post.published_at,
+            threads_post_id: post.threads_post_id,
+            error_message: null,
+            created_by: null,
+            topic_tag: null,
+            source: "synced" as PostSource,
+            current_views: post.current_views,
+            current_likes: post.current_likes,
+          }));
+
+        const allUnified = [...outboundUnified, ...syncedUnified].sort((a, b) =>
+          new Date(b.displayDate).getTime() - new Date(a.displayDate).getTime()
+        );
+
+        const postsWithCreators = await fetchPostsWithProfiles(allUnified);
         setPosts(postsWithCreators);
+      } else if (activeTab === "failed") {
+        // 失敗：只從 outbound_posts 取
+        const { data, error } = await supabase
+          .from("workspace_threads_outbound_posts")
+          .select("id, text, media_type, scheduled_at, publish_status, created_at, published_at, threads_post_id, error_message, created_by, topic_tag")
+          .eq("workspace_threads_account_id", selectedAccount!.id)
+          .is("deleted_at", null)
+          .in("publish_status", ["failed", "cancelled"])
+          .order("scheduled_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching posts:", error);
+          toast.error("載入失敗貼文失敗");
+        } else {
+          const unified: UnifiedPost[] = (data || []).map(post => ({
+            ...post,
+            displayDate: post.scheduled_at,
+            source: "scheduled" as PostSource,
+          }));
+          const postsWithCreators = await fetchPostsWithProfiles(unified);
+          setPosts(postsWithCreators);
+        }
       }
 
       setIsLoadingPosts(false);
@@ -214,20 +413,24 @@ export default function ScheduledPage() {
   // 轉換為日曆事件（使用 allPosts）
   const calendarEvents: ScheduleEvent[] = useMemo(() => {
     return allPosts.map((post) => {
-      const start = new Date(post.scheduled_at);
+      const start = new Date(post.displayDate);
       const end = new Date(start.getTime() + 30 * 60 * 1000); // 30 分鐘
       const text = post.text?.trim() || "(無文字)";
+      const displayStatus = getDisplayStatus(post);
       return {
         id: post.id,
         title: text.length > 10 ? text.slice(0, 10) + "…" : text,
         start,
         end,
-        status: post.publish_status,
+        status: displayStatus, // 使用顯示狀態（區分排程發布 vs 立即發布）
         mediaType: post.media_type,
         text: post.text,
         createdAt: new Date(post.created_at),
         creatorName: post.creatorName,
         topicTag: post.topic_tag,
+        source: post.source,
+        currentViews: post.current_views,
+        currentLikes: post.current_likes,
       };
     });
   }, [allPosts]);
@@ -262,7 +465,7 @@ export default function ScheduledPage() {
   const handleEventDrop = useCallback((eventId: string, newStart: Date) => {
     // 檢查事件狀態，只有 scheduled 才能調整
     const event = allPosts.find(p => p.id === eventId);
-    if (!event || event.publish_status !== "scheduled") {
+    if (!event || event.publish_status !== "scheduled" || event.source === "synced") {
       toast.error("只有排程中的貼文可以調整時間");
       return;
     }
@@ -296,9 +499,10 @@ export default function ScheduledPage() {
         .is("executed_at", null);
 
       toast.success("排程時間已更新");
-      const updatePost = (p: ScheduledPostWithCreator): ScheduledPostWithCreator =>
+      const newDateStr = rescheduleEvent.newStart.toISOString();
+      const updatePost = (p: UnifiedPostWithCreator): UnifiedPostWithCreator =>
         p.id === rescheduleEvent.id
-          ? { ...p, scheduled_at: rescheduleEvent.newStart.toISOString() }
+          ? { ...p, displayDate: newDateStr }
           : p;
       setPosts((prev) => prev.map(updatePost));
       setAllPosts((prev) => prev.map(updatePost));
@@ -368,10 +572,10 @@ export default function ScheduledPage() {
   };
 
   // 按日期分組貼文
-  const groupPostsByDate = (posts: ScheduledPost[]) => {
-    const groups: Record<string, ScheduledPost[]> = {};
+  const groupPostsByDate = (posts: UnifiedPostWithCreator[]) => {
+    const groups: Record<string, UnifiedPostWithCreator[]> = {};
     posts.forEach((post) => {
-      const date = new Date(post.scheduled_at).toISOString().split("T")[0];
+      const date = new Date(post.displayDate).toISOString().split("T")[0];
       if (!groups[date]) groups[date] = [];
       groups[date].push(post);
     });
@@ -483,7 +687,7 @@ export default function ScheduledPage() {
                     <div className="mb-3 flex items-center gap-2">
                       <CalendarIcon className="size-4 text-muted-foreground" />
                       <h3 className="text-sm font-medium text-muted-foreground">
-                        {formatDate(groupedPosts[date][0].scheduled_at)}
+                        {formatDate(groupedPosts[date][0].displayDate)}
                       </h3>
                       <span className="text-xs text-muted-foreground">
                         ({groupedPosts[date].length} 篇)
@@ -491,7 +695,8 @@ export default function ScheduledPage() {
                     </div>
                     <div className="space-y-3">
                       {groupedPosts[date].map((post) => {
-                        const statusConfig = STATUS_CONFIG[post.publish_status] || STATUS_CONFIG.scheduled;
+                        const displayStatus = getDisplayStatus(post);
+                        const statusConfig = STATUS_CONFIG[displayStatus] || STATUS_CONFIG.scheduled;
                         const StatusIcon = statusConfig.icon;
 
                         return (
@@ -501,11 +706,16 @@ export default function ScheduledPage() {
                                 {/* 時間 */}
                                 <div className="flex flex-col items-center text-center min-w-[60px]">
                                   <span className="text-lg font-semibold tabular-nums">
-                                    {formatTime(post.scheduled_at)}
+                                    {formatTime(post.displayDate)}
                                   </span>
                                   {activeTab === "scheduled" && (
                                     <span className="text-xs text-muted-foreground">
-                                      {getTimeUntil(post.scheduled_at)}
+                                      {getTimeUntil(post.displayDate)}
+                                    </span>
+                                  )}
+                                  {post.source === "synced" && post.current_views !== undefined && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {post.current_views.toLocaleString()} 觸及
                                     </span>
                                   )}
                                 </div>
@@ -588,7 +798,11 @@ export default function ScheduledPage() {
 
                               {/* 發布人與建立時間（右下角） */}
                               <p className="absolute bottom-3 right-4 text-xs text-muted-foreground">
-                                由 {(post as ScheduledPostWithCreator).creatorName || "未知"} 建立於 {formatDateTime(new Date(post.created_at))}
+                                {post.source === "synced" ? (
+                                  <>發布於 {formatDateTime(new Date(post.displayDate))}</>
+                                ) : (
+                                  <>由 {post.creatorName || "未知"} 建立於 {formatDateTime(new Date(post.created_at))}</>
+                                )}
                               </p>
                             </CardContent>
                           </Card>
@@ -636,9 +850,11 @@ export default function ScheduledPage() {
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>排程貼文</DialogTitle>
+            <DialogTitle>
+              {selectedEvent?.source === "synced" ? "已發布貼文" : "排程貼文"}
+            </DialogTitle>
             <DialogDescription>
-              排程時間：{selectedEvent && formatDateTime(selectedEvent.start)}
+              {selectedEvent?.source === "synced" ? "發布" : "排程"}時間：{selectedEvent && formatDateTime(selectedEvent.start)}
             </DialogDescription>
           </DialogHeader>
           {selectedEvent && (
@@ -657,6 +873,20 @@ export default function ScheduledPage() {
                 )}
               </div>
 
+              {/* 同步貼文的成效數據 */}
+              {selectedEvent.source === "synced" && selectedEvent.currentViews !== undefined && (
+                <div className="flex gap-4 text-sm">
+                  <span className="text-muted-foreground">
+                    觸及 <span className="font-medium text-foreground">{selectedEvent.currentViews.toLocaleString()}</span>
+                  </span>
+                  {selectedEvent.currentLikes !== undefined && (
+                    <span className="text-muted-foreground">
+                      讚 <span className="font-medium text-foreground">{selectedEvent.currentLikes.toLocaleString()}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* 貼文內容 */}
               <div className="rounded-lg border bg-muted/30 p-3">
                 <p className="text-sm whitespace-pre-wrap">
@@ -666,12 +896,16 @@ export default function ScheduledPage() {
 
               {/* 發布人與建立時間 */}
               <p className="text-xs text-muted-foreground">
-                由 {selectedEvent.creatorName || "未知"} 建立於 {formatDateTime(selectedEvent.createdAt)}
+                {selectedEvent.source === "synced" ? (
+                  <>發布於 {formatDateTime(selectedEvent.createdAt)}</>
+                ) : (
+                  <>由 {selectedEvent.creatorName || "未知"} 建立於 {formatDateTime(selectedEvent.createdAt)}</>
+                )}
               </p>
             </div>
           )}
           <DialogFooter>
-            {selectedEvent && (
+            {selectedEvent && selectedEvent.source !== "synced" && (
               <Button
                 variant="destructive"
                 disabled={selectedEvent.status !== "scheduled" && selectedEvent.status !== "publishing"}

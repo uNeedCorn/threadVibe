@@ -41,6 +41,9 @@ export interface ScheduleEvent extends Event {
   createdAt: Date;
   creatorName: string | null;
   topicTag: string | null;
+  source?: "scheduled" | "synced";
+  currentViews?: number;
+  currentLikes?: number;
 }
 
 // 加入拖曳功能的 Calendar
@@ -62,9 +65,11 @@ interface ScheduleCalendarProps {
 const STATUS_CONFIG = {
   scheduled: { bg: "rgb(14, 116, 144)", text: "white", label: "排程中" },      // Cyan 700
   publishing: { bg: "rgb(217, 119, 6)", text: "white", label: "發布中" },      // Amber 600
-  published: { bg: "rgb(22, 163, 74)", text: "white", label: "已發布" },       // Green 600
+  published: { bg: "rgb(22, 163, 74)", text: "white", label: "排程發布" },     // Green 600 - 排程後發布
+  immediate: { bg: "rgb(139, 92, 246)", text: "white", label: "立即發布" },    // Violet 500 - Compose 立即發布
   failed: { bg: "rgb(220, 38, 38)", text: "white", label: "失敗" },            // Red 600
   cancelled: { bg: "rgb(87, 83, 78)", text: "white", label: "已取消" },        // Stone 600
+  synced: { bg: "rgb(99, 102, 241)", text: "white", label: "直接發布" },       // Indigo 500 - Threads App 發布
 } as const;
 
 // 自訂事件樣式
@@ -195,7 +200,7 @@ export function ScheduleCalendar({
         onSelectSlot={handleSelectSlot}
         selectable
         resizable={false}
-        draggableAccessor={() => true}
+        draggableAccessor={(event) => event.status === "scheduled" && event.source !== "synced"}
         eventPropGetter={eventStyleGetter}
         components={components}
         messages={messages}
