@@ -257,31 +257,30 @@ const POLL_INTERVAL = 3000;
 const MAX_POLL_COUNT = 60;
 
 // 額度常數
-const QUOTA_LIMIT = 2; // 每週可產生 2 份（兩種報告共用）
+const QUOTA_LIMIT = 5; // 每月可產生 5 份（所有報告共用）
 
-// 計算本週一 00:00（台北時間）
-function getThisMonday(): Date {
+// 計算本月 1 號 00:00（台北時間）
+function getThisMonthStart(): Date {
   const now = new Date();
   // 轉換為台北時間
   const taipeiOffset = 8 * 60; // UTC+8
   const localOffset = now.getTimezoneOffset();
   const taipeiTime = new Date(now.getTime() + (taipeiOffset + localOffset) * 60 * 1000);
 
-  const day = taipeiTime.getDay(); // 0 = Sunday, 1 = Monday, ...
-  const diff = day === 0 ? 6 : day - 1; // 計算距離週一的天數
-
-  const monday = new Date(taipeiTime);
-  monday.setDate(taipeiTime.getDate() - diff);
-  monday.setHours(0, 0, 0, 0);
+  const monthStart = new Date(taipeiTime);
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
 
   // 轉回 UTC
-  return new Date(monday.getTime() - (taipeiOffset + localOffset) * 60 * 1000);
+  return new Date(monthStart.getTime() - (taipeiOffset + localOffset) * 60 * 1000);
 }
 
-// 計算下週一 00:00（台北時間）
-function getNextMonday(): Date {
-  const thisMonday = getThisMonday();
-  return new Date(thisMonday.getTime() + 7 * 24 * 60 * 60 * 1000);
+// 計算下月 1 號 00:00（台北時間）
+function getNextMonthStart(): Date {
+  const thisMonthStart = getThisMonthStart();
+  const nextMonth = new Date(thisMonthStart);
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  return nextMonth;
 }
 
 export function useContentPatternReport(accountId: string | null): UseContentPatternReportReturn {
@@ -569,7 +568,7 @@ export function useContentPatternReport(accountId: string | null): UseContentPat
 
       // 計算額度資訊（每週一重置，兩種報告共用 2 點）
       // 需要查詢「所有類型」的報告來計算共用配額
-      const thisMonday = getThisMonday();
+      const thisMonday = getThisMonthStart();
 
       const { data: allReports } = await supabase
         .from("ai_weekly_reports")
@@ -582,7 +581,7 @@ export function useContentPatternReport(accountId: string | null): UseContentPat
       const remaining = Math.max(0, QUOTA_LIMIT - completedCount);
 
       // 下次重置時間 = 下週一 00:00（台北時間）
-      const nextResetAt = remaining === 0 ? getNextMonday() : null;
+      const nextResetAt = remaining === 0 ? getNextMonthStart() : null;
 
       setQuota({
         remaining,

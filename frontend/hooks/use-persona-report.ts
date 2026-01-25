@@ -231,29 +231,28 @@ interface GenerateOptions {
 }
 
 // 額度常數
-const QUOTA_LIMIT = 2;
+const QUOTA_LIMIT = 5; // 每月可產生 5 份（所有報告共用）
 
-// 計算本週一 00:00（台北時間）
-function getThisMonday(): Date {
+// 計算本月 1 號 00:00（台北時間）
+function getThisMonthStart(): Date {
   const now = new Date();
-  const taipeiOffset = 8 * 60;
+  const taipeiOffset = 8 * 60; // UTC+8
   const localOffset = now.getTimezoneOffset();
   const taipeiTime = new Date(now.getTime() + (taipeiOffset + localOffset) * 60 * 1000);
 
-  const day = taipeiTime.getDay();
-  const diff = day === 0 ? 6 : day - 1;
+  const monthStart = new Date(taipeiTime);
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
 
-  const monday = new Date(taipeiTime);
-  monday.setDate(taipeiTime.getDate() - diff);
-  monday.setHours(0, 0, 0, 0);
-
-  return new Date(monday.getTime() - (taipeiOffset + localOffset) * 60 * 1000);
+  return new Date(monthStart.getTime() - (taipeiOffset + localOffset) * 60 * 1000);
 }
 
-// 計算下週一 00:00（台北時間）
-function getNextMonday(): Date {
-  const thisMonday = getThisMonday();
-  return new Date(thisMonday.getTime() + 7 * 24 * 60 * 60 * 1000);
+// 計算下月 1 號 00:00（台北時間）
+function getNextMonthStart(): Date {
+  const thisMonthStart = getThisMonthStart();
+  const nextMonth = new Date(thisMonthStart);
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  return nextMonth;
 }
 
 export function usePersonaReport(accountId: string | null) {
@@ -309,19 +308,19 @@ export function usePersonaReport(accountId: string | null) {
         }))
       );
 
-      // 計算額度（與其他報告共用）
-      const thisMonday = getThisMonday();
+      // 計算額度（與其他報告共用，每月重置）
+      const thisMonthStart = getThisMonthStart();
 
       const { data: allReports } = await supabase
         .from("ai_weekly_reports")
         .select("id, status, created_at")
         .eq("workspace_threads_account_id", accountId)
         .eq("status", "completed")
-        .gte("created_at", thisMonday.toISOString());
+        .gte("created_at", thisMonthStart.toISOString());
 
       const completedCount = (allReports || []).length;
       const remaining = Math.max(0, QUOTA_LIMIT - completedCount);
-      const nextResetAt = remaining === 0 ? getNextMonday() : null;
+      const nextResetAt = remaining === 0 ? getNextMonthStart() : null;
 
       setQuota({
         remaining,
