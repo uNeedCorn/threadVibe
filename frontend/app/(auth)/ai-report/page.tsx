@@ -272,30 +272,10 @@ export default function AIReportPage() {
     );
   }
 
-  // 數據不足提示
-  if (!hasEnoughData && !isLoading) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="AI 洞察報告"
-          description="結合 AI 分析與圖表的帳號營運洞察報告"
-          badge={{ label: "測試中", variant: "info" }}
-        />
-        <Alert>
-          <Clock className="size-4" />
-          <AlertTitle>數據累積中</AlertTitle>
-          <AlertDescription>
-            AI 洞察報告需要至少 1 天的數據才能產生。
-            {dataAge !== null && dataAge < 1 && (
-              <span className="block mt-1 text-muted-foreground">
-                目前尚未累積足夠數據。
-              </span>
-            )}
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  // 數據不足提示：需要至少 7 天數據
+  const MIN_DATA_DAYS = 7;
+  const hasMinimumData = dataAge !== null && dataAge >= MIN_DATA_DAYS;
+  const daysRemaining = dataAge !== null ? Math.max(0, Math.ceil(MIN_DATA_DAYS - dataAge)) : MIN_DATA_DAYS;
 
   return (
     <div className="space-y-6">
@@ -304,16 +284,6 @@ export default function AIReportPage() {
         description="結合 AI 分析與圖表的帳號營運洞察報告"
         badge={{ label: "測試中", variant: "info" }}
       />
-
-      {/* 新帳號提醒 */}
-      {dataAge !== null && dataAge < 7 && (
-        <Alert>
-          <Clock className="size-4" />
-          <AlertDescription>
-            此帳號數據僅累積 {Math.floor(dataAge)} 天，建議累積滿 7 天後再產生報告，以獲得更準確的分析結果。
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* 產生報告區 */}
       <Card>
@@ -383,6 +353,23 @@ export default function AIReportPage() {
               })}
             </div>
           </TooltipProvider>
+
+          {/* 數據不足警告：需要至少 7 天數據 */}
+          {!hasMinimumData && !isLoading && (
+            <Alert>
+              <Clock className="size-4" />
+              <AlertTitle>數據累積中</AlertTitle>
+              <AlertDescription>
+                AI 報告需要至少 {MIN_DATA_DAYS} 天的數據才能產生準確的分析。
+                {dataAge !== null && (
+                  <span className="block mt-1">
+                    目前已累積 <span className="font-semibold">{Math.floor(dataAge)}</span> 天，
+                    還需要 <span className="font-semibold text-primary">{daysRemaining}</span> 天。
+                  </span>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* 日期區間與產生按鈕 */}
           <div className="flex flex-col gap-4 rounded-lg border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -509,7 +496,7 @@ export default function AIReportPage() {
               </div>
               <Button
                 onClick={handleGenerateReport}
-                disabled={isGenerating || isLoading || !isDateRangeValid || (!isAdmin && quota.remaining <= 0)}
+                disabled={isGenerating || isLoading || !isDateRangeValid || !hasMinimumData || (!isAdmin && quota.remaining <= 0)}
                 size="lg"
               >
                 {isGenerating ? (
