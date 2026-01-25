@@ -608,7 +608,7 @@ export function PostsTable({
   const defaultColumns: ColumnConfig[] = [
     { id: "content", label: "內容", visible: true, width: 400, order: 0 },
     { id: "published_at", label: "發布時間", visible: true, width: 100, order: 1 },
-    { id: "tags", label: "標籤", visible: true, width: 120, order: 2 },
+    { id: "tags", label: "標籤", visible: true, width: 160, order: 2 },
     { id: "ai_tags", label: "AI 標籤", visible: true, width: 220, order: 3 },
     { id: "views", label: "觀看", visible: true, width: 80, order: 4 },
     { id: "likes", label: "讚", visible: true, width: 80, order: 5 },

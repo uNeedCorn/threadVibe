@@ -95,36 +95,27 @@ export function PostTagPopover({
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1 px-2"
+        <button
+          className="flex flex-wrap items-center gap-1 rounded-md px-2 py-1 text-left hover:bg-accent transition-colors"
           onClick={(e) => e.stopPropagation()}
         >
           {postTags.length === 0 ? (
-            <>
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Tag className="size-3" />
-              <span className="text-xs text-muted-foreground">標籤</span>
-            </>
+              標籤
+            </span>
           ) : (
-            <div className="flex items-center gap-1">
-              {postTags.slice(0, 3).map((tag) => (
-                <span
-                  key={tag.id}
-                  className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white"
-                  style={{ backgroundColor: tag.color }}
-                >
-                  {tag.name}
-                </span>
-              ))}
-              {postTags.length > 3 && (
-                <span className="text-xs text-muted-foreground">
-                  +{postTags.length - 3}
-                </span>
-              )}
-            </div>
+            postTags.map((tag) => (
+              <span
+                key={tag.id}
+                className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                style={{ backgroundColor: tag.color }}
+              >
+                {tag.name}
+              </span>
+            ))
           )}
-        </Button>
+        </button>
       </PopoverTrigger>
 
       <PopoverContent

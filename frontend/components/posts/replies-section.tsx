@@ -1,11 +1,19 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Loader2, MessageCircle, ExternalLink, RefreshCw, Reply, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, MessageCircle, ExternalLink, RefreshCw, Reply, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight, Heart, Repeat, Quote, Eye, ArrowUpDown } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { ReplyForm } from "./reply-form";
+import { cn } from "@/lib/utils";
+
+interface ReplyInsights {
+  likes?: number;
+  reposts?: number;
+  quotes?: number;
+  views?: number;
+}
 
 export interface ThreadsReply {
   id: string;
@@ -17,6 +25,9 @@ export interface ThreadsReply {
   permalink?: string;
   is_reply_owned_by_me?: boolean;
   has_owner_reply?: boolean;
+  children: ThreadsReply[];
+  depth: number;
+  insights?: ReplyInsights;
 }
 
 // 負面情緒檢測關鍵詞
@@ -38,6 +49,20 @@ function detectNegativeSentiment(text?: string): boolean {
   if (!text) return false;
   const lowerText = text.toLowerCase();
   return NEGATIVE_KEYWORDS.some(keyword => lowerText.includes(keyword));
+}
+
+/**
+ * 遞迴計算負面留言數量
+ */
+function countNegativeReplies(replies: ThreadsReply[]): number {
+  let count = 0;
+  for (const reply of replies) {
+    if (detectNegativeSentiment(reply.text)) {
+      count++;
+    }
+    count += countNegativeReplies(reply.children);
+  }
+  return count;
 }
 
 interface RepliesSectionProps {
@@ -64,12 +89,23 @@ export function RepliesSection({
   onReplySuccess,
 }: RepliesSectionProps) {
   const [replies, setReplies] = useState<ThreadsReply[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
   // 用於追蹤請求是否應該被忽略（元件卸載或 props 變化）
   const requestIdRef = useRef(0);
   const isMountedRef = useRef(true);
+  const sortOrderRef = useRef(sortOrder);
+
+  // 同步 ref
+  useEffect(() => {
+    sortOrderRef.current = sortOrder;
+  }, [sortOrder]);
 
   // 追蹤元件掛載狀態
   useEffect(() => {
@@ -79,11 +115,17 @@ export function RepliesSection({
     };
   }, []);
 
-  const fetchReplies = useCallback(async () => {
+  const fetchReplies = useCallback(async (cursor?: string, append = false, order?: 'newest' | 'oldest') => {
+    const effectiveOrder = order ?? sortOrderRef.current;
     // 遞增請求 ID，用於忽略過時的響應
     const currentRequestId = ++requestIdRef.current;
 
-    setIsLoading(true);
+    if (append) {
+      setIsLoadingMore(true);
+    } else {
+      setIsLoading(true);
+      setNextCursor(null);
+    }
     setError(null);
 
     try {
@@ -91,10 +133,20 @@ export function RepliesSection({
       const { data, error: fnError } = await supabase.functions.invoke<{
         replies: ThreadsReply[];
         hasOwnerReply?: boolean;
+        totalCount?: number;
+        paging?: {
+          cursors?: {
+            after?: string;
+          };
+          next?: string;
+        };
       }>("threads-replies", {
         body: {
           account_id: accountId,
           post_id: threadsPostId,
+          cursor,
+          limit: 50,
+          reverse: effectiveOrder === 'newest', // newest = reverse true, oldest = reverse false
         },
       });
 
@@ -112,10 +164,24 @@ export function RepliesSection({
       }
 
       const repliesList = data.replies || [];
-      setReplies(repliesList);
+      const count = data.totalCount ?? repliesList.length;
 
-      // 使用 API 回傳的 hasOwnerReply（已包含下鑽一層的檢查）
-      onRepliesLoaded?.(repliesList.length, data.hasOwnerReply ?? false);
+      if (append) {
+        // 合併新舊回覆（需要處理樹狀結構的合併）
+        setReplies(prev => mergeReplyTrees(prev, repliesList));
+        setTotalCount(prev => prev + count);
+      } else {
+        setReplies(repliesList);
+        setTotalCount(count);
+      }
+
+      // 設置下一頁游標
+      setNextCursor(data.paging?.cursors?.after || null);
+
+      // 使用 API 回傳的 hasOwnerReply
+      if (!append) {
+        onRepliesLoaded?.(count, data.hasOwnerReply ?? false);
+      }
     } catch (err) {
       // 檢查：如果元件已卸載或這不是最新的請求，忽略錯誤
       if (!isMountedRef.current || currentRequestId !== requestIdRef.current) {
@@ -127,12 +193,51 @@ export function RepliesSection({
       // 檢查：只有最新的請求才更新 loading 狀態
       if (isMountedRef.current && currentRequestId === requestIdRef.current) {
         setIsLoading(false);
+        setIsLoadingMore(false);
       }
     }
   }, [accountId, threadsPostId, onRepliesLoaded]);
 
+  // 合併回覆樹（簡單追加，因為 API 返回的是扁平化後重建的樹）
+  const mergeReplyTrees = (existing: ThreadsReply[], newReplies: ThreadsReply[]): ThreadsReply[] => {
+    const existingIds = new Set<string>();
+    const collectIds = (replies: ThreadsReply[]) => {
+      for (const reply of replies) {
+        existingIds.add(reply.id);
+        if (reply.children) collectIds(reply.children);
+      }
+    };
+    collectIds(existing);
+
+    // 過濾掉重複的回覆
+    const filterNew = (replies: ThreadsReply[]): ThreadsReply[] => {
+      return replies
+        .filter(r => !existingIds.has(r.id))
+        .map(r => ({
+          ...r,
+          children: r.children ? filterNew(r.children) : [],
+        }));
+    };
+
+    return [...existing, ...filterNew(newReplies)];
+  };
+
+  const loadMore = useCallback(() => {
+    if (nextCursor && !isLoadingMore) {
+      fetchReplies(nextCursor, true);
+    }
+  }, [nextCursor, isLoadingMore, fetchReplies]);
+
+  // 切換排序
+  const toggleSortOrder = useCallback(() => {
+    const newOrder = sortOrder === 'newest' ? 'oldest' : 'newest';
+    setSortOrder(newOrder);
+    // 重新載入回覆
+    fetchReplies(undefined, false, newOrder);
+  }, [sortOrder, fetchReplies]);
+
   useEffect(() => {
-    fetchReplies();
+    fetchReplies(undefined, false);
   }, [fetchReplies, refreshTrigger]);
 
   const formatTime = (timestamp?: string) => {
@@ -162,10 +267,207 @@ export function RepliesSection({
     });
   }, [replies]);
 
-  // 統計負面留言數量
+  // 統計負面留言數量（包含巢狀）
   const negativeCount = useMemo(() => {
-    return replies.filter(r => detectNegativeSentiment(r.text)).length;
+    return countNegativeReplies(replies);
   }, [replies]);
+
+  const toggleCollapse = useCallback((replyId: string) => {
+    setCollapsedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(replyId)) {
+        next.delete(replyId);
+      } else {
+        next.add(replyId);
+      }
+      return next;
+    });
+  }, []);
+
+  // 遞迴渲染回覆
+  const renderReply = useCallback((reply: ThreadsReply) => {
+    const isActive = activeReplyId === reply.id;
+    const isNegative = detectNegativeSentiment(reply.text);
+    const isOwner = reply.is_reply_owned_by_me === true;
+    const hasChildren = reply.children && reply.children.length > 0;
+    const isCollapsed = collapsedIds.has(reply.id);
+
+    return (
+      <div key={reply.id} className="relative">
+        {/* 留言卡片 */}
+        <div
+          className={cn(
+            "rounded-lg border p-3 transition-colors",
+            isOwner && "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800",
+            isNegative && !isOwner && "bg-orange-50/50 dark:bg-orange-950/20 border-orange-300 dark:border-orange-700",
+            !isOwner && !isNegative && "bg-card hover:bg-muted/50",
+            isActive && "ring-2 ring-primary ring-offset-2"
+          )}
+        >
+          {/* 標題列：頭像 + 用戶名 + 標籤 + 操作 */}
+          <div className="flex items-center gap-2">
+            <Avatar className={cn(
+              "size-6 shrink-0",
+              isOwner && "ring-2 ring-blue-500"
+            )}>
+              <AvatarFallback className={cn(
+                "text-[10px]",
+                isOwner && "bg-blue-500 text-white"
+              )}>
+                {reply.username?.slice(0, 2).toUpperCase() || "?"}
+              </AvatarFallback>
+            </Avatar>
+
+            <span className={cn(
+              "text-sm font-medium",
+              isOwner && "text-blue-700 dark:text-blue-300"
+            )}>
+              @{reply.username || "unknown"}
+            </span>
+
+            {isOwner && (
+              <span className="text-[10px] font-medium bg-blue-500 text-white px-1.5 py-0.5 rounded">
+                官方
+              </span>
+            )}
+
+            <span className="text-xs text-muted-foreground">
+              · {formatTime(reply.timestamp)}
+            </span>
+
+            {isNegative && (
+              <span className="flex items-center gap-0.5 text-xs text-orange-600">
+                <AlertTriangle className="size-3" />
+                需關注
+              </span>
+            )}
+
+            {!isOwner && reply.has_owner_reply && (
+              <span className="flex items-center gap-0.5 text-xs text-green-600">
+                <CheckCircle2 className="size-3" />
+                已回覆
+              </span>
+            )}
+
+            {/* 操作按鈕 */}
+            <div className="ml-auto flex items-center gap-1">
+              {hasChildren && (
+                <button
+                  onClick={() => toggleCollapse(reply.id)}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-1.5 py-0.5 hover:bg-muted rounded"
+                >
+                  {isCollapsed ? (
+                    <>
+                      <ChevronRight className="size-3" />
+                      <span>{reply.children.length}</span>
+                    </>
+                  ) : (
+                    <ChevronDown className="size-3" />
+                  )}
+                </button>
+              )}
+              {onReplyToReply && reply.username && (
+                <Button
+                  variant={isActive ? "secondary" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    "h-6 px-2",
+                    isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => {
+                    if (isActive) {
+                      onCancelReplyTo?.();
+                    } else {
+                      onReplyToReply(reply.id, reply.username!);
+                    }
+                  }}
+                >
+                  <Reply className="size-3" />
+                </Button>
+              )}
+              {reply.permalink && (
+                <a
+                  href={reply.permalink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground p-1"
+                >
+                  <ExternalLink className="size-3" />
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* 內容（對齊左側） */}
+          <p className="mt-2 whitespace-pre-wrap text-sm">
+            {reply.text || "（無文字內容）"}
+          </p>
+
+          {/* 媒體 */}
+          {reply.media_url && (
+            <div className="mt-2">
+              <img
+                src={reply.media_url}
+                alt=""
+                className="max-h-32 rounded-md object-cover"
+              />
+            </div>
+          )}
+
+          {/* 經營者回覆的互動數據 */}
+          {isOwner && reply.insights && (
+            <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+              {reply.insights.views !== undefined && (
+                <span className="flex items-center gap-1">
+                  <Eye className="size-3" />
+                  {reply.insights.views.toLocaleString()}
+                </span>
+              )}
+              {reply.insights.likes !== undefined && (
+                <span className="flex items-center gap-1">
+                  <Heart className="size-3" />
+                  {reply.insights.likes.toLocaleString()}
+                </span>
+              )}
+              {reply.insights.reposts !== undefined && reply.insights.reposts > 0 && (
+                <span className="flex items-center gap-1">
+                  <Repeat className="size-3" />
+                  {reply.insights.reposts.toLocaleString()}
+                </span>
+              )}
+              {reply.insights.quotes !== undefined && reply.insights.quotes > 0 && (
+                <span className="flex items-center gap-1">
+                  <Quote className="size-3" />
+                  {reply.insights.quotes.toLocaleString()}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 回覆輸入框 */}
+        {isActive && (
+          <div className="mt-2">
+            <ReplyForm
+              accountId={accountId}
+              threadsPostId={threadsPostId}
+              replyToId={reply.id}
+              replyToUsername={reply.username}
+              onReplySuccess={onReplySuccess}
+              onCancelReplyTo={onCancelReplyTo}
+            />
+          </div>
+        )}
+
+        {/* 子回覆區塊 */}
+        {hasChildren && !isCollapsed && (
+          <div className="mt-2 ml-4 pl-3 border-l-2 border-muted-foreground/20 space-y-2">
+            {reply.children.map(child => renderReply(child))}
+          </div>
+        )}
+      </div>
+    );
+  }, [activeReplyId, collapsedIds, toggleCollapse, onReplyToReply, onCancelReplyTo, accountId, threadsPostId, onReplySuccess]);
 
   if (isLoading) {
     return (
@@ -184,7 +486,7 @@ export function RepliesSection({
           variant="outline"
           size="sm"
           className="mt-2"
-          onClick={fetchReplies}
+          onClick={() => fetchReplies(undefined, false)}
         >
           <RefreshCw className="mr-2 size-4" />
           重試
@@ -207,7 +509,7 @@ export function RepliesSection({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-medium text-muted-foreground">
-            回覆 ({replies.length})
+            回覆 ({totalCount})
           </h3>
           {negativeCount > 0 && (
             <span className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-2 py-0.5 rounded-full">
@@ -216,120 +518,53 @@ export function RepliesSection({
             </span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={fetchReplies}
-          className="h-7 px-2"
-        >
-          <RefreshCw className="size-3" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {/* 排序切換 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleSortOrder}
+            className="h-7 px-2 text-xs text-muted-foreground"
+          >
+            <ArrowUpDown className="size-3 mr-1" />
+            {sortOrder === 'newest' ? '最新' : '最舊'}
+          </Button>
+          {/* 重新整理 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => fetchReplies(undefined, false)}
+            className="h-7 px-2"
+          >
+            <RefreshCw className="size-3" />
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
-        {sortedReplies.map((reply) => {
-          const isActive = activeReplyId === reply.id;
-          const isNegative = detectNegativeSentiment(reply.text);
-          return (
-            <div key={reply.id} className="space-y-2">
-              <div
-                className={`rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50 ${
-                  isActive ? "border-primary/50 bg-primary/5" : ""
-                } ${
-                  isNegative ? "border-orange-300 dark:border-orange-700 bg-orange-50/50 dark:bg-orange-950/20" : ""
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <Avatar className="size-8">
-                    <AvatarFallback className="text-xs">
-                      {reply.username?.slice(0, 2).toUpperCase() || "?"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">
-                        @{reply.username || "unknown"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        · {formatTime(reply.timestamp)}
-                      </span>
-                      {isNegative && (
-                        <span className="flex items-center gap-0.5 text-xs text-orange-600">
-                          <AlertTriangle className="size-3" />
-                          需關注
-                        </span>
-                      )}
-                      {reply.has_owner_reply && (
-                        <span className="flex items-center gap-0.5 text-xs text-green-600">
-                          <CheckCircle2 className="size-3" />
-                          已回覆
-                        </span>
-                      )}
-                      <div className="ml-auto flex items-center gap-1">
-                        {onReplyToReply && reply.username && (
-                          <Button
-                            variant={isActive ? "secondary" : "ghost"}
-                            size="sm"
-                            className={`h-6 px-2 ${
-                              isActive
-                                ? "text-primary"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                            onClick={() => {
-                              if (isActive) {
-                                onCancelReplyTo?.();
-                              } else {
-                                onReplyToReply(reply.id, reply.username!);
-                              }
-                            }}
-                          >
-                            <Reply className="size-3" />
-                          </Button>
-                        )}
-                        {reply.permalink && (
-                          <a
-                            href={reply.permalink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground hover:text-foreground"
-                          >
-                            <ExternalLink className="size-3" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                    <p className="mt-1 whitespace-pre-wrap text-sm">
-                      {reply.text || "（無文字內容）"}
-                    </p>
-                    {reply.media_url && (
-                      <div className="mt-2">
-                        <img
-                          src={reply.media_url}
-                          alt=""
-                          className="max-h-32 rounded-md object-cover"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              {/* 回覆輸入框（在被選中的回覆下方顯示） */}
-              {isActive && (
-                <div className="ml-6 border-l-2 border-primary/30 pl-4">
-                  <ReplyForm
-                    accountId={accountId}
-                    threadsPostId={threadsPostId}
-                    replyToId={reply.id}
-                    replyToUsername={reply.username}
-                    onReplySuccess={onReplySuccess}
-                    onCancelReplyTo={onCancelReplyTo}
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {sortedReplies.map(reply => renderReply(reply))}
       </div>
+
+      {/* 載入更多按鈕 */}
+      {nextCursor && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadMore}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                載入中...
+              </>
+            ) : (
+              "載入更多回覆"
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
