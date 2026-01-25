@@ -26,47 +26,62 @@ export class ClaudeClient {
   }
 
   async generateReport(systemPrompt: string, userPrompt: string): Promise<ClaudeResponse<string>> {
-    const response = await fetch(ANTHROPIC_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': this.apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: this.model,
-        max_tokens: 8192,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt,
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const response = await fetch(ANTHROPIC_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: this.model,
+          max_tokens: 8192,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: userPrompt,
+            },
+          ],
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const textContent = data.content?.find((c: { type: string }) => c.type === 'text');
+        if (!textContent?.text) {
+          throw new Error('No text content in Claude response');
+        }
+        return {
+          content: textContent.text,
+          usage: {
+            input_tokens: data.usage?.input_tokens ?? 0,
+            output_tokens: data.usage?.output_tokens ?? 0,
           },
-        ],
-      }),
-    });
+        };
+      }
 
-    if (!response.ok) {
       const errorBody = await response.text();
-      console.error('Claude API error:', { status: response.status, body: errorBody });
-      throw new Error('AI 服務暫時無法使用');
+      console.error(`Claude API error (attempt ${attempt}/${maxRetries}):`, { status: response.status, body: errorBody });
+
+      // 可重試的錯誤：429 (rate limit), 529 (overloaded), 5xx (server errors)
+      const isRetryable = response.status === 429 || response.status === 529 || response.status >= 500;
+
+      if (!isRetryable || attempt === maxRetries) {
+        throw new Error(`AI 服務錯誤 (${response.status}): ${errorBody.slice(0, 200)}`);
+      }
+
+      // 指數退避：2s, 4s, 8s
+      const delay = Math.pow(2, attempt) * 1000;
+      console.log(`Retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
 
-    const data = await response.json();
-
-    // 解析回應
-    const textContent = data.content?.find((c: { type: string }) => c.type === 'text');
-    if (!textContent?.text) {
-      throw new Error('No text content in Claude response');
-    }
-
-    return {
-      content: textContent.text,
-      usage: {
-        input_tokens: data.usage?.input_tokens ?? 0,
-        output_tokens: data.usage?.output_tokens ?? 0,
-      },
-    };
+    throw lastError || new Error('AI 服務暫時無法使用');
   }
 
   /**

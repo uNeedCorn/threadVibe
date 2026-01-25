@@ -1,17 +1,10 @@
 "use client";
 
-import {
-  Sparkles,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Target,
-  ArrowRight,
-  AlertCircle,
-} from "lucide-react";
+import { Sparkles, TrendingUp, TrendingDown, Minus, Target, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { ratingStyles, priorityStyles, iconGradients, typography, spacing } from "@/components/report-shared";
 
 interface ActionItem {
   action: string;
@@ -40,65 +33,18 @@ interface Props {
   };
 }
 
-const ratingConfig = {
-  excellent: {
-    label: "表現優異",
-    description: "本期表現卓越，持續保持！",
-    icon: TrendingUp,
-    color: "text-emerald-600 dark:text-emerald-400",
-    bgGradient: "from-emerald-500/20 via-emerald-500/10 to-transparent",
-    iconBg: "bg-emerald-500/20",
-    borderColor: "border-emerald-500/30",
-    ringColor: "ring-emerald-500/20",
-  },
-  good: {
-    label: "表現良好",
-    description: "本期表現穩定，繼續努力！",
-    icon: TrendingUp,
-    color: "text-blue-600 dark:text-blue-400",
-    bgGradient: "from-blue-500/20 via-blue-500/10 to-transparent",
-    iconBg: "bg-blue-500/20",
-    borderColor: "border-blue-500/30",
-    ringColor: "ring-blue-500/20",
-  },
-  average: {
-    label: "表現普通",
-    description: "本期表現平穩，仍有進步空間",
-    icon: Minus,
-    color: "text-amber-600 dark:text-amber-400",
-    bgGradient: "from-amber-500/20 via-amber-500/10 to-transparent",
-    iconBg: "bg-amber-500/20",
-    borderColor: "border-amber-500/30",
-    ringColor: "ring-amber-500/20",
-  },
-  needs_improvement: {
-    label: "待加強",
-    description: "本期需要更多努力，加油！",
-    icon: TrendingDown,
-    color: "text-rose-600 dark:text-rose-400",
-    bgGradient: "from-rose-500/20 via-rose-500/10 to-transparent",
-    iconBg: "bg-rose-500/20",
-    borderColor: "border-rose-500/30",
-    ringColor: "ring-rose-500/20",
-  },
+const ratingIcons = {
+  excellent: TrendingUp,
+  good: TrendingUp,
+  average: Minus,
+  needs_improvement: TrendingDown,
 };
 
-const priorityConfig = {
-  high: {
-    label: "高",
-    color: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30",
-    icon: AlertCircle,
-  },
-  medium: {
-    label: "中",
-    color: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
-    icon: Target,
-  },
-  low: {
-    label: "低",
-    color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
-    icon: ArrowRight,
-  },
+const ratingDescriptions = {
+  excellent: "本期表現卓越，持續保持！",
+  good: "本期表現穩定，繼續努力！",
+  average: "本期表現平穩，仍有進步空間",
+  needs_improvement: "本期需要更多努力，加油！",
 };
 
 function formatDateRange(start: string, end: string): string {
@@ -113,102 +59,60 @@ function formatDateRange(start: string, end: string): string {
 }
 
 export function ExecutiveSummarySection({ data, period }: Props) {
-  const config = ratingConfig[data.overall_rating];
-  const RatingIcon = config.icon;
+  const config = ratingStyles[data.overall_rating];
+  const RatingIcon = ratingIcons[data.overall_rating];
 
   return (
-    <Card
-      className={cn(
-        "relative overflow-hidden border-2 shadow-lg",
-        config.borderColor
-      )}
-    >
-      {/* 背景漸層裝飾 */}
-      <div
-        className={cn(
-          "absolute inset-0 bg-gradient-to-br opacity-50",
-          config.bgGradient
-        )}
-      />
+    <Card className={cn("relative overflow-hidden border-2", config.borderStrong)}>
+      {/* 背景漸層 */}
+      <div className={cn("absolute inset-0 bg-gradient-to-br opacity-50", config.gradient)} />
 
-      <CardContent className="relative pt-6">
+      <CardContent className="relative pt-6 space-y-6">
         {/* 頂部標題區 */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
+            <div className={cn("p-2.5 rounded-xl", iconGradients.purple)}>
               <Sparkles className="size-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold tracking-tight">洞察摘要</h2>
-              <p className="text-[13px] text-muted-foreground">
-                AI 為您分析本期表現
-              </p>
+              <h2 className={typography.cardTitle}>洞察摘要</h2>
+              <p className={typography.caption}>AI 為您分析本期表現</p>
             </div>
           </div>
-          <Badge
-            variant="secondary"
-            className="px-3 py-1.5 text-xs font-medium"
-          >
+          <Badge variant="secondary" className="px-3 py-1.5 text-xs font-medium">
             {formatDateRange(period.start, period.end)}
           </Badge>
         </div>
 
-        {/* 整體評分與一句話總結 */}
-        <div
-          className={cn(
-            "flex items-center gap-5 p-5 rounded-2xl mb-6",
-            "bg-gradient-to-r from-background/80 to-background/40",
-            "border backdrop-blur-sm",
-            config.borderColor
-          )}
-        >
-          <div
-            className={cn(
-              "flex-shrink-0 p-4 rounded-2xl ring-4",
-              config.iconBg,
-              config.ringColor
-            )}
-          >
-            <RatingIcon
-              className={cn("size-10", config.color)}
-              strokeWidth={2.5}
-            />
+        {/* 評分與摘要 */}
+        <div className={cn(
+          "flex items-center gap-5 p-5 rounded-xl border-2 bg-background/60 backdrop-blur-sm",
+          config.border
+        )}>
+          <div className={cn("shrink-0 p-4 rounded-2xl ring-4", config.iconBg, config.ring)}>
+            <RatingIcon className={cn("size-10", config.text)} strokeWidth={2.5} />
           </div>
           <div className="space-y-1 flex-1">
-            <div className={cn("text-2xl font-bold tracking-tight", config.color)}>
-              {config.label}
-            </div>
-            <div className="text-[14px] text-foreground/80 leading-relaxed">
-              {data.one_line_summary}
-            </div>
+            <div className={cn("text-2xl font-bold", config.text)}>{config.label}</div>
+            <p className={typography.body}>{data.one_line_summary}</p>
           </div>
         </div>
 
         {/* 關鍵數字 */}
-        {data.key_metrics && data.key_metrics.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {data.key_metrics?.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {data.key_metrics.map((metric, idx) => (
-              <div
-                key={idx}
-                className="p-4 rounded-xl bg-muted/30 border border-border/50"
-              >
-                <div className="text-[12px] text-muted-foreground mb-1">
-                  {metric.label}
-                </div>
-                <div className="text-xl font-bold">{metric.value}</div>
+              <div key={idx} className="rounded-xl border bg-muted/30 p-4">
+                <p className={cn(typography.label, "text-muted-foreground mb-1")}>{metric.label}</p>
+                <p className={cn(typography.bigNumber)}>{metric.value}</p>
                 {metric.change && (
-                  <div
-                    className={cn(
-                      "text-[12px] font-medium mt-0.5",
-                      metric.change.startsWith("+")
-                        ? "text-emerald-500"
-                        : metric.change.startsWith("-")
-                        ? "text-rose-500"
-                        : "text-muted-foreground"
-                    )}
-                  >
+                  <p className={cn(
+                    "text-xs font-medium mt-1",
+                    metric.change.startsWith("+") ? "text-emerald-600" :
+                    metric.change.startsWith("-") ? "text-rose-600" : "text-muted-foreground"
+                  )}>
                     {metric.change}
-                  </div>
+                  </p>
                 )}
               </div>
             ))}
@@ -216,43 +120,29 @@ export function ExecutiveSummarySection({ data, period }: Props) {
         )}
 
         {/* 行動建議 */}
-        {data.action_items && data.action_items.length > 0 && (
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/20">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="p-1.5 rounded-lg bg-emerald-500/20">
-                <Target className="size-4 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <h3 className="text-[15px] font-semibold text-emerald-700 dark:text-emerald-300">
-                下週行動建議
-              </h3>
+        {data.action_items?.length > 0 && (
+          <section className="rounded-xl border-2 border-emerald-200 bg-emerald-50/50 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="size-5 text-emerald-600" />
+              <h3 className={cn(typography.sectionTitle, "text-emerald-700")}>下週行動建議</h3>
             </div>
-            <ul className="space-y-4">
+            <ul className={spacing.list}>
               {data.action_items.map((item, idx) => {
-                const priorityCfg = priorityConfig[item.priority];
+                const pStyle = priorityStyles[item.priority];
                 return (
                   <li key={idx} className="flex items-start gap-3">
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "flex-shrink-0 mt-0.5 px-2 py-0.5 text-[10px] font-semibold",
-                        priorityCfg.color
-                      )}
-                    >
-                      {priorityCfg.label}
+                    <Badge variant="outline" className={cn("shrink-0 mt-0.5 px-2 py-0.5 text-xs font-semibold", pStyle.badge)}>
+                      {pStyle.label}
                     </Badge>
                     <div className="flex-1">
-                      <div className="text-[14px] font-medium text-foreground/90 leading-relaxed">
-                        {item.action}
-                      </div>
-                      <div className="text-[13px] text-muted-foreground mt-1">
-                        {item.reason}
-                      </div>
+                      <p className="text-sm font-medium">{item.action}</p>
+                      <p className={cn(typography.caption, "mt-1")}>{item.reason}</p>
                     </div>
                   </li>
                 );
               })}
             </ul>
-          </div>
+          </section>
         )}
       </CardContent>
     </Card>

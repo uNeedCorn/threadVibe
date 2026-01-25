@@ -455,8 +455,8 @@ Deno.serve(async (req) => {
 
     // 解析請求
     const body: RequestBody = await req.json();
-    const { accountId, weekStart, weekEnd: weekEndParam, timezone = 'Asia/Taipei', model = 'opus' } = body;
-    const modelId = MODEL_IDS[model] || MODEL_IDS.opus;
+    const { accountId, weekStart, weekEnd: weekEndParam, timezone = 'Asia/Taipei', model = 'sonnet' } = body;
+    const modelId = MODEL_IDS[model] || MODEL_IDS.sonnet;
 
     if (!accountId) {
       return errorResponse(req, 'accountId is required');

@@ -3,17 +3,9 @@
 import { Eye, MessageSquare, Users, FileText, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { iconGradients, typography } from "@/components/report-shared";
 import type { DataSnapshot } from "@/hooks/use-weekly-report";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface Props {
   data: DataSnapshot;
@@ -31,46 +23,11 @@ function calculateChange(current: number, previous: number): number {
 }
 
 const statConfigs = [
-  {
-    key: "views",
-    label: "總曝光",
-    icon: Eye,
-    gradient: "from-blue-500 to-cyan-500",
-    iconBg: "bg-blue-500/10",
-    iconColor: "text-blue-500",
-  },
-  {
-    key: "interactions",
-    label: "總互動",
-    icon: MessageSquare,
-    gradient: "from-emerald-500 to-teal-500",
-    iconBg: "bg-emerald-500/10",
-    iconColor: "text-emerald-500",
-  },
-  {
-    key: "engagement",
-    label: "互動率",
-    icon: TrendingUp,
-    gradient: "from-violet-500 to-purple-500",
-    iconBg: "bg-violet-500/10",
-    iconColor: "text-violet-500",
-  },
-  {
-    key: "posts",
-    label: "發文數",
-    icon: FileText,
-    gradient: "from-amber-500 to-orange-500",
-    iconBg: "bg-amber-500/10",
-    iconColor: "text-amber-500",
-  },
-  {
-    key: "followers",
-    label: "粉絲成長",
-    icon: Users,
-    gradient: "from-rose-500 to-pink-500",
-    iconBg: "bg-rose-500/10",
-    iconColor: "text-rose-500",
-  },
+  { key: "views", label: "總曝光", icon: Eye, iconBg: "bg-blue-500/10", iconColor: "text-blue-500" },
+  { key: "interactions", label: "總互動", icon: MessageSquare, iconBg: "bg-emerald-500/10", iconColor: "text-emerald-500" },
+  { key: "engagement", label: "互動率", icon: TrendingUp, iconBg: "bg-violet-500/10", iconColor: "text-violet-500" },
+  { key: "posts", label: "發文數", icon: FileText, iconBg: "bg-amber-500/10", iconColor: "text-amber-500" },
+  { key: "followers", label: "粉絲成長", icon: Users, iconBg: "bg-rose-500/10", iconColor: "text-rose-500" },
 ];
 
 export function DataOverviewSection({ data }: Props) {
@@ -99,78 +56,55 @@ export function DataOverviewSection({ data }: Props) {
     },
   ];
 
-  // 準備圖表數據
   const chartData = data.daily_metrics.map((d) => ({
-    date: d.date.slice(5).replace("-", "/"), // M/D 格式
+    date: d.date.slice(5).replace("-", "/"),
     views: d.views,
     interactions: d.interactions,
   }));
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="pt-6">
+    <Card>
+      <CardContent className="pt-6 space-y-6">
         {/* 標題區 */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg shadow-blue-500/25">
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2.5 rounded-xl", iconGradients.blue)}>
             <BarChart3 className="size-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold tracking-tight">數據概覽</h2>
-            <p className="text-[13px] text-muted-foreground">本期關鍵指標一覽</p>
+            <h2 className={typography.cardTitle}>數據概覽</h2>
+            <p className={typography.caption}>本期關鍵指標一覽</p>
           </div>
         </div>
 
         {/* 指標卡片 */}
-        <div className="grid grid-cols-2 gap-3 mb-6 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
           {stats.map((stat, idx) => (
-            <div
-              key={idx}
-              className="group relative overflow-hidden rounded-2xl border bg-gradient-to-br from-background to-muted/30 p-4 transition-all hover:shadow-md"
-            >
-              {/* 背景裝飾 */}
-              <div className={cn(
-                "absolute -right-4 -top-4 size-16 rounded-full opacity-10 blur-2xl transition-opacity group-hover:opacity-20",
-                `bg-gradient-to-br ${stat.gradient}`
-              )} />
-
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className={cn("p-1.5 rounded-lg", stat.iconBg)}>
-                    <stat.icon className={cn("size-3.5", stat.iconColor)} />
-                  </div>
-                  <span className="text-[12px] font-medium text-muted-foreground">
-                    {stat.label}
-                  </span>
+            <div key={idx} className="rounded-xl border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={cn("p-1.5 rounded-lg", stat.iconBg)}>
+                  <stat.icon className={cn("size-3.5", stat.iconColor)} />
                 </div>
-                <div className="text-xl font-bold tabular-nums">{stat.value}</div>
-                {stat.change !== null && (
-                  <div
-                    className={cn(
-                      "flex items-center gap-1 mt-1.5 text-[11px] font-medium",
-                      stat.change >= 0 ? "text-emerald-600" : "text-rose-600"
-                    )}
-                  >
-                    {stat.change >= 0 ? (
-                      <TrendingUp className="size-3" />
-                    ) : (
-                      <TrendingDown className="size-3" />
-                    )}
-                    <span>
-                      {stat.change >= 0 ? "+" : ""}
-                      {stat.change.toFixed(1)}% vs 前期
-                    </span>
-                  </div>
-                )}
+                <span className={cn(typography.label, "text-muted-foreground normal-case")}>{stat.label}</span>
               </div>
+              <div className={cn("text-xl font-bold", typography.number)}>{stat.value}</div>
+              {stat.change !== null && (
+                <div className={cn(
+                  "flex items-center gap-1 mt-1.5 text-xs font-medium",
+                  stat.change >= 0 ? "text-emerald-600" : "text-rose-600"
+                )}>
+                  {stat.change >= 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                  <span>{stat.change >= 0 ? "+" : ""}{stat.change.toFixed(1)}% vs 前期</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
 
         {/* 趨勢圖 */}
-        <div className="rounded-2xl border bg-gradient-to-br from-background to-muted/20 p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-[14px] font-medium">每日趨勢</h3>
-            <div className="flex items-center gap-4 text-[12px]">
+        <div className="rounded-xl border bg-muted/30 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className={typography.sectionTitle}>每日趨勢</h3>
+            <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
                 <div className="size-2 rounded-full bg-blue-500" />
                 <span className="text-muted-foreground">曝光</span>
@@ -221,22 +155,8 @@ export function DataOverviewSection({ data }: Props) {
                   ]}
                   labelStyle={{ fontWeight: 600, marginBottom: 4 }}
                 />
-                <Area
-                  type="monotone"
-                  dataKey="views"
-                  stroke="#3b82f6"
-                  strokeWidth={2.5}
-                  fillOpacity={1}
-                  fill="url(#colorViews)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="interactions"
-                  stroke="#10b981"
-                  strokeWidth={2.5}
-                  fillOpacity={1}
-                  fill="url(#colorInteractions)"
-                />
+                <Area type="monotone" dataKey="views" stroke="#3b82f6" strokeWidth={2.5} fillOpacity={1} fill="url(#colorViews)" />
+                <Area type="monotone" dataKey="interactions" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorInteractions)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

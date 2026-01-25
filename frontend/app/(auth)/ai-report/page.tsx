@@ -12,10 +12,12 @@ import {
   Check,
   TrendingUp,
   FileText,
+  User,
 } from "lucide-react";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { useWeeklyReport } from "@/hooks/use-weekly-report";
 import { useContentPatternReport } from "@/hooks/use-content-pattern-report";
+import { usePersonaReport } from "@/hooks/use-persona-report";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { PageHeader } from "@/components/layout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -78,6 +80,18 @@ const REPORT_TYPES = {
       "成功公式與失敗警示",
     ],
   },
+  persona: {
+    label: "人設定位報告",
+    description: "分析帳號人設與受眾認知的一致性",
+    icon: User,
+    features: [
+      "形象標籤與風格光譜",
+      "Bio 與內容一致性分數",
+      "受眾輪廓與情感分析",
+      "受眾需求痛點分析",
+      "內容缺口與靈感清單",
+    ],
+  },
 } as const;
 
 type ReportType = keyof typeof REPORT_TYPES;
@@ -114,14 +128,14 @@ function formatDateForInput(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function getDefaultDateRange(type: "insights" | "content" = "insights"): { startDate: string; endDate: string } {
+function getDefaultDateRange(type: "insights" | "content" | "persona" = "insights"): { startDate: string; endDate: string } {
   const now = new Date();
   const endDate = new Date(now);
   endDate.setDate(now.getDate() - 1);
   const startDate = new Date(endDate);
 
-  // 洞察報告預設 7 天，內容模式報告預設 90 天
-  const defaultDays = type === "content" ? 89 : 6;
+  // 洞察報告預設 7 天，內容模式/人設報告預設 90 天
+  const defaultDays = type === "insights" ? 6 : 89;
   startDate.setDate(endDate.getDate() - defaultDays);
 
   return {
@@ -144,8 +158,15 @@ export default function AIReportPage() {
   // 內容模式報告 hook
   const contentReport = useContentPatternReport(selectedAccountId);
 
+  // 人設定位報告 hook
+  const personaReport = usePersonaReport(selectedAccountId);
+
   // 根據報告類型選擇對應的 hook 資料
-  const currentHook = reportType === "insights" ? insightsReport : contentReport;
+  const currentHook = reportType === "insights"
+    ? insightsReport
+    : reportType === "content"
+    ? contentReport
+    : personaReport;
   const {
     isLoading,
     isGenerating,
@@ -159,21 +180,41 @@ export default function AIReportPage() {
   const history = [
     ...insightsReport.history.map(item => ({ ...item, reportType: "insights" as const })),
     ...contentReport.history.map(item => ({ ...item, reportType: "content" as const })),
+    ...personaReport.history.map(item => ({ ...item, reportType: "persona" as const })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   // 日期區間選擇
   const defaultInsightsRange = getDefaultDateRange("insights");
   const defaultContentRange = getDefaultDateRange("content");
+  const defaultPersonaRange = getDefaultDateRange("persona");
   const [insightsStartDate, setInsightsStartDate] = useState(defaultInsightsRange.startDate);
   const [insightsEndDate, setInsightsEndDate] = useState(defaultInsightsRange.endDate);
   const [contentStartDate, setContentStartDate] = useState(defaultContentRange.startDate);
   const [contentEndDate, setContentEndDate] = useState(defaultContentRange.endDate);
+  const [personaStartDate, setPersonaStartDate] = useState(defaultPersonaRange.startDate);
+  const [personaEndDate, setPersonaEndDate] = useState(defaultPersonaRange.endDate);
 
   // 根據報告類型選擇對應的日期
-  const startDate = reportType === "insights" ? insightsStartDate : contentStartDate;
-  const endDate = reportType === "insights" ? insightsEndDate : contentEndDate;
-  const setStartDate = reportType === "insights" ? setInsightsStartDate : setContentStartDate;
-  const setEndDate = reportType === "insights" ? setInsightsEndDate : setContentEndDate;
+  const startDate = reportType === "insights"
+    ? insightsStartDate
+    : reportType === "content"
+    ? contentStartDate
+    : personaStartDate;
+  const endDate = reportType === "insights"
+    ? insightsEndDate
+    : reportType === "content"
+    ? contentEndDate
+    : personaEndDate;
+  const setStartDate = reportType === "insights"
+    ? setInsightsStartDate
+    : reportType === "content"
+    ? setContentStartDate
+    : setPersonaStartDate;
+  const setEndDate = reportType === "insights"
+    ? setInsightsEndDate
+    : reportType === "content"
+    ? setContentEndDate
+    : setPersonaEndDate;
 
   // 進度條模擬
   const [progress, setProgress] = useState(0);
@@ -192,6 +233,8 @@ export default function AIReportPage() {
       insightsReport.fetchReportHistory();
       contentReport.fetchLatestReport();
       contentReport.fetchReportHistory();
+      personaReport.fetchLatestReport();
+      personaReport.fetchReportHistory();
     }
   }, [selectedAccountId]);
 
@@ -220,6 +263,7 @@ export default function AIReportPage() {
         setWasGenerating(false);
         insightsReport.fetchReportHistory();
         contentReport.fetchReportHistory();
+        personaReport.fetchReportHistory();
       }
     }
   }, [isGenerating, wasGenerating]);
@@ -229,9 +273,12 @@ export default function AIReportPage() {
     if (reportType === "insights") {
       await insightsReport.generateReport(startDate, endDate);
       insightsReport.fetchReportHistory();
-    } else {
+    } else if (reportType === "content") {
       await contentReport.generateReport({ startDate, endDate });
       contentReport.fetchReportHistory();
+    } else {
+      await personaReport.generateReport({ startDate, endDate });
+      personaReport.fetchReportHistory();
     }
   };
 
@@ -239,8 +286,10 @@ export default function AIReportPage() {
   const handleDeleteReport = async (reportId: string, itemReportType: string) => {
     if (itemReportType === "insights") {
       await insightsReport.deleteReport(reportId);
-    } else {
+    } else if (itemReportType === "content") {
       await contentReport.deleteReport(reportId);
+    } else {
+      await personaReport.deleteReport(reportId);
     }
   };
 
@@ -248,6 +297,8 @@ export default function AIReportPage() {
   const openReport = (reportId: string, itemReportType: string) => {
     if (itemReportType === "content") {
       window.open(`/ai-report/content/${reportId}`, "_blank");
+    } else if (itemReportType === "persona") {
+      window.open(`/ai-report/persona/${reportId}`, "_blank");
     } else {
       window.open(`/ai-report/${reportId}`, "_blank");
     }
@@ -272,8 +323,8 @@ export default function AIReportPage() {
     );
   }
 
-  // 數據不足提示：需要至少 7 天數據
-  const MIN_DATA_DAYS = 7;
+  // 數據不足提示：洞察報告和內容模式報告需要 7 天，人設報告只需要 1 天
+  const MIN_DATA_DAYS = reportType === "persona" ? 1 : 7;
   const hasMinimumData = dataAge !== null && dataAge >= MIN_DATA_DAYS;
   const daysRemaining = dataAge !== null ? Math.max(0, Math.ceil(MIN_DATA_DAYS - dataAge)) : MIN_DATA_DAYS;
 

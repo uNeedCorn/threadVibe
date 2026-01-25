@@ -220,10 +220,10 @@ export async function syncMetricsForAccount(
 ): Promise<SyncMetricsResult> {
   const nowDate = new Date(now);
 
-  // 取得該帳號所有貼文（含 published_at 用於判斷同步頻率）
+  // 取得該帳號所有貼文（含 published_at, first_synced_at 用於判斷同步頻率和 delta 計算）
   const { data: posts } = await serviceClient
     .from('workspace_threads_posts')
-    .select('id, threads_post_id, published_at, last_metrics_sync_at')
+    .select('id, threads_post_id, published_at, last_metrics_sync_at, first_synced_at')
     .eq('workspace_threads_account_id', accountId);
 
   if (!posts || posts.length === 0) {
@@ -347,6 +347,7 @@ export async function syncMetricsForAccount(
 
       // 5. Layer 2: 計算並寫入 Delta
       if (prevSnapshot) {
+        // 正常情況：有前一個快照，計算增量
         await serviceClient
           .from('workspace_threads_post_metrics_deltas')
           .insert({
@@ -360,8 +361,57 @@ export async function syncMetricsForAccount(
             quotes_delta: metrics.quotes - prevSnapshot.quotes,
             shares_delta: metrics.shares - prevSnapshot.shares,
             is_recalculated: false,
+            is_baseline: false,
             sync_batch_at: syncBatchAt,
           });
+      } else {
+        // 首次同步：根據貼文年齡決定 delta 計算方式
+        const publishedAt = new Date(post.published_at);
+        const postAgeMs = nowDate.getTime() - publishedAt.getTime();
+        const postAgeMinutes = postAgeMs / (1000 * 60);
+
+        // 閾值：30 分鐘內發布的貼文視為「新貼文」
+        const NEW_POST_THRESHOLD_MINUTES = 30;
+
+        if (postAgeMinutes < NEW_POST_THRESHOLD_MINUTES) {
+          // 新貼文：delta = 當前值（從 0 開始的真實成長）
+          await serviceClient
+            .from('workspace_threads_post_metrics_deltas')
+            .insert({
+              workspace_threads_post_id: post.id,
+              period_start: post.published_at,
+              period_end: now,
+              views_delta: metrics.views,
+              likes_delta: metrics.likes,
+              replies_delta: metrics.replies,
+              reposts_delta: metrics.reposts,
+              quotes_delta: metrics.quotes,
+              shares_delta: metrics.shares,
+              is_recalculated: false,
+              is_baseline: false,
+              sync_batch_at: syncBatchAt,
+            });
+          console.log(`First sync for NEW post ${post.id} (${postAgeMinutes.toFixed(1)} min old): delta = current`);
+        } else {
+          // 舊貼文：記錄為 baseline，delta = 當前值但標記為歷史累積
+          await serviceClient
+            .from('workspace_threads_post_metrics_deltas')
+            .insert({
+              workspace_threads_post_id: post.id,
+              period_start: post.published_at,
+              period_end: now,
+              views_delta: metrics.views,
+              likes_delta: metrics.likes,
+              replies_delta: metrics.replies,
+              reposts_delta: metrics.reposts,
+              quotes_delta: metrics.quotes,
+              shares_delta: metrics.shares,
+              is_recalculated: false,
+              is_baseline: true,  // 標記為歷史基準值
+              sync_batch_at: syncBatchAt,
+            });
+          console.log(`First sync for OLD post ${post.id} (${(postAgeMinutes / 60 / 24).toFixed(1)} days old): delta marked as baseline`);
+        }
       }
 
       // 6. 計算互動品質

@@ -1,25 +1,15 @@
 "use client";
 
-import {
-  FileText,
-  Lightbulb,
-  Eye,
-  Heart,
-  Sparkles,
-  Crown,
-  Medal,
-  Award,
-  TrendingUp,
-} from "lucide-react";
+import { FileText, Lightbulb, Eye, Heart, Sparkles, Crown, Medal, Award, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { iconGradients, typography, spacing, semanticColors } from "@/components/report-shared";
 
 interface ContentStrategyData {
   summary: string;
   findings?: string[];
   top_performing?: string[];
-  // 向後相容舊格式
   top_performing_themes?: string[];
   improvement_areas?: string[];
 }
@@ -45,151 +35,109 @@ function formatNumber(num: number): string {
 }
 
 const rankConfig = [
-  {
-    icon: Crown,
-    color: "text-amber-500",
-    bg: "bg-gradient-to-br from-amber-500/20 to-amber-600/10",
-    border: "border-amber-500/30",
-  },
-  {
-    icon: Medal,
-    color: "text-slate-400",
-    bg: "bg-gradient-to-br from-slate-400/20 to-slate-500/10",
-    border: "border-slate-400/30",
-  },
-  {
-    icon: Award,
-    color: "text-amber-700",
-    bg: "bg-gradient-to-br from-amber-700/20 to-amber-800/10",
-    border: "border-amber-700/30",
-  },
+  { icon: Crown, color: "text-amber-500", bg: "bg-amber-50", border: "border-amber-200" },
+  { icon: Medal, color: "text-slate-400", bg: "bg-slate-50", border: "border-slate-200" },
+  { icon: Award, color: "text-amber-700", bg: "bg-amber-50/50", border: "border-amber-300/50" },
 ];
 
 export function ContentStrategySection({ data, topPosts }: Props) {
-  // 向後相容：優先使用新欄位，fallback 到舊欄位
   const findings = data.findings || data.improvement_areas || [];
   const topPerforming = data.top_performing || data.top_performing_themes || [];
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="pt-6">
+    <Card>
+      <CardContent className="pt-6 space-y-6">
         {/* 標題區 */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/25">
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2.5 rounded-xl", iconGradients.amber)}>
             <FileText className="size-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold tracking-tight">內容策略</h2>
-            <p className="text-[13px] text-muted-foreground">
-              內容表現與主題分析
-            </p>
+            <h2 className={typography.cardTitle}>內容策略</h2>
+            <p className={typography.caption}>內容表現與主題分析</p>
           </div>
         </div>
 
         {/* AI 摘要 */}
-        <div className="relative overflow-hidden mb-6 p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20">
-          <div className="absolute top-3 right-3">
-            <Sparkles className="size-4 text-amber-500/50" />
-          </div>
-          <p className="text-[14px] leading-relaxed pr-8">{data.summary}</p>
+        <div className="relative rounded-xl border-2 border-amber-200 bg-amber-50/50 p-5">
+          <Sparkles className="absolute top-4 right-4 size-4 text-amber-400/50" />
+          <p className={cn(typography.body, "pr-8")}>{data.summary}</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* AI 發現 & 表現優異主題 */}
-          <div className="space-y-5">
+          {/* 左側：AI 發現 + 表現優異主題 */}
+          <div className={spacing.content}>
             {/* AI 發現 */}
-            <div className="rounded-2xl border bg-gradient-to-br from-amber-500/5 to-transparent p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="p-1.5 rounded-lg bg-amber-500/10">
-                  <Lightbulb className="size-4 text-amber-500" />
-                </div>
-                <h3 className="text-[14px] font-semibold">AI 發現</h3>
+            <section className="rounded-xl border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Lightbulb className="size-5 text-amber-600" />
+                <h3 className={typography.sectionTitle}>AI 發現</h3>
               </div>
-              <ul className="space-y-2.5">
+              <ul className={spacing.list}>
                 {findings.map((finding, idx) => (
                   <li key={idx} className="flex items-start gap-3">
-                    <span className="flex-shrink-0 size-1.5 rounded-full bg-amber-500 mt-2" />
-                    <span className="text-[14px] text-foreground/90 leading-relaxed">
-                      {finding}
-                    </span>
+                    <span className="shrink-0 size-1.5 rounded-full bg-amber-500 mt-2" />
+                    <span className={typography.body}>{finding}</span>
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
 
             {/* 表現優異主題 */}
             {topPerforming.length > 0 && (
-              <div className="rounded-2xl border bg-gradient-to-br from-emerald-500/5 to-transparent p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-1.5 rounded-lg bg-emerald-500/10">
-                    <TrendingUp className="size-4 text-emerald-500" />
-                  </div>
-                  <h3 className="text-[14px] font-semibold">表現優異主題</h3>
+              <section className="rounded-xl border-2 border-emerald-200 bg-emerald-50/50 p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <TrendingUp className="size-5 text-emerald-600" />
+                  <h3 className={cn(typography.sectionTitle, "text-emerald-700")}>表現優異主題</h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {topPerforming.map((theme, idx) => (
-                    <Badge
-                      key={idx}
-                      variant="secondary"
-                      className="px-3 py-1.5 text-[13px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
-                    >
+                    <Badge key={idx} className={semanticColors.success.badge}>
                       {theme}
                     </Badge>
                   ))}
                 </div>
-              </div>
+              </section>
             )}
           </div>
 
-          {/* Top 3 貼文 */}
-          <div className="rounded-2xl border bg-gradient-to-br from-background to-muted/20 p-4">
+          {/* 右側：Top 3 貼文 */}
+          <div className="rounded-xl border bg-muted/30 p-4">
             <div className="flex items-center gap-2 mb-4">
-              <Crown className="size-4 text-amber-500" />
-              <h3 className="text-[14px] font-semibold">本期熱門貼文</h3>
+              <Crown className="size-5 text-amber-500" />
+              <h3 className={typography.sectionTitle}>本期熱門貼文</h3>
             </div>
-            <div className="space-y-3">
+            <div className={spacing.list}>
               {topPosts.slice(0, 3).map((post, idx) => {
                 const config = rankConfig[idx] || rankConfig[2];
                 const RankIcon = config.icon;
 
                 return (
-                  <div
-                    key={post.id}
-                    className={cn(
-                      "relative overflow-hidden p-4 rounded-xl border transition-all hover:shadow-md",
-                      config.bg,
-                      config.border
-                    )}
-                  >
+                  <div key={post.id} className={cn("rounded-xl border-2 p-4", config.bg, config.border)}>
                     <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          "flex-shrink-0 p-2 rounded-xl",
-                          idx === 0 ? "bg-amber-500/20" : "bg-muted/50"
-                        )}
-                      >
+                      <div className={cn("shrink-0 p-2 rounded-xl", idx === 0 ? "bg-amber-500/20" : "bg-muted/50")}>
                         <RankIcon className={cn("size-4", config.color)} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[14px] line-clamp-2 leading-relaxed">
+                        <p className="text-sm line-clamp-2 leading-relaxed">
                           {post.text || "(無文字內容)"}
                         </p>
                         <div className="flex items-center gap-4 mt-3">
                           <div className="flex items-center gap-1.5">
                             <Eye className="size-3.5 text-blue-500" />
-                            <span className="text-[12px] font-medium tabular-nums">
+                            <span className={cn("text-xs font-medium", typography.number)}>
                               {formatNumber(post.views)}
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Heart className="size-3.5 text-pink-500" />
-                            <span className="text-[12px] font-medium tabular-nums">
+                            <span className={cn("text-xs font-medium", typography.number)}>
                               {formatNumber(post.likes)}
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <TrendingUp className="size-3.5 text-emerald-500" />
-                            <span className="text-[12px] font-medium tabular-nums">
+                            <span className={cn("text-xs font-medium", typography.number)}>
                               {(post.engagement_rate * 100).toFixed(2)}%
                             </span>
                           </div>
