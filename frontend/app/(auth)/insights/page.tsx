@@ -1585,7 +1585,7 @@ export default function InsightsOverviewPage() {
 
           {/* 成效 KPI */}
           <div>
-            <h2 className="mb-3 text-lg font-semibold">{periodTitle}成效</h2>
+            <h2 className="mb-3 text-lg font-semibold">{periodTitle}發文成效</h2>
             <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
               <KPICard
                 variant="simple"
@@ -1632,7 +1632,7 @@ export default function InsightsOverviewPage() {
 
           {/* 互動明細 */}
           <div>
-            <h2 className="mb-3 text-lg font-semibold">互動明細</h2>
+            <h2 className="mb-3 text-lg font-semibold">{periodTitle}發文互動明細</h2>
             <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
               <KPICard
                 variant="simple"
