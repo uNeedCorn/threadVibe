@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useCurrentUser } from "@/hooks/use-current-user";
+import { AdminOnly } from "@/components/auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -90,7 +90,6 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function WaitlistPage() {
-  const { isAdmin, isLoading: isUserLoading } = useCurrentUser();
   const [entries, setEntries] = useState<WaitlistEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,10 +126,8 @@ export default function WaitlistPage() {
   }, []);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchEntries();
-    }
-  }, [isAdmin, fetchEntries]);
+    fetchEntries();
+  }, [fetchEntries]);
 
   const handleReview = async () => {
     if (!selectedEntry || !reviewAction) return;
@@ -203,23 +200,6 @@ export default function WaitlistPage() {
     }
   };
 
-  if (isUserLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="size-4" />
-        <AlertDescription>您沒有權限訪問此頁面</AlertDescription>
-      </Alert>
-    );
-  }
-
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString("zh-TW", {
       year: "numeric",
@@ -261,6 +241,7 @@ export default function WaitlistPage() {
   };
 
   return (
+    <AdminOnly>
     <div className="space-y-6">
       {/* Header */}
       <div>
@@ -633,5 +614,6 @@ export default function WaitlistPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </AdminOnly>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCurrentUser } from "@/hooks/use-current-user";
+import { AdminOnly } from "@/components/auth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
@@ -11,8 +11,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2,
-  AlertCircle,
   Eye,
   Users,
   TrendingUp,
@@ -22,26 +20,8 @@ import {
 } from "lucide-react";
 
 export default function WatchlistPage() {
-  const { isAdmin, isLoading: isUserLoading } = useCurrentUser();
-
-  if (isUserLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="size-4" />
-        <AlertDescription>您沒有權限訪問此頁面</AlertDescription>
-      </Alert>
-    );
-  }
-
   return (
+    <AdminOnly>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -178,5 +158,6 @@ export default function WatchlistPage() {
         </CardContent>
       </Card>
     </div>
+    </AdminOnly>
   );
 }

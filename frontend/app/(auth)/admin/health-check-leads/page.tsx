@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useCurrentUser } from "@/hooks/use-current-user";
+import { AdminOnly } from "@/components/auth";
 import {
   Card,
   CardContent,
@@ -60,7 +60,6 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function HealthCheckLeadsPage() {
-  const { isAdmin, isLoading: isUserLoading } = useCurrentUser();
   const [entries, setEntries] = useState<HealthCheckEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,27 +86,8 @@ export default function HealthCheckLeadsPage() {
   }, []);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchEntries();
-    }
-  }, [isAdmin, fetchEntries]);
-
-  if (isUserLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="size-4" />
-        <AlertDescription>您沒有權限訪問此頁面</AlertDescription>
-      </Alert>
-    );
-  }
+    fetchEntries();
+  }, [fetchEntries]);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString("zh-TW", {
@@ -139,6 +119,7 @@ export default function HealthCheckLeadsPage() {
   };
 
   return (
+    <AdminOnly>
     <div className="space-y-6">
       {/* Header */}
       <div>
@@ -298,5 +279,6 @@ export default function HealthCheckLeadsPage() {
         </CardContent>
       </Card>
     </div>
+    </AdminOnly>
   );
 }

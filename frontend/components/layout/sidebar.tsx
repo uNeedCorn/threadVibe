@@ -174,6 +174,11 @@ const adminNavGroup: NavGroup = {
       icon: UserCog,
     },
     {
+      title: "使用者管理",
+      href: "/admin/users",
+      icon: Users,
+    },
+    {
       title: "演算法監測",
       href: "/admin/algorithm-monitor",
       icon: Activity,

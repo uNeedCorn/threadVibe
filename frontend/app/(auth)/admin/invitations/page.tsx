@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useCurrentUser } from "@/hooks/use-current-user";
+import { AdminOnly } from "@/components/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,7 +55,6 @@ interface InvitationCode {
 }
 
 export default function InvitationsPage() {
-  const { isAdmin, isLoading: isUserLoading } = useCurrentUser();
   const [codes, setCodes] = useState<InvitationCode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,10 +89,8 @@ export default function InvitationsPage() {
   }, []);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchCodes();
-    }
-  }, [isAdmin, fetchCodes]);
+    fetchCodes();
+  }, [fetchCodes]);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -156,23 +153,6 @@ export default function InvitationsPage() {
     setCopied(false);
   };
 
-  if (isUserLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="size-4" />
-        <AlertDescription>您沒有權限訪問此頁面</AlertDescription>
-      </Alert>
-    );
-  }
-
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString("zh-TW", {
       year: "numeric",
@@ -187,6 +167,7 @@ export default function InvitationsPage() {
   const boundCount = codes.filter((c) => c.email).length;
 
   return (
+    <AdminOnly>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -411,5 +392,6 @@ export default function InvitationsPage() {
         </CardContent>
       </Card>
     </div>
+    </AdminOnly>
   );
 }
