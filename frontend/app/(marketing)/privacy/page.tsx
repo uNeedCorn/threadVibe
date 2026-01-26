@@ -14,6 +14,7 @@ const sections = [
   { id: "third-party", title: "Third-Party Services" },
   { id: "security", title: "Data Security" },
   { id: "retention", title: "Data Retention" },
+  { id: "deletion", title: "Data Deletion" },
   { id: "rights", title: "Your Rights" },
   { id: "cookies", title: "Cookies" },
   { id: "children", title: "Children's Privacy" },
@@ -49,7 +50,7 @@ export default function PrivacyPage() {
           <article className="space-y-12">
             {/* Intro */}
             <p className="text-lg text-muted-foreground leading-relaxed">
-              Welcome to Postlyzer. We value your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, store, and protect your information.
+              Welcome to Postlyzer. We value your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, store, and protect your information when you use our Threads analytics service.
             </p>
 
             {/* Section 1 */}
@@ -62,13 +63,24 @@ export default function PrivacyPage() {
                   <h3 className="font-medium text-foreground mb-2">Information You Provide</h3>
                   <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                     <li>Basic profile information via Google OAuth (name, email address)</li>
-                    <li>Account information via Threads OAuth authorization</li>
+                    <li>Account authorization via Threads OAuth</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-medium text-foreground mb-2">Information from Threads API</h3>
+                  <p className="text-muted-foreground mb-2">
+                    When you connect your Threads account, we collect the following data through the Threads API:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                    <li>Threads user ID and profile information (username, display name, profile picture URL, biography)</li>
+                    <li>Follower and following counts</li>
+                    <li>Your published posts (text content, media URLs, post type, publish time)</li>
+                    <li>Post engagement metrics (views, likes, replies, reposts, quotes)</li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="font-medium text-foreground mb-2">Information Collected Automatically</h3>
                   <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                    <li>Your Threads posts and performance metrics (views, engagement, etc.)</li>
                     <li>Service usage logs and activity records</li>
                     <li>Device information and browser type</li>
                   </ul>
@@ -81,12 +93,16 @@ export default function PrivacyPage() {
               <h2 className="text-xl font-semibold text-foreground mb-4 pb-2 border-b">
                 2. How We Use Your Information
               </h2>
+              <p className="text-muted-foreground mb-4">
+                We use the information we collect to:
+              </p>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li>To provide, maintain, and improve the Service</li>
-                <li>To analyze your Threads post performance</li>
-                <li>To generate reports and insights</li>
-                <li>To communicate with you about the Service</li>
-                <li>To detect and prevent fraud or abuse</li>
+                <li>Provide, maintain, and improve the Service</li>
+                <li>Synchronize and display your Threads posts</li>
+                <li>Calculate and track post performance metrics over time</li>
+                <li>Generate analytics reports and insights</li>
+                <li>Communicate with you about the Service</li>
+                <li>Detect and prevent fraud or abuse</li>
               </ul>
             </section>
 
@@ -101,7 +117,7 @@ export default function PrivacyPage() {
               <ul className="space-y-3 text-muted-foreground">
                 <li>
                   <strong className="text-foreground">Service Providers:</strong>{" "}
-                  With third parties that help us operate the Service (e.g., cloud infrastructure providers)
+                  With third parties that help us operate the Service (e.g., cloud infrastructure providers such as Supabase)
                 </li>
                 <li>
                   <strong className="text-foreground">Legal Requirements:</strong>{" "}
@@ -125,16 +141,26 @@ export default function PrivacyPage() {
               <ul className="space-y-3 text-muted-foreground">
                 <li>
                   <strong className="text-foreground">Google:</strong>{" "}
-                  For account authentication (OAuth 2.0)
+                  For account authentication (OAuth 2.0). See{" "}
+                  <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    Google Privacy Policy
+                  </a>
                 </li>
                 <li>
                   <strong className="text-foreground">Meta / Threads:</strong>{" "}
-                  For accessing your Threads account data
+                  For accessing your Threads account data via the Threads API. See{" "}
+                  <a href="https://privacycenter.instagram.com/policy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    Meta Privacy Policy
+                  </a>
+                </li>
+                <li>
+                  <strong className="text-foreground">Supabase:</strong>{" "}
+                  For data storage and authentication services. See{" "}
+                  <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    Supabase Privacy Policy
+                  </a>
                 </li>
               </ul>
-              <p className="text-muted-foreground mt-4">
-                These services have their own privacy policies, which we recommend you review separately.
-              </p>
             </section>
 
             {/* Section 5 */}
@@ -146,9 +172,10 @@ export default function PrivacyPage() {
                 We implement appropriate technical and organizational measures to protect your data:
               </p>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li>HTTPS encryption for data transmission</li>
-                <li>Access control management</li>
-                <li>Regular security reviews</li>
+                <li>HTTPS/TLS encryption for all data transmission</li>
+                <li>Encrypted storage for sensitive data (e.g., access tokens)</li>
+                <li>Row-level security policies for data access control</li>
+                <li>Regular security reviews and updates</li>
               </ul>
               <p className="text-muted-foreground mt-4 text-sm">
                 However, no method of transmission or storage is completely secure, and we cannot guarantee absolute security.
@@ -160,15 +187,78 @@ export default function PrivacyPage() {
               <h2 className="text-xl font-semibold text-foreground mb-4 pb-2 border-b">
                 6. Data Retention
               </h2>
-              <p className="text-muted-foreground">
-                We retain your data for as long as necessary to provide the Service. When you delete your account, we will delete or anonymize your personal data within a reasonable period, though we may retain some data as required by law.
+              <p className="text-muted-foreground mb-4">
+                We retain your data according to the following schedule:
+              </p>
+              <ul className="space-y-3 text-muted-foreground">
+                <li>
+                  <strong className="text-foreground">Account Data:</strong>{" "}
+                  Retained while your account is active
+                </li>
+                <li>
+                  <strong className="text-foreground">Threads Data:</strong>{" "}
+                  Retained while your Threads account is connected. Deleted when you unlink your account or delete your account
+                </li>
+                <li>
+                  <strong className="text-foreground">Performance Metrics:</strong>{" "}
+                  Historical metrics are retained for the duration of your account to provide trend analysis
+                </li>
+                <li>
+                  <strong className="text-foreground">After Deletion:</strong>{" "}
+                  All personal data is deleted within 30 days of account deletion. Backup data is purged within 30 days
+                </li>
+              </ul>
+            </section>
+
+            {/* Section 7 - NEW */}
+            <section id="deletion" className="scroll-mt-8">
+              <h2 className="text-xl font-semibold text-foreground mb-4 pb-2 border-b">
+                7. Data Deletion
+              </h2>
+              <p className="text-muted-foreground mb-4">
+                You can delete your data at any time through the following methods:
+              </p>
+              <ul className="space-y-3 text-muted-foreground">
+                <li>
+                  <strong className="text-foreground">Unlink Threads Account:</strong>{" "}
+                  Remove a specific Threads account and all associated data from Settings
+                </li>
+                <li>
+                  <strong className="text-foreground">Delete Workspace:</strong>{" "}
+                  Delete an entire workspace and all connected accounts from Settings
+                </li>
+                <li>
+                  <strong className="text-foreground">Delete Account:</strong>{" "}
+                  Delete your entire Postlyzer account and all data from Settings &gt; Danger Zone
+                </li>
+                <li>
+                  <strong className="text-foreground">Contact Support:</strong>{" "}
+                  Email us at{" "}
+                  <a href="mailto:support@metricdesk.io" className="text-primary hover:underline">
+                    support@metricdesk.io
+                  </a>{" "}
+                  if you need assistance
+                </li>
+              </ul>
+              <p className="text-muted-foreground mt-4">
+                You may also revoke access through your{" "}
+                <a href="https://www.threads.net/settings/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  Threads privacy settings
+                </a>
+                . When you revoke access, we will receive a notification from Meta and will delete your data accordingly.
+              </p>
+              <p className="text-muted-foreground mt-4">
+                For more details, please visit our{" "}
+                <Link href="/data-deletion" className="text-primary hover:underline">
+                  Data Deletion page
+                </Link>.
               </p>
             </section>
 
-            {/* Section 7 */}
+            {/* Section 8 */}
             <section id="rights" className="scroll-mt-8">
               <h2 className="text-xl font-semibold text-foreground mb-4 pb-2 border-b">
-                7. Your Rights
+                8. Your Rights
               </h2>
               <p className="text-muted-foreground mb-4">
                 Depending on applicable laws, you may have the following rights:
@@ -177,57 +267,72 @@ export default function PrivacyPage() {
                 <li>Access your personal data</li>
                 <li>Correct inaccurate data</li>
                 <li>Delete your data</li>
-                <li>Withdraw consent</li>
+                <li>Withdraw consent at any time</li>
                 <li>Data portability</li>
+                <li>Object to data processing</li>
               </ul>
               <p className="text-muted-foreground mt-4">
-                To exercise these rights, please contact us using the information below.
-              </p>
-            </section>
-
-            {/* Section 8 */}
-            <section id="cookies" className="scroll-mt-8">
-              <h2 className="text-xl font-semibold text-foreground mb-4 pb-2 border-b">
-                8. Cookies
-              </h2>
-              <p className="text-muted-foreground">
-                We use cookies and similar technologies to maintain your login session and improve your experience. You can manage cookie preferences through your browser settings, but this may affect some functionality.
+                To exercise these rights, please contact us using the information below or manage your data through the Settings page.
               </p>
             </section>
 
             {/* Section 9 */}
+            <section id="cookies" className="scroll-mt-8">
+              <h2 className="text-xl font-semibold text-foreground mb-4 pb-2 border-b">
+                9. Cookies
+              </h2>
+              <p className="text-muted-foreground mb-4">
+                We use cookies and similar technologies for the following purposes:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>Maintaining your login session</li>
+                <li>Remembering your preferences</li>
+                <li>Analytics to improve our Service (Microsoft Clarity)</li>
+              </ul>
+              <p className="text-muted-foreground mt-4">
+                You can manage cookie preferences through your browser settings, but this may affect some functionality.
+              </p>
+            </section>
+
+            {/* Section 10 */}
             <section id="children" className="scroll-mt-8">
               <h2 className="text-xl font-semibold text-foreground mb-4 pb-2 border-b">
-                9. Children&apos;s Privacy
+                10. Children&apos;s Privacy
               </h2>
               <p className="text-muted-foreground">
                 Our Service is not intended for children under 13. We do not knowingly collect personal data from children. If we discover that we have collected data from a child, we will promptly delete it.
               </p>
             </section>
 
-            {/* Section 10 */}
+            {/* Section 11 */}
             <section id="changes" className="scroll-mt-8">
               <h2 className="text-xl font-semibold text-foreground mb-4 pb-2 border-b">
-                10. Changes to This Policy
+                11. Changes to This Policy
               </h2>
               <p className="text-muted-foreground">
-                We may update this Privacy Policy from time to time. For significant changes, we will notify you through the Service. We recommend reviewing this policy periodically.
+                We may update this Privacy Policy from time to time. For significant changes, we will notify you through the Service or via email. We recommend reviewing this policy periodically. Your continued use of the Service after changes constitutes acceptance of the updated policy.
               </p>
             </section>
 
-            {/* Section 11 */}
+            {/* Section 12 */}
             <section id="contact" className="scroll-mt-8">
               <h2 className="text-xl font-semibold text-foreground mb-4 pb-2 border-b">
-                11. Contact Us
+                12. Contact Us
               </h2>
               <p className="text-muted-foreground mb-4">
                 If you have any questions about this Privacy Policy or wish to exercise your rights, please contact us at:
               </p>
-              <p className="text-foreground">
-                <a href="mailto:support@metricdesk.io" className="text-primary hover:underline">
-                  support@metricdesk.io
-                </a>
-              </p>
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <p className="text-foreground">
+                  <strong>Email:</strong>{" "}
+                  <a href="mailto:support@metricdesk.io" className="text-primary hover:underline">
+                    support@metricdesk.io
+                  </a>
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  We will respond to your inquiry within 7 business days.
+                </p>
+              </div>
             </section>
 
             {/* Footer */}
