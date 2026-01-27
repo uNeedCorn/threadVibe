@@ -1,4 +1,4 @@
-import { RefreshCw, Layers, Clock, CalendarClock, TrendingUp } from "lucide-react";
+import { RefreshCw, Layers, Clock, CalendarClock, TrendingUp, Sparkles } from "lucide-react";
 
 const features = [
   {
@@ -30,6 +30,12 @@ const features = [
     title: "多帳號管理",
     description:
       "一次管理多個品牌或客戶的 Threads 帳號，快速切換、統一檢視所有成效數據。",
+  },
+  {
+    icon: Sparkles,
+    title: "AI 成效報告",
+    description:
+      "AI 自動分析曝光、互動、內容模式，生成專業報告，可匯出 PDF 分享給客戶或主管。",
   },
 ];
 
